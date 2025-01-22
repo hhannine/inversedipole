@@ -13,6 +13,7 @@ import scipy.special as special
 
 # Universal constants
 Nc = 3.0
+NF = 3
 CF = 4.0/3.0
 alphaem = 1.0/137.0
 lambdaqcd = 0.241 #GeV
@@ -22,6 +23,10 @@ structurefunfac = 1./((2*math.pi)**2 * alphaem)
 sumef_light = 6.0/9.0 # light quarks uds only.
 qmass_light = 0.14 # this was the old effective light quark mass?
 icx0 = 0.01 # Default initial scale for LO.
+alpha_scaling_C2_ = 1
+
+r_min = 1e-6
+r_max = 30
 
 
 def Sq(z):
@@ -36,15 +41,19 @@ class Dipole:
     def scattering_S_x0(self, r):
         return math.exp(-(r**2*self.q0sq)/4 * math.log(1/(r*lambdaqcd)+self.ec*math.e))
 
-def sigma_reduced(x,Q,y):
-    """Calculate reduced cross section, standard definition."""
+def fwd_op_sigma_reduced(Q,y,z,r):
+    """Calculate reduced cross section, forward operator definition.
+    
+    Proper reduced cross section is calculated as sigma_r = fwd_op * N(r,x)."""
+    qmass=0.14
+    sumef=6/9
     fac = structurefunfac * Sq(Q)
-    FL = fac * sigma_L
-    FT = fac * sigma_T
+    FL = fac * fwd_op_sigma_L(Q,z,r,qmass,sumef)
+    FT = fac * fwd_op_sigma_T(Q,z,r,qmass,sumef)
     F2 = FL + FT
     fy = y**2/(1+(1-y)**2)
-    sigmar = F2 - fy * FL
-    return sigmar
+    fwd_op_sigmar = F2 - fy * FL
+    return fwd_op_sigmar
 
 def dipole_scattering_amplitude_S(r,x):
     S = 0
@@ -53,6 +62,24 @@ def dipole_scattering_amplitude_S(r,x):
 def dipole_amplitude_N(r,x):
     N = 1 - dipole_scattering_amplitude_S(r,x)
     return N
+
+def alpha_bar_fixed(rsq,x):
+    return 0.190986
+
+def alpha_bar_parent(rsq,x):
+    scalefactor = 4.0*alpha_scaling_C2_
+    alphas_mu0=2.5    # mu0/lqcd
+    alphas_freeze_c=0.2
+    b0 = (11.0*Nc - 2.0*NF)/3.0
+
+    AlphaSres = 4.0*math.pi / (b0 *
+        math.log(
+            math.pow(
+                math.pow(alphas_mu0, 2.0/alphas_freeze_c) + math.pow(scalefactor/(rsq*lambdaqcd*lambdaqcd), 1.0/alphas_freeze_c), alphas_freeze_c
+                )
+            )
+        )
+    return Nc/math.pi*AlphaSres
 
 def rapidity_X(x, Qsq):
     X = x/icx0*1.0/Qsq
@@ -86,12 +113,53 @@ def dis_quarkantiquark_dipole_wavefunction_pol_L(Q,z,r,qmass):
     psi_squared = impactfac * r # r here is from the jacobian from the change to polar coordinates. Old choice to have it here.
     return psi_squared
 
-def sigma_T(x,Q):
-    """Calculate DIS cross section for T polarization."""
-    sigmat = 0
-    return sigmat
+def fwd_op_sigma_T(Q,z,r,qmass,sumef):
+    """Calculate DIS cross section for T polarization.
+    
+    This corresponds to the 'LLOp', 'TLOp' etc functions of the old code calculating bare cross sections.
+    Structure functions are F_T = structurefunfac*Q^2*Sigma_T(TLOp_*)
 
-def sigma_L(x,Q):
-    """Calculate DIS cross section for L polarization."""
-    sigmal = 0
+    Previously the integration was done at this stage, but now we want to do it last, so this just multiplies by the correct 
+    Jacobian and other constants.
+    """
+    fac=4.0*Nc*alphaem/Sq(2.0*math.pi)*sumef
+    integrand = dis_quarkantiquark_dipole_wavefunction_pol_T(Q,z,r,qmass) ### DIPOLE AMPLITUDE WOULD GO HERE, BUT NOW WE SEPARATE IT from the fwd operator
+    sigmat = fac*2.0*math.pi*integrand #*nlodis_config::MAXR*integral ----- integration done last
+    return sigmat #fac*2.0*M_PI*nlodis_config::MAXR*integral;
+
+def fwd_op_sigma_L(Q,z,r,qmass,sumef):
+    """Calculate DIS cross section for L polarization.
+    
+    This corresponds to the 'LLOp', 'TLOp' etc functions of the old code calculating bare cross sections.
+    Structure functions are F_L = structurefunfac*Q^2*Sigma_L(LLOp_*)
+    """
+    fac=4.0*Nc*alphaem/Sq(2.0*math.pi)*sumef
+    integrand = dis_quarkantiquark_dipole_wavefunction_pol_L(Q,z,r,qmass) ### DIPOLE AMPLITUDE WOULD GO HERE, BUT NOW WE SEPARATE IT from the fwd operator
+    sigmal = fac*2.0*math.pi*integrand #*nlodis_config::MAXR*integral ----- integration done last
     return sigmal
+
+
+
+# Main
+
+def main():
+    """Recostruct the dipole amplitude N from simulated reduced cross section data."""
+
+    # Load data.
+
+    # We need a dipole initial guess?
+    Ninit = Dipole(0.1, 1, 1)
+    print(Ninit.scattering_S_x0(1))
+
+    # We need to test the forward operator acting on a dipole to get a calculation of the reduced cross section
+    # 'b = Ax', i.e. sigma_r = integrate(fwd_op*N,{r,z}), where the operator needs to integrate over r and z.
+
+    # Calculate sigma_r = fwd_op * N over a dataset, which is then compared against the simulated data, at a fixed x.
+    # scipy integrate: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.dblquad.html#scipy.integrate.dblquad
+    sigmr_test = integrate.dblquad(lambda z, r: fwd_op_sigma_reduced(2, 0.5, z, r)*Ninit.scattering_S_x0(r), r_min, r_max, 0, 1)
+    print(sigmr_test)
+
+    return 0
+
+if __name__=="__main__":
+    main()
