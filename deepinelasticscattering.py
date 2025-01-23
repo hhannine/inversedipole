@@ -7,9 +7,12 @@ deepinelasticscattering module implements calculation of DIS cross sections in t
 """
 
 import math
-import numpy
+import numpy as np
 import scipy.integrate as integrate
 import scipy.special as special
+from scipy.interpolate import CubicSpline, griddata, RegularGridInterpolator
+
+from data_manage import load_dipole, get_data
 
 # Universal constants
 Nc = 3.0
@@ -146,18 +149,34 @@ def main():
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
 
     # Load data.
+    data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
+    # print(data_sigmar)
 
     # We need a dipole initial guess?
+    data_dipole = load_dipole("./data/readable-lo-dipolescatteringamplitude_S.txt")
+    data_dipole = np.sort(data_dipole, order=['xbj','r'])
+    xbj_vals = data_dipole["xbj"]
+    r_vals = data_dipole["r"]
+    S_vals = data_dipole["S"]
+    # dipole_interpolation = RegularGridInterpolator([xbj_vals, r_vals], S_vals) # THIS DOESNT WORK FOR FIXED XBJ??
+    dipole_interp_in_r = CubicSpline(r_vals, S_vals)
+    # print("dip_interp", dipole_interp_in_r(0))
+
+    # print(data_dipole[0])
     Ninit = Dipole(0.1, 1, 1)
-    print(Ninit.scattering_S_x0(1))
+    # print(Ninit.scattering_S_x0(0.1))
 
     # We need to test the forward operator acting on a dipole to get a calculation of the reduced cross section
     # 'b = Ax', i.e. sigma_r = integrate(fwd_op*N,{r,z}), where the operator needs to integrate over r and z.
 
     # Calculate sigma_r = fwd_op * N over a dataset, which is then compared against the simulated data, at a fixed x.
     # scipy integrate: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.dblquad.html#scipy.integrate.dblquad
-    sigmr_test = integrate.dblquad(lambda z, r: fwd_op_sigma_reduced(2, 0.5, z, r)*Ninit.scattering_S_x0(r), r_min, r_max, 0, 1)
-    print(sigmr_test)
+    for datum in data_sigmar:
+        (xbj, qsq, y, sigmar) = datum
+        # sigmr_test = integrate.dblquad(lambda z, r: fwd_op_sigma_reduced(math.sqrt(qsq), y, z, r)*Ninit.scattering_S_x0(r), r_min, r_max, 0, 1)
+        sigmr_test = integrate.dblquad(lambda z, r: fwd_op_sigma_reduced(math.sqrt(qsq), y, z, r)*dipole_interp_in_r(r), r_min, r_max, 0, 1)
+        ### TODO SIGMA0 NOT IMPLEMENTED????????!!!!
+        print(xbj, qsq, y, sigmar, sigmr_test[0])
 
     return 0
 

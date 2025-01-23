@@ -15,7 +15,7 @@ __status__ = "Development"
 
 import sys
 
-import inversedipole.deepinelasticscattering
+import deepinelasticscattering
 
 
 def main():
