@@ -10,6 +10,7 @@ import math
 import numpy as np
 import scipy.integrate as integrate
 import scipy.special as special
+from scipy import stats
 from scipy.interpolate import CubicSpline, griddata, RegularGridInterpolator
 
 from data_manage import load_dipole, get_data
@@ -48,6 +49,7 @@ def fwd_op_sigma_reduced(Q,y,z,r):
     """Calculate reduced cross section, forward operator definition.
     
     Proper reduced cross section is calculated as sigma_r = fwd_op * N(r,x)."""
+    # print("here Q y z r",Q,y,z,r)
     qmass=0.14
     sumef=6/9
     fac = structurefunfac * Sq(Q)
@@ -110,6 +112,7 @@ def dis_quarkantiquark_dipole_wavefunction_pol_L(Q,z,r,qmass):
     """virtual photon L splitting wf"""
     Qsq = Q**2
     # rapidity_X = rapidity_X(x,Qsq)
+    # print("af_interior", Qsq*z*(1-z) + qmass**2)
     af = math.sqrt( Qsq*z*(1-z) + qmass**2 )
     impactfac = 4.0*(Q*(z)*(1.0-z)*bessel_K0(af * r))**2
     # res = (1.0-(dipole_scattering_amplitude_S(r, rapidity_X))) * impactfac * r  # Old code for reference. Includes the dipole which is now done elsewhere
@@ -141,7 +144,48 @@ def fwd_op_sigma_L(Q,z,r,qmass,sumef):
     sigmal = fac*2.0*math.pi*integrand #*nlodis_config::MAXR*integral ----- integration done last
     return sigmal
 
+def mc_integrand_sigmar(x_args, qsq, y, dip_interp):
+# def mc_integrand_sigmar(r_args,z_args, qsq, y, dip_interp):
+    # print("x_args", x_args)
+    # print("r_args", r_args)
+    # print("z_args", z_args)
+    # (x_vals, n_pnts) = x_args
+    # [r, z] = x_args
+    # print("ligma")
+    r = x_args[0]
+    z = x_args[1]
+    # print("r", r, "z", z)
+    # if len(x_args)==2:
+    return fwd_op_sigma_reduced(math.sqrt(qsq), y, z, r)*dip_interp(r)
+    # res = []
+    # for ri, zi in zip(r,z):
+    #     if zi>1:
+    #         print("z>1, exit")
+    #         exit()
+        # res.append(fwd_op_sigma_reduced(math.sqrt(qsq), y, zi, ri)*dip_interp(ri))
+    # return res
 
+class Sigmar_calc:
+    def __init__(self, qsq, y, dipole_interp_in_r, sigma02):
+        self.qsq = qsq
+        self.y = y
+        self.dipole_interp_in_r = dipole_interp_in_r
+        self.sigma02 = sigma02
+    
+    def mc_integrand_sigmar(self, args):
+        # print("args", args)
+        [r, z] = args
+        try:
+            res = []
+            for (ri, zi) in zip(r,z):
+                # print("ri zi", ri, zi)
+                if zi>1:
+                    print("z>1, exit")
+                    exit()
+                res.append(self.sigma02*fwd_op_sigma_reduced(math.sqrt(self.qsq), self.y, zi, ri)*self.dipole_interp_in_r(ri))
+            return np.array(res)
+        except:
+            return np.array([self.sigma02*fwd_op_sigma_reduced(math.sqrt(self.qsq), self.y, z, r)*self.dipole_interp_in_r(r),])
 
 # Main
 
@@ -150,6 +194,7 @@ def main():
 
     # Load data.
     data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
+    sigma02=48.4781
     # print(data_sigmar)
 
     # We need a dipole initial guess?
@@ -171,12 +216,26 @@ def main():
 
     # Calculate sigma_r = fwd_op * N over a dataset, which is then compared against the simulated data, at a fixed x.
     # scipy integrate: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.dblquad.html#scipy.integrate.dblquad
+    # vec_sigmar = np.vectorize(mc_integrand_sigmar, excluded={2,3,5,'p'})
     for datum in data_sigmar:
         (xbj, qsq, y, sigmar) = datum
-        # sigmr_test = integrate.dblquad(lambda z, r: fwd_op_sigma_reduced(math.sqrt(qsq), y, z, r)*Ninit.scattering_S_x0(r), r_min, r_max, 0, 1)
-        sigmr_test = integrate.dblquad(lambda z, r: fwd_op_sigma_reduced(math.sqrt(qsq), y, z, r)*dipole_interp_in_r(r), r_min, r_max, 0, 1)
+        # sigmr_test_ic_dip = integrate.dblquad(lambda z, r: fwd_op_sigma_reduced(math.sqrt(qsq), y, z, r)*Ninit.scattering_S_x0(r), r_min, r_max, 0, 1)
+        sigmr_test = integrate.dblquad(lambda z, r: sigma02*fwd_op_sigma_reduced(math.sqrt(qsq), y, z, r)*dipole_interp_in_r(r), r_min, r_max, 0, 1)
+        # sigmr_test2 = integrate.qmc_quad(lambda x: mc_integrand_sigmar(x, qsq, y, dipole_interp_in_r), np.array([r_min, 0.]), np.array([r_max, 1.]),
+        # sigmr_test2 = integrate.qmc_quad(lambda x: fwd_op_sigma_reduced(math.sqrt(qsq), y, x[1], x[0])*dipole_interp_in_r(x[0]), [r_min,0], [r_max, 1],
+        # sigmr_test2 = integrate.qmc_quad(lambda x: mc_integrand_sigmar(x, qsq, y, dipole_interp_in_r), np.array([r_min, 0.]), np.array([r_max, 1.]),
+        # sigmr_test2 = integrate.qmc_quad(lambda x: vec_sigmar(x, qsq, y, dipole_interp_in_r), np.array([r_min, 0.]), np.array([r_max, 1.]),
+                                        #  qrng=stats.qmc.Halton(d=2, seed=np.random.default_rng())
+                                        #  )
+        sig_calc = Sigmar_calc(qsq, y, dipole_interp_in_r, sigma02)
+        sigmr_test3 = integrate.qmc_quad(sig_calc.mc_integrand_sigmar, np.array([r_min, 0.]), np.array([r_max, 1.]),
+        # sigmr_test2 = integrate.qmc_quad(lambda x: vec_sigmar(x, qsq, y, dipole_interp_in_r), np.array([r_min, 0.]), np.array([r_max, 1.]),
+                                         qrng=stats.qmc.Halton(d=2, seed=np.random.default_rng())
+                                         )                                         
         ### TODO SIGMA0 NOT IMPLEMENTED????????!!!!
-        print(xbj, qsq, y, sigmar, sigmr_test[0])
+        # print(xbj, qsq, y, sigmar, sigmr_test[0], sigmr_test2[0])
+        # print(xbj, qsq, y, sigmar, sigmr_test2[0])
+        print(xbj, qsq, y, sigmar, sigmr_test[0], sigmr_test3[0], sigmr_test3[0]/sigmar)
 
     return 0
 
