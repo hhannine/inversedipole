@@ -26,11 +26,12 @@ structurefunfac = 1./((2*math.pi)**2 * alphaem)
 
 # Calculation / scattering dependent constants
 sumef_light = 6.0/9.0 # light quarks uds only.
-qmass_light = 0.14 # this was the old effective light quark mass?
+qmass_light = 0.14 # this is the old effective light quark mass
 icx0 = 0.01 # Default initial scale for LO.
 alpha_scaling_C2_ = 1
 
-r_min = 1e-6
+# r_min = 1e-6
+r_min = 0
 r_max = 30
 
 
@@ -51,7 +52,7 @@ def fwd_op_sigma_reduced(Qsq,y,z,r):
     
     Proper reduced cross section is calculated as sigma_r = fwd_op * N(r,x)."""
     # print("here Q y z r",Q,y,z,r)
-    qmass=0.14
+    qmass=qmass_light
     sumef=6/9
     fac = structurefunfac * Qsq
     FL = fac * fwd_op_sigma_L(Qsq,z,r,qmass,sumef)
@@ -60,6 +61,20 @@ def fwd_op_sigma_reduced(Qsq,y,z,r):
     fy = y**2/(1+(1-y)**2)
     fwd_op_sigmar = F2 - fy * FL
     return fwd_op_sigmar
+
+def fwd_op_FL_LO(Qsq,z,r):
+    qmass=qmass_light
+    sumef=6/9
+    fac = structurefunfac * Qsq
+    FL = fac * fwd_op_sigma_L(Qsq,z,r,qmass,sumef)
+    return FL
+
+def fwd_op_FT_LO(Qsq,z,r):
+    qmass=qmass_light
+    sumef=6/9
+    fac = structurefunfac * Qsq
+    FT = fac * fwd_op_sigma_T(Qsq,z,r,qmass,sumef)
+    return FT
 
 def dipole_scattering_amplitude_S(r,x):
     S = 0
@@ -103,7 +118,7 @@ def dis_quarkantiquark_dipole_wavefunction_pol_T(Qsq,z,r,qmass):
     """virtual photon T splitting wf"""
     # rapidity_X = rapidity_X(x,Qsq)
     
-    af = math.sqrt( Qsq*z*(1.0-z) + Sq(qmass) )
+    af = math.sqrt( Qsq*z*(1.0-z) + qmass**2 )
     impactfac = (1.0-2.0*z+2.0*Sq(z))*Sq(af * bessel_K1(af * r)) + Sq(qmass * bessel_K0(af * r))
     psi_squared = impactfac * r # r here is from the jacobian from the change to polar coordinates. Old choice to have it here.
     return psi_squared
@@ -165,27 +180,52 @@ def mc_integrand_sigmar(x_args, qsq, y, dip_interp):
     # return res
 
 class Sigmar_calc:
-    def __init__(self, qsq, y, dipole_interp_in_r, sigma02):
+    def __init__(self, qsq, y, S_interp, sigma02):
         self.qsq = qsq
         self.y = y
-        self.dipole_interp_in_r = dipole_interp_in_r
-        self.sigma02 = sigma02*2
+        self.S_interp = S_interp
+        self.sigma02 = sigma02
         # self.vegas_int = vegas_int
     
     def mc_integrand_sigmar(self, args):
-        # print("args", args)
         [r, z] = args
         try:
             res = []
             for (ri, zi) in zip(r,z):
-                # print("ri zi", ri, zi)
                 if zi>1:
                     print("z>1, exit")
                     exit()
-                res.append(self.sigma02*fwd_op_sigma_reduced(self.qsq, self.y, zi, ri)*self.dipole_interp_in_r(ri))
+                res.append(self.sigma02*fwd_op_sigma_reduced(self.qsq, self.y, zi, ri)*(1-self.S_interp(ri)))
             return np.array(res)
         except:
-            return np.array([self.sigma02*fwd_op_sigma_reduced(self.qsq, self.y, z, r)*self.dipole_interp_in_r(r),])
+            return np.array([self.sigma02*fwd_op_sigma_reduced(self.qsq, self.y, z, r)*(1-self.S_interp(r)),])
+        
+    def mc_integrand_FL(self, args):
+        [r, z] = args
+        try:
+            res = []
+            for (ri, zi) in zip(r,z):
+                if zi>1:
+                    print("z>1, exit")
+                    exit()
+                res.append(self.sigma02*fwd_op_FL_LO(self.qsq, zi, ri)*(1-self.S_interp(ri)))
+            return np.array(res)
+        except:
+            return np.array([self.sigma02*fwd_op_FL_LO(self.qsq, z, r)*(1-self.S_interp(r)),])
+    
+    def mc_integrand_FT(self, args):
+        [r, z] = args
+        try:
+            res = []
+            for (ri, zi) in zip(r,z):
+                if zi>1:
+                    print("z>1, exit")
+                    exit()
+                res.append(self.sigma02*fwd_op_FT_LO(self.qsq, zi, ri)*(1-self.S_interp(ri)))
+            return np.array(res)
+        except:
+            return np.array([self.sigma02*fwd_op_FT_LO(self.qsq, z, r)*(1-self.S_interp(r)),])
+
 
 # Main
 
@@ -193,13 +233,15 @@ def main():
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
 
     # Load data.
-    data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
-    # sigma02=48.4781
-    sigma02=1
+    # data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
+    data_sigmar = get_data("./data/simulated_lo_sigmar_with_FL_FT.dat")
+    sigma02=48.4781
+    # sigma02=1
     # print(data_sigmar)
 
     # We need a dipole initial guess?
-    data_dipole = load_dipole("./data/readable-lo-dipolescatteringamplitude_S.txt")
+    # data_dipole = load_dipole("./data/readable-lo-dipolescatteringamplitude_S.txt")
+    data_dipole = load_dipole("./data/readable-lo_dip_S-logstep_r.dat")
     data_dipole = np.sort(data_dipole, order=['xbj','r'])
     xbj_vals = data_dipole["xbj"]
     r_vals = data_dipole["r"]
@@ -207,7 +249,7 @@ def main():
     # dipole_interpolation = RegularGridInterpolator([xbj_vals, r_vals], S_vals) # THIS DOESNT WORK FOR FIXED XBJ??
     # dipole_interp_in_r = CubicSpline(r_vals, S_vals)
     # dipole_interp_in_r = PchipInterpolator(r_vals, S_vals)
-    dipole_interp_in_r = make_interp_spline(r_vals, S_vals, k=1)
+    S_interp = make_interp_spline(r_vals, S_vals, k=1)
     # print("dip_interp", dipole_interp_in_r(0), dipole_interp_in_r(0.1), dipole_interp_in_r(1), dipole_interp_in_r(10), dipole_interp_in_r(30))
     # exit()
 
@@ -223,27 +265,37 @@ def main():
     # vec_sigmar = np.vectorize(mc_integrand_sigmar, excluded={2,3,5,'p'})
 
     # Vegas
+    n_itn = 20
+    n_eval = 10**4
     vegas_integ = vegas.Integrator([[r_min, r_max], [0,1]])
-    print("xbj,    qsq,       y,   sigmar,    sigmr_test[0],   sigmr_test3[0],   sigmr_test3[0]/sigmar")
+    print("xbj,    qsq,       y,   sigmar,    FL_LO,    FT_LO,   sigmr_test[0],   sigmr_test3[0],   sigmr_test3[0]/sigmar")
+    # (xbj, qsq, y, sigmar) = [1e-3, 1.2e0, 9.1e-3, 3.7e-1] # real point
+    # sig_calc = Sigmar_calc(qsq, y, dipole_interp_in_r, sigma02)
+    # sigmr_test = integrate.dblquad(lambda z, r: sigma02*fwd_op_sigma_reduced(qsq, y, z, r)*dipole_interp_in_r(r), r_min, r_max, 0, 1, epsrel=1e-3)
+    # sigmr_test_veg = vegas_integ(sig_calc.mc_integrand_sigmar, nitn=20, neval=10**3)
+    # print(xbj, qsq, y, sigmar, sigmr_test[0],  sigmr_test_veg[0])
+    # exit()
+
+
     for datum in data_sigmar:
-        (xbj, qsq, y, sigmar) = datum
+    # for datum in data_sigmar[-10:]:
+        (xbj, qsq, y, sigmar, fl, ft) = datum
         # sigmr_test_ic_dip = integrate.dblquad(lambda z, r: fwd_op_sigma_reduced(math.sqrt(qsq), y, z, r)*Ninit.scattering_S_x0(r), r_min, r_max, 0, 1)
-        sigmr_test = integrate.dblquad(lambda z, r: 2*sigma02*fwd_op_sigma_reduced(qsq, y, z, r)*dipole_interp_in_r(r), r_min, r_max, 0, 1, epsrel=1e-3)
+        sigmr_test = integrate.dblquad(lambda z, r: sigma02*fwd_op_sigma_reduced(qsq, y, z, r)*(1-S_interp(r)), r_min, r_max, 0, 1, epsrel=1e-3)
         # sigmr_test2 = integrate.qmc_quad(lambda x: mc_integrand_sigmar(x, qsq, y, dipole_interp_in_r), np.array([r_min, 0.]), np.array([r_max, 1.]),
         # sigmr_test2 = integrate.qmc_quad(lambda x: fwd_op_sigma_reduced(math.sqrt(qsq), y, x[1], x[0])*dipole_interp_in_r(x[0]), [r_min,0], [r_max, 1],
         # sigmr_test2 = integrate.qmc_quad(lambda x: mc_integrand_sigmar(x, qsq, y, dipole_interp_in_r), np.array([r_min, 0.]), np.array([r_max, 1.]),
         # sigmr_test2 = integrate.qmc_quad(lambda x: vec_sigmar(x, qsq, y, dipole_interp_in_r), np.array([r_min, 0.]), np.array([r_max, 1.]),
                                         #  qrng=stats.qmc.Halton(d=2, seed=np.random.default_rng())
                                         #  )
-        sig_calc = Sigmar_calc(qsq, y, dipole_interp_in_r, sigma02)
-        sigmr_test3 = integrate.qmc_quad(sig_calc.mc_integrand_sigmar, np.array([r_min, 0.]), np.array([r_max, 1.]),
-                                         n_estimates=1*500, n_points=1*500,
-                                        #  qrng=stats.qmc.Halton(d=2, seed=np.random.default_rng())
-                                         )                                         
-        sigmr_test_veg = vegas_integ(sig_calc.mc_integrand_sigmar, nitn=10, neval=10**5)
+        sig_calc = Sigmar_calc(qsq, y, S_interp, sigma02)
+        sigmr_test_veg = vegas_integ(sig_calc.mc_integrand_sigmar, nitn=n_itn, neval=n_eval)
+        fl_veg = vegas_integ(sig_calc.mc_integrand_FL, nitn=n_itn, neval=n_eval)
+        ft_veg = vegas_integ(sig_calc.mc_integrand_FT, nitn=n_itn, neval=n_eval)
         # print(xbj, qsq, y, sigmar, sigmr_test[0], sigmr_test[0]/sigmar)
         # print(xbj, qsq, y, sigmar, sigmr_test2[0])
-        print(xbj, qsq, y, sigmar, sigmr_test[0], sigmr_test3[0], sigmr_test_veg)
+        # print(xbj, qsq, y, sigmar, sigmr_test[0], sigmr_test3[0], sigmr_test_veg)
+        print(xbj, qsq, y, " - ", sigmar, sigmr_test[0],  sigmr_test_veg[0] ,sigmr_test_veg[0]/sigmar , " - ", fl, ft, fl_veg, ft_veg, " - ", fl_veg/fl, ft_veg/ft )
 
     return 0
 

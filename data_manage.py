@@ -19,6 +19,8 @@ def get_data(file, simulated=True):
         ('qsq', float),
         ('y', float),
         ('sigmar', float),
+        ('FL', float),
+        ('FT', float),
         ]
     else:
         dtype = [
