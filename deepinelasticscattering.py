@@ -232,6 +232,9 @@ def main():
     # Initialize a dipole scattering amplitude interpolator
     # S_interp = make_interp_spline(r_vals, S_vals, k=1)
     S_interp = CubicSpline(r_vals, S_vals)
+    # S_interp = PchipInterpolator(r_vals, S_vals)
+    # print(S_interp(0), S_interp(1e-6), S_interp(1e-2), S_interp(0.5))
+    # exit()
 
     # We need to test the forward operator acting on a dipole to get a calculation of the reduced cross section
     # 'b = Ax', i.e. sigma_r = integrate(fwd_op*N,{r,z}), where the operator needs to integrate over r and z.
@@ -240,7 +243,7 @@ def main():
     # scipy integrate: https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.dblquad.html#scipy.integrate.dblquad
 
     # Vegas
-    n_itn = 10
+    n_itn = 20
     n_eval = 10**3
     vegas_integ = vegas.Integrator([[r_min, r_max], [0,1]])
     print("xbj,    qsq,       y,   sigmar,    FL_LO,    FT_LO,   sigmr_test[0],   sigmr_test3[0],   sigmr_test3[0]/sigmar")
