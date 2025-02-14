@@ -166,6 +166,10 @@ class Sigmar_calc:
         self.S_interp = S_interp
         self.sigma02 = sigma02
     
+    def discrete_int_kernel_sigmar(self, args):
+        """For each r, computes the z-integral of the DIS cross section kernel"""
+        z = args
+    
     def mc_integrand_sigmar(self, args):
         [r, z] = args
         try:
@@ -214,6 +218,8 @@ def main():
     # Load data.
     # data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
     data_sigmar = get_data("./data/simulated_lo_sigmar_with_FL_FT.dat")
+    qsq_vals = data_sigmar["qsq"]
+    y_vals = data_sigmar["y"]
     sigma02=48.4781
 
     # We need a dipole initial guess?
@@ -235,6 +241,16 @@ def main():
     # S_interp = PchipInterpolator(r_vals, S_vals)
     # print(S_interp(0), S_interp(1e-6), S_interp(1e-2), S_interp(0.5))
     # exit()
+
+    # Testing DISCRETIZATION:
+    # r_space = np.linspace(r_min, r_max, num=100)
+    fw_op_vals_z_int = []
+    for y in y_vals:
+        y_temp = []
+        for qsq in qsq_vals:
+            for r in r_vals:
+                z_inted_fw_sigmar = integrate.dblquad(lambda z: sigma02*fwd_op_sigma_reduced(qsq, y, z, r), 0, 1, epsrel=1e-4)
+                fw_op_vals_z_int.append(z_inted_fw_sigmar)
 
     # We need to test the forward operator acting on a dipole to get a calculation of the reduced cross section
     # 'b = Ax', i.e. sigma_r = integrate(fwd_op*N,{r,z}), where the operator needs to integrate over r and z.
