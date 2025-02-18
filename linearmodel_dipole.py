@@ -1,11 +1,12 @@
-import math
+# import math
+import multiprocessing
 import scipy.integrate as integrate
-from scipy import stats
 from scipy.interpolate import CubicSpline
+from timeit import default_timer as timer
 
-import torch
+# import torch
 import numpy as np
-from cuqi.model import LinearModel
+# from cuqi.model import LinearModel
 
 from data_manage import load_dipole, get_data
 from deepinelasticscattering import fwd_op_sigma_reduced
@@ -14,15 +15,25 @@ from deepinelasticscattering import fwd_op_sigma_reduced
 # For this, we need to discretize the integration into a sum of products.
 
 
-model = LinearModel(forward,
-                    adjoint=adjoint,
-                    range_geometry=1,
-                    domain_geometry=1)
+# cuqi model stuff:
+# model = LinearModel(forward,
+#                     adjoint=adjoint,
+#                     range_geometry=1,
+#                     domain_geometry=1)
 
 
-# Main
+def z_inted_fw_sigmar(datum, r_grid, sigma02):
+    (xbj, qsq, y, sigmar, fl, ft) = datum
+    r_grid=r_grid[0]
+    z_inted_points = []
+    for i, r in enumerate(r_grid[:-1]):
+        delta_r = r_grid[i+1]-r_grid[i]
+        z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced(qsq, y, z, r), 0, 1, epsrel=1e-4)
+        z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
+    return np.array(z_inted_points)
 
-def main():
+# def main():
+if __name__=="__main__":
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
 
     # Load data.
@@ -40,41 +51,65 @@ def main():
     r_vals = data_dipole["r"]
     S_vals = data_dipole["S"]
 
-    S_interp = CubicSpline(r_vals, S_vals)            
-    discrete_S_vals = []
-    for r in r_vals[:-1]:
-        discrete_S_vals.append(S_interp(r))
+    interpolated_r_grid = []
+    rmin=1e-6
+    rmax=30
+    r=rmin
+    while r<=rmax:
+        interpolated_r_grid.append(r)
+        r*=(rmax/rmin)**(1/5000.)
+
+    S_interp = CubicSpline(r_vals, S_vals)
+    discrete_N_vals = []
+    for r in interpolated_r_grid[:-1]:
+        discrete_N_vals.append(1-S_interp(r))
+    vec_discrete_N = np.array(discrete_N_vals)
 
     # We need to test the forward operator acting on a dipole to get a calculation of the reduced cross section
     # 'b = Ax', i.e. sigma_r = integrate(fwd_op*N,{r,z}), where the operator needs to integrate over r and z.
 
-    fw_op_vals_z_int = []
-    for datum in data_sigmar[0:2]:
-        (xbj, qsq, y, sigmar, fl, ft) = datum
-        
-        # Testing DISCRETIZATION:
-        for i, r in enumerate(r_vals[:-1]):
-            z_inted_points = []
-            delta_r = r_vals[i+1]-r_vals[i]
-            z_inted_fw_sigmar = integrate.dblquad(lambda z: sigma02*fwd_op_sigma_reduced(qsq, y, z, r), 0, 1, epsrel=1e-4)
-            z_inted_points.append(z_inted_fw_sigmar*delta_r)
+    with multiprocessing.Pool(processes=16) as pool:
+        ### chunk_size is a tunable parameter, it controls approximately how many jobs each process "takes" at once
+        ### map_results = pool.starmap(function, ((l1, l2, a, b, c) for (l1, l2) in list_args), chunksize=5)
+        fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar, ((datum, (interpolated_r_grid,), sigma02) for datum in data_sigmar))
 
-        fw_op_vals_z_int.append(z_inted_points) # each element in fw_op_vals_z_int is a list of z-integrated operator points as the function of r, domain by r_vals.
+    # First single threaded implem.:
+    # for datum in data_sigmar[0:5]:
+    if False:
+        for datum in data_sigmar:
+            (xbj, qsq, y, sigmar, fl, ft) = datum
+            # print(datum)
+            
+            # Testing DISCRETIZATION:
+            z_inted_points = []
+            for i, r in enumerate(interpolated_r_grid[:-1]):
+                # print(i, r)
+                delta_r = interpolated_r_grid[i+1]-interpolated_r_grid[i]
+                z_inted_fw_sigmar = z_inted_fw_sigmar(qsq, y, r, sigma02)
+                z_inted_points.append((r, z_inted_fw_sigmar[0]*delta_r))
+
+            # print(z_inted_points)
+            fw_op_vals_z_int.append(np.array(z_inted_points)) # each element in fw_op_vals_z_int is a list of z-integrated operator points as the function of r, domain by r_vals.
     #end for datum
 
-    print("xbj,    qsq,       y,   sigmar,    FL_LO,    FT_LO,   sigmr_test[0],   sigmr_test3[0],   sigmr_test3[0]/sigmar")
+    fw_op_datum_r_matrix = []
+    for array in fw_op_vals_z_int:
+        fw_op_datum_r_matrix.append(array[:,1])
+    fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
-    # test calculating sigmar with the discretized operator
-    for i, datum in enumerate(data_sigmar[0:2]):
-        (xbj, qsq, y, sigmar, fl, ft) = datum
-        fw_op = fw_op_vals_z_int[i]
+    start = timer()
+    dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
+    end = timer()
+    for d, s in zip(data_sigmar, dscr_sigmar):
+        print( d, s)
+
+    print("Matmul took (s): ",end - start) # Time in seconds
+
+    # torch.mv(a,b) matrix vector product
+    # Note that for the future, you may also find torch.matmul() useful. torch.matmul() infers the dimensionality of your arguments and accordingly performs either dot products between vectors, matrix-vector or vector-matrix multiplication
 
 
-        # torch.mv(a,b) matrix vector product
-        # Note that for the future, you may also find torch.matmul() useful. torch.matmul() infers the dimensionality of your arguments and accordingly performs either dot products between vectors, matrix-vector or vector-matrix multiplication
+    # return 0
 
-
-    return 0
-
-if __name__=="__main__":
-    main()
+# if __name__=="__main__":
+    # main() # had to move away from this since the multithreading had a scoping problem seeing the function 'z_inted_fw_sigmar'

@@ -239,18 +239,8 @@ def main():
     # S_interp = make_interp_spline(r_vals, S_vals, k=1)
     S_interp = CubicSpline(r_vals, S_vals)
     # S_interp = PchipInterpolator(r_vals, S_vals)
-    # print(S_interp(0), S_interp(1e-6), S_interp(1e-2), S_interp(0.5))
     # exit()
 
-    # Testing DISCRETIZATION:
-    # r_space = np.linspace(r_min, r_max, num=100)
-    fw_op_vals_z_int = []
-    for y in y_vals:
-        y_temp = []
-        for qsq in qsq_vals:
-            for r in r_vals:
-                z_inted_fw_sigmar = integrate.dblquad(lambda z: sigma02*fwd_op_sigma_reduced(qsq, y, z, r), 0, 1, epsrel=1e-4)
-                fw_op_vals_z_int.append(z_inted_fw_sigmar)
 
     # We need to test the forward operator acting on a dipole to get a calculation of the reduced cross section
     # 'b = Ax', i.e. sigma_r = integrate(fwd_op*N,{r,z}), where the operator needs to integrate over r and z.
@@ -264,7 +254,7 @@ def main():
     vegas_integ = vegas.Integrator([[r_min, r_max], [0,1]])
     print("xbj,    qsq,       y,   sigmar,    FL_LO,    FT_LO,   sigmr_test[0],   sigmr_test3[0],   sigmr_test3[0]/sigmar")
 
-    for datum in data_sigmar:
+    for datum in data_sigmar[-5:]:
     # for datum in data_sigmar[-10:]:
         (xbj, qsq, y, sigmar, fl, ft) = datum
         sigmr_test = integrate.dblquad(lambda z, r: sigma02*fwd_op_sigma_reduced(qsq, y, z, r)*(1-S_interp(r)), r_min, r_max, 0, 1, epsrel=1e-3)
