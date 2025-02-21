@@ -6,7 +6,13 @@ from timeit import default_timer as timer
 
 # import torch
 import numpy as np
+import matplotlib.pyplot as plt
+
 # from cuqi.model import LinearModel
+from trips.solvers.Tikhonov import Tikhonov
+from trips.solvers.GKS import *
+from trips.solvers.tSVD import *
+from trips.solvers.tGSVD import *
 
 from data_manage import load_dipole, get_data
 from deepinelasticscattering import fwd_op_sigma_reduced
@@ -57,7 +63,7 @@ if __name__=="__main__":
     r=rmin
     while r<=rmax:
         interpolated_r_grid.append(r)
-        r*=(rmax/rmin)**(1/5000.)
+        r*=(rmax/rmin)**(1/1000.)
 
     S_interp = CubicSpline(r_vals, S_vals)
     discrete_N_vals = []
@@ -68,6 +74,7 @@ if __name__=="__main__":
     # We need to test the forward operator acting on a dipole to get a calculation of the reduced cross section
     # 'b = Ax', i.e. sigma_r = integrate(fwd_op*N,{r,z}), where the operator needs to integrate over r and z.
 
+    print("Generating discrete forward operator.")
     with multiprocessing.Pool(processes=16) as pool:
         fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar, ((datum, (interpolated_r_grid,), sigma02) for datum in data_sigmar))
 
@@ -94,6 +101,36 @@ if __name__=="__main__":
         print( d, s)
 
     print("Matmul took (s): ",end - start) # Time in seconds
+
+
+    x_true = vec_discrete_N
+    b_sigmar = data_sigmar["sigmar"]
+    A_fwd_op = fw_op_datum_r_matrix
+    # x_naive = np.linalg.solve(A_fwd_op, b_sigmar) # A not square?
+
+    print("Solving inverse problem with tSVD_sol regularization.")
+    (x_tsvd, truncation_value) = tSVD_sol(A_fwd_op.todense(), b_sigmar, regparam = 'dp', delta = 1e-3)
+    print("Truncation parameter is %s." % truncation_value)
+    
+    print("Solving inverse problem with Tikhonov regularization.")
+    L = np.eye(int(A_fwd_op.shape[1]))
+    x_Tikh_dp, lambda_Tikh_dp = Tikhonov(A_fwd_op, b_sigmar, L, x_true, regparam = 'dp', delta=1e-3)
+    print("dp lambda: ", lambda_Tikh_dp)
+    # x_Tikh, lambda_Tikh = Tikhonov(A_fwd_op, b_sigmar, L, x_true, regparam=1e-2)
+    # x_Tikh2, lambda_Tikh2 = Tikhonov(A_fwd_op, b_sigmar, L, x_true, regparam=5e-9)
+
+    # showing the naive solution, along with the exact one
+    plt.plot(x_true, "r-", label='x_true')
+    plt.plot(x_tsvd, label='tSVD')
+    plt.plot(x_Tikh_dp, label='Tikhonov, discr princip')
+    # plt.plot(x_Tikh, label='Tikh lambda 1e-2')
+    # plt.plot(x_Tikh2, label='Tikh lambda 5e-9')
+    # plt.plot(x_TikhL, label='general form Tikhonov') # this needs first derivative of something
+    plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+            ncol=2, mode="expand", borderaxespad=0., fontsize=20)
+    plt.show()
+
+
 
     # torch.mv(a,b) matrix vector product
     # Note that for the future, you may also find torch.matmul() useful. torch.matmul() infers the dimensionality of your arguments and accordingly performs either dot products between vectors, matrix-vector or vector-matrix multiplication
