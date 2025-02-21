@@ -2,6 +2,7 @@
 import multiprocessing
 import scipy.integrate as integrate
 from scipy.interpolate import CubicSpline
+from scipy.io import savemat
 from timeit import default_timer as timer
 
 # import torch
@@ -44,14 +45,14 @@ if __name__=="__main__":
 
     # Load data.
     # data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
-    data_sigmar = get_data("./data/simulated_lo_sigmar_with_FL_FT.dat")
+    data_sigmar = get_data("./data/simulated-lo-sigmar_WITH_DIPOLE_PRINT_higher_resolution_in_R_Q.dat")
     qsq_vals = data_sigmar["qsq"]
     y_vals = data_sigmar["y"]
     sigma02=48.4781
 
     # We need a dipole initial guess?
     # data_dipole = load_dipole("./data/readable-lo-dipolescatteringamplitude_S.txt")
-    data_dipole = load_dipole("./data/readable-lo_dip_S-logstep_r.dat")
+    data_dipole = load_dipole("./data/readable-lo-dipole_S-log_step_r_denser.dat")
     data_dipole = np.sort(data_dipole, order=['xbj','r'])
     xbj_vals = data_dipole["xbj"]
     r_vals = data_dipole["r"]
@@ -63,7 +64,7 @@ if __name__=="__main__":
     r=rmin
     while r<=rmax:
         interpolated_r_grid.append(r)
-        r*=(rmax/rmin)**(1/1000.)
+        r*=(rmax/rmin)**(1/5000.)
 
     S_interp = CubicSpline(r_vals, S_vals)
     discrete_N_vals = []
@@ -100,6 +101,12 @@ if __name__=="__main__":
     for d, s in zip(data_sigmar, dscr_sigmar):
         print( d, s)
 
+    save_discrete = True
+    if save_discrete:
+        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N}
+        savemat("export_discrete_operator_and_dipole.mat", mat_dict)
+        exit()
+
     print("Matmul took (s): ",end - start) # Time in seconds
 
 
@@ -108,9 +115,9 @@ if __name__=="__main__":
     A_fwd_op = fw_op_datum_r_matrix
     # x_naive = np.linalg.solve(A_fwd_op, b_sigmar) # A not square?
 
-    print("Solving inverse problem with tSVD_sol regularization.")
-    (x_tsvd, truncation_value) = tSVD_sol(A_fwd_op.todense(), b_sigmar, regparam = 'dp', delta = 1e-3)
-    print("Truncation parameter is %s." % truncation_value)
+    # print("Solving inverse problem with tSVD_sol regularization.")
+    # (x_tsvd, truncation_value) = tSVD_sol(A_fwd_op.todense(), b_sigmar, regparam = 'dp', delta = 1e-3)
+    # print("Truncation parameter is %s." % truncation_value)
     
     print("Solving inverse problem with Tikhonov regularization.")
     L = np.eye(int(A_fwd_op.shape[1]))
@@ -121,7 +128,7 @@ if __name__=="__main__":
 
     # showing the naive solution, along with the exact one
     plt.plot(x_true, "r-", label='x_true')
-    plt.plot(x_tsvd, label='tSVD')
+    # plt.plot(x_tsvd, label='tSVD')
     plt.plot(x_Tikh_dp, label='Tikhonov, discr princip')
     # plt.plot(x_Tikh, label='Tikh lambda 1e-2')
     # plt.plot(x_Tikh2, label='Tikh lambda 5e-9')
