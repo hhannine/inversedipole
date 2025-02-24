@@ -24,12 +24,15 @@ def get_data(file, simulated=True):
         ]
     else:
         dtype = [
-        ('xbj', float),
         ('qsq', float),
+        ('xbj', float),
         ('y', float),
         ('sigmar', float),
         ('sigmarerr', float),
-        ('theory', float),
+        # ('theory', float),
+        ('StatErrUncor', float),
+        ('tot_noproc', float),
+        ('%', float),
         ]
     # data = np.loadtxt(file, dtype=dtype, skiprows=skip_to)
     data = np.loadtxt(file, dtype=dtype, skiprows=skip_to)
