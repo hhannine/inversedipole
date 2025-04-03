@@ -27,6 +27,7 @@ structurefunfac = 1./((2*math.pi)**2 * alphaem)
 # Calculation / scattering dependent constants
 sumef_light = 6.0/9.0 # light quarks uds only.
 qmass_light = 0.14 # this is the old effective light quark mass
+qmass_charm = 1.35 # Kinda ~mean of the nlo massive fit values (1.29...1.49)
 icx0 = 0.01 # Default initial scale for LO.
 alpha_scaling_C2_ = 1
 
@@ -58,6 +59,23 @@ def fwd_op_sigma_reduced(Qsq,y,z,r):
     FL = fac * fwd_op_sigma_L(Qsq,z,r,qmass,sumef)
     FT = fac * fwd_op_sigma_T(Qsq,z,r,qmass,sumef)
     F2 = FL + FT
+    fy = y**2/(1+(1-y)**2)
+    fwd_op_sigmar = F2 - fy * FL
+    return fwd_op_sigmar
+
+def fwd_op_sigma_reduced_udsc(Qsq,y,z,r):
+    """Calculate reduced cross section, forward operator definition.
+    
+    Proper reduced cross section is calculated as sigma_r = fwd_op * N(r,x)."""
+    sumef=6/9
+    efc = 4/9
+    fac = structurefunfac * Qsq
+    FL_uds = fac * fwd_op_sigma_L(Qsq,z,r,qmass_light,sumef)
+    FT_uds = fac * fwd_op_sigma_T(Qsq,z,r,qmass_light,sumef)
+    FL_c = fac * fwd_op_sigma_L(Qsq,z,r,qmass_charm,efc)
+    FT_c = fac * fwd_op_sigma_T(Qsq,z,r,qmass_charm,efc)
+    FL = FL_uds + FL_c
+    F2 = FL_uds + FL_c + FT_uds + FT_c
     fy = y**2/(1+(1-y)**2)
     fwd_op_sigmar = F2 - fy * FL
     return fwd_op_sigmar
