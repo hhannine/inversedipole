@@ -6,6 +6,7 @@ from scipy.io import savemat
 from timeit import default_timer as timer
 
 # import torch
+from math import sqrt
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -17,7 +18,7 @@ from trips.solvers.tSVD import *
 from trips.solvers.tGSVD import *
 
 from data_manage import load_dipole, get_data
-from deepinelasticscattering import fwd_op_sigma_reduced
+from deepinelasticscattering import fwd_op_sigma_reduced, fwd_op_sigma_reduced_udsc
 
 # Need to formulate and construct the linear forward operator as a matrix.
 # For this, we need to discretize the integration into a sum of products.
@@ -43,6 +44,19 @@ def z_inted_fw_sigmar(datum, r_grid, sigma02):
         z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
     return np.array(z_inted_points)
 
+def z_inted_fw_sigmar_udsc(datum, r_grid, sigma02):
+    if len(datum)==6:
+        (xbj, qsq, y, sigmar, fl, ft) = datum
+    else:
+        (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+    r_grid=r_grid[0]
+    z_inted_points = []
+    for i, r in enumerate(r_grid[:-1]):
+        delta_r = r_grid[i+1]-r_grid[i]
+        z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced_udsc(qsq, y, z, r), 0, 1, epsrel=1e-4)
+        z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
+    return np.array(z_inted_points)
+
 # def main():
 if __name__=="__main__":
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
@@ -50,7 +64,9 @@ if __name__=="__main__":
     # Load data.
     # data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
     # data_sigmar = get_data("./data/simulated-lo-sigmar_WITH_DIPOLE_PRINT_higher_resolution_in_R_Q.dat")
-    data_sigmar = get_data("./data/hera_II_combined_sigmar.txt", simulated=False)
+    # data_sigmar = get_data("./data/hera_II_combined_sigmar.txt", simulated=False)
+    # data_sigmar = get_data("./data/hera_II_binned_s_318.1_xbj_0.013.dat", simulated=False)
+    data_sigmar = get_data("./data/hera_II_binned_s_318.1_xbj_0.002.dat", simulated=False)
     qsq_vals = data_sigmar["qsq"]
     y_vals = data_sigmar["y"]
     sigma02=48.4781
@@ -107,10 +123,12 @@ if __name__=="__main__":
         print( d, s)
 
     save_discrete = True
+    # save_discrete = False
     if save_discrete:
         mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N}
-        savemat("export_discrete_operator_and_dipole-hera_II_combined_sigmar.mat", mat_dict)
-        # exit()
+        # savemat("export_discrete_operator_and_dipole-hera_II_combined_sigmar_binned_s_318.1_xbj_0.013.mat", mat_dict)
+        savemat("export_discrete_operator_and_dipole-hera_II_combined_sigmar_binned_s_318.1_xbj_0.002.mat", mat_dict)
+        exit()
 
     print("Matmul took (s): ",end - start) # Time in seconds
 
@@ -124,23 +142,52 @@ if __name__=="__main__":
     A=A_fwd_op
     y_data=b_sigmar
     model=cuqi.model.LinearModel(A)
-    x = cuqi.distribution.Gaussian(np.zeros(model.domain_dim), 0.5)
-    y = cuqi.distribution.Gaussian(model@x, 0.01)
+    # x = cuqi.distribution.Gaussian(np.zeros(model.domain_dim), 0.5)
+    d = cuqi.distribution.Gamma(10, 1)
+    s = cuqi.distribution.Gamma(10, 1)
+    x = cuqi.distribution.LMRF(10, lambda d: 1/d, geometry=model.domain_geometry)
+    # x = cuqi.distribution.InverseGamma(shape=np.ones(model.domain_dim) , location=np.zeros(model.domain_dim), scale=np.ones(model.domain_dim), geometry=model.domain_geometry)
+    # x = cuqi.distribution.Uniform(low=0, high=1, geometry=model.domain_geometry)
+    y = cuqi.distribution.Gaussian(model@x, lambda s: 1/s)
+    # y = cuqi.distribution.Gaussian(model@x, cov=0.01)
     # Define Bayesian problem and set data
-    BP = cuqi.problem.BayesianProblem(y, x).set_data(y=y_data)
+    BP = cuqi.problem.BayesianProblem(y, x, d, s).set_data(y=y_data)
+    # BP = cuqi.problem.BayesianProblem(y, x).set_data(y=y_data)
+    samples = BP.sample_posterior(400)
+
     # Compute MAP estimate
-    x_MAP = BP.MAP()
+    # x_MAP = BP.MAP()
     # x_ML = BP.ML()
     # Compute samples from posterior
-    x_samples = BP.sample_posterior(1000)
+    # samples = BP.sample_posterior(400)
     # Plot results
-    x_samples.plot_ci(exact=x_true)
+    # x_samples.plot_ci(exact=x_true)
+    # plt.show()
+
+    x_mean = samples["x"].mean()
+    # x_mean = samples.mean()
+    x_std = samples["x"].std()
+    # x_std = samples.std()
+    fig, ax = plt.subplots()
+    ax.plot(interpolated_r_grid[:-1], x_mean, '-')
+    ax.fill_between(interpolated_r_grid[:-1], x_mean - x_std, x_mean + x_std, alpha=0.2)
+    ax.plot(interpolated_r_grid[:-1], x_true, '--', color='tab:brown')
     plt.show()
 
+    # Step 4: Analyze results
+    # x_true.plot(); plt.title("True dipole (exact solution)")
+    # y_data.plot(); plt.title("Blurred and noisy image (data)")
+    # samples["x"].plot_mean(); plt.title("Estimated image (posterior mean)")
+    # plt.show()
+    # samples["x"].plot_std(); plt.title("Uncertainty (posterior standard deviation)")
+    # samples["s"].plot_trace(); plt.suptitle("Noise level (posterior trace)")
+    # samples["d"].plot_trace(); plt.suptitle("Regularization parameter (posterior trace)")
+    # plt.show()
+
     # Plot difference between MAP and sample mean
-    (x_MAP - x_samples.mean()).plot()
-    plt.title("MAP estimate - sample mean")
-    plt.show()
+    # (x_MAP - x_samples.mean()).plot()
+    # plt.title("MAP estimate - sample mean")
+    # plt.show()
     exit()
 
     # print("Solving inverse problem with tSVD_sol regularization.")
