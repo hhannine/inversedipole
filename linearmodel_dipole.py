@@ -1,4 +1,6 @@
 # import math
+import os
+from pathlib import Path
 import multiprocessing
 import scipy.integrate as integrate
 from scipy.interpolate import CubicSpline
@@ -17,7 +19,7 @@ from trips.solvers.GKS import *
 from trips.solvers.tSVD import *
 from trips.solvers.tGSVD import *
 
-from data_manage import load_dipole, get_data
+from data_manage import load_dipole, get_data, read_sigma02
 from deepinelasticscattering import fwd_op_sigma_reduced, fwd_op_sigma_reduced_udsc
 
 # Need to formulate and construct the linear forward operator as a matrix.
@@ -57,22 +59,101 @@ def z_inted_fw_sigmar_udsc(datum, r_grid, sigma02):
         z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
     return np.array(z_inted_points)
 
+def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True):
+    data_dipole = load_dipole(dipfile)
+    data_dipole = np.sort(data_dipole, order=['xbj','r'])
+    xbj_vals = data_dipole["xbj"]
+    if xbj_vals[0] != xbj_bin:
+        print("xbj bin mismatch in export!.")
+        print(xbj_bin, xbj_vals[0])
+        print(xbj_vals)
+    r_vals = data_dipole["r"]
+    S_vals = data_dipole["S"]
+
+    interpolated_r_grid = []
+    rmin=1e-6
+    rmax=30
+    r=rmin
+    while r<=rmax:
+        interpolated_r_grid.append(r)
+        r*=(rmax/rmin)**(1/1000.)
+
+    S_interp = CubicSpline(r_vals, S_vals)
+    discrete_N_vals = []
+    for r in interpolated_r_grid[:-1]:
+        discrete_N_vals.append(1-S_interp(r))
+    vec_discrete_N = np.array(discrete_N_vals)
+
+    print("Generating discrete forward operator.")
+    with multiprocessing.Pool(processes=16) as pool:
+        fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar, ((datum, (interpolated_r_grid,), sigma02) for datum in data_sigmar))
+
+    fw_op_datum_r_matrix = []
+    for array in fw_op_vals_z_int:
+        fw_op_datum_r_matrix.append(array[:,1])
+    fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
+
+    dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
+    for d, s in zip(data_sigmar, dscr_sigmar):
+        print( d, s)
+    mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N}
+    savemat("export_discrete_operator_"+parent_data_name+str(xbj_bin)+".mat", mat_dict)
+
+
 # def main():
 if __name__=="__main__":
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
 
     # Load data.
-    # data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
     # data_sigmar = get_data("./data/simulated-lo-sigmar_WITH_DIPOLE_PRINT_higher_resolution_in_R_Q.dat")
-    # data_sigmar = get_data("./data/hera_II_combined_sigmar.txt", simulated=False)
     # data_sigmar = get_data("./data/hera_II_binned_s_318.1_xbj_0.013.dat", simulated=False)
-    data_sigmar = get_data("./data/hera_II_binned_s_318.1_xbj_0.002.dat", simulated=False)
+    # data_sigmar = get_data("./data/hera_II_binned_s_318.1_xbj_0.002.dat", simulated=False)
+
+    # Automating file IO
+    fits = ["MV", "MVgamma", "MVe"]
+    fitname = fits[2]
+
+    data_path = "./data/paper1/"
+    dipole_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
+        'dipole_fit_'+fitname+"_" in i]
+    print(dipole_files)
+    xbj_bins = [float(Path(i).stem.split("xbj")[1]) for i in dipole_files]
+    print(xbj_bins)
+
+    sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
+        'sigmar_'+fitname+"_" in i]
+    print(sigmar_files)
+    hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
+        "heraII_filtered" in i]
+    # print(hera_sigmar_files)
+    
+    sig_file = data_path + sigmar_files[0]
+    data_sigmar = get_data(sig_file)
+    if len(sigmar_files)>1:
+        print("MORE THAN ONE SIGMAR_FILE AT LOAD TIME??")
+        print("Using first file.")
+        print(sigmar_files)
     qsq_vals = data_sigmar["qsq"]
     y_vals = data_sigmar["y"]
-    sigma02=48.4781
+    sigma02=read_sigma02(sig_file)
+    print("sigma02 read as: ", sigma02, isinstance(sigma02, float))
 
-    # We need a dipole initial guess?
-    # data_dipole = load_dipole("./data/readable-lo-dipolescatteringamplitude_S.txt")
+    # Discretizing and exporting forward problems
+    for dip_file in dipole_files:
+        xbj_bin = float(Path(dip_file).stem.split("xbj")[1])
+        data_sigmar_binned = data_sigmar[data_sigmar["xbj"]==xbj_bin]
+        if data_sigmar_binned.size==0:
+            print("NO DATA FOUND IN THIS BIN: ", xbj_bin, " in file: ", sig_file)
+            continue
+        print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin)
+        export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02)
+    exit()
+
+    ###########
+    # Main cont.
+    #
+
+    # Loading dipole
     data_dipole = load_dipole("./data/readable-lo-dipole_S-log_step_r_denser.dat")
     data_dipole = np.sort(data_dipole, order=['xbj','r'])
     xbj_vals = data_dipole["xbj"]
@@ -122,13 +203,6 @@ if __name__=="__main__":
     for d, s in zip(data_sigmar, dscr_sigmar):
         print( d, s)
 
-    save_discrete = True
-    # save_discrete = False
-    if save_discrete:
-        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N}
-        # savemat("export_discrete_operator_and_dipole-hera_II_combined_sigmar_binned_s_318.1_xbj_0.013.mat", mat_dict)
-        savemat("export_discrete_operator_and_dipole-hera_II_combined_sigmar_binned_s_318.1_xbj_0.002.mat", mat_dict)
-        exit()
 
     print("Matmul took (s): ",end - start) # Time in seconds
 
