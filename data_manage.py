@@ -52,6 +52,17 @@ def find_headerline(file, headerline):
     print("headline not found")
     return 0
 
+def read_sigma02(file):
+    file = open(file, 'r')
+    for line in file.readlines():
+        if line.startswith("# qs0sqr="):
+            parts = line.split(",")
+            for part in parts:
+                words = part.split("=")
+                if "sigma02" in words[0]:
+                    return float(words[1])
+    print("DID NOT FIND MATCHING SIGMA02. ABORT.")
+    return -666
 
 def load_dipole(file):
     skip_to = 5
@@ -65,13 +76,15 @@ def load_dipole(file):
 
 def count_bins(arr, min=0):
     counted = []
+    count_exeeds_min = []
     for v in arr:
         if v not in counted:
             cnt = arr.count(v)
             if cnt>=min:
                 print(v, cnt)
+                count_exeeds_min.append(v)
             counted.append(v)
-    return counted
+    return count_exeeds_min
 
 
 if __name__=="__main__":
@@ -107,7 +120,8 @@ if __name__=="__main__":
         ]
     binned_data = np.array(binned_data, dtype=dtype)
     x_vals = binned_data["xbj"].tolist()
-    count_bins(x_vals, 6)
+    selected_bins = count_bins(x_vals, 6)
+    print(selected_bins)
     # xbj    N
     # 0.002  21
     # 0.0032 24
@@ -136,14 +150,21 @@ if __name__=="__main__":
     # 0.00032 11
 
     # x_bin = 0.013
-    x_bin = 0.00013
-    binned_data2_s_xbj = []
-    for datum in binned_data:
-        (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
-        if xbj==x_bin:
-            binned_data2_s_xbj.append(datum)
+    binned_data2_s_xbj_arr = []
+    for x_bin in selected_bins:
+        binned_data2_s_xbj = []
+        for datum in binned_data:
+            (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+            if xbj==x_bin:
+                binned_data2_s_xbj.append(datum)
+        # print(binned_data2_s_xbj)
+        binned_data2_s_xbj_arr.append(binned_data2_s_xbj)
     
     # print(binned_data2_s_xbj)
-    for d in binned_data2_s_xbj:
-        (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = d
-        print(qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err)
+    for darr in binned_data2_s_xbj_arr:
+        outf = "heraII_filtered_s318.1_xbj"+str(darr[0]["xbj"])+".dat"
+        with open(outf, 'w') as f:
+            print("# qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err", file=f)
+            for d in darr:
+                (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = d
+                print(qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err, file=f)
