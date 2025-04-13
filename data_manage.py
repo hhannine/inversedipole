@@ -12,9 +12,10 @@ def get_data(file, simulated=True):
     else:
         maxrows = 187
     maxrows=0 # This is needed then the progress NNN/187 prints are in the data file.
-    skip_to = find_headerline(file, headerline) + maxrows + 1
+    skip_to = 0
     # loadtxt defaults comment lines to '#': https://docs.scipy.org/doc/numpy/reference/generated/numpy.loadtxt.html
     if simulated:
+        skip_to = find_headerline(file, headerline) + maxrows + 1
         dtype = [
         ('xbj', float),
         ('qsq', float),
@@ -49,7 +50,7 @@ def find_headerline(file, headerline):
             # print("header at line: ", lineindex)
             # print(line)
             return lineindex
-    print("headline not found")
+    print("headerline not found")
     return 0
 
 def read_sigma02(file):
