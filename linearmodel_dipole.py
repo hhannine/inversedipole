@@ -79,8 +79,12 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
     interpolated_r_grid = []
     rmin=1e-6
     rmax=30
+    r_steps=100
+    # rmin=8e-3
+    # rmax=15
+    # r_steps=15
+
     r=rmin
-    r_steps=50
     while r<=rmax:
         interpolated_r_grid.append(r)
         r*=(rmax/rmin)**(1/r_steps)
@@ -117,17 +121,17 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
         # Simulated data and dipole
         # dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N) # Riemann sum just has a vector dot product
         # dscr_sigmar = np.sum(np.matvec(fw_op_datum_r_matrix, vec_discrete_N)) # Trapezoid needs a summation over the resulting vector to perform the sum of the integral
-        dscr_sigmar = np.sum(np.matvec(fw_op_datum_r_matrix, vec_discrete_N), axis=1) # Trapezoid needs a summation over the resulting vector to perform the sum of the integral
+        dscr_sigmar = np.sum(np.matmul(fw_op_datum_r_matrix, vec_discrete_N), axis=1) # Trapezoid needs a summation over the resulting vector to perform the sum of the integral
         for d, s in zip(data_sigmar, dscr_sigmar):
             # print(d["sigmar"])
-            print(d, d["sigmar"], s)
+            print(d, d["sigmar"], s, s/d["sigmar"])
         mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N}
-        savemat("export_discrete_operator_"+parent_data_name+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
-        exit()
+        # savemat("export_discrete_operator_"+parent_data_name+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
+        # exit()
     else:
         # Real data without dipole
         mat_dict = {"forward_op_A": fw_op_datum_r_matrix}
-        savemat("testing_export_discrete_operator_"+parent_data_name+".mat", mat_dict)
+        savemat("export_discrete_operator_"+parent_data_name+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
 
 # def main():
@@ -141,7 +145,7 @@ if __name__=="__main__":
 
     # Automating file IO
     fits = ["MV", "MVgamma", "MVe"]
-    fitname = fits[0]
+    fitname = fits[1]
 
     data_path = "./data/paper1/"
     dipole_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
@@ -169,11 +173,12 @@ if __name__=="__main__":
 
     # Discretizing and exporting forward problems
     use_real_data = False
+    # use_real_data = True
     if use_real_data:
         print("Discretizing with HERA II data.")
         print(hera_sigmar_files)
-        # sigma02=42.0125 #MVe fit value
-        sigma02=42.0125*0.4 #MVe fit value
+        sigma02=42.0125 #MVe fit value
+        # sigma02=42.0125*0.4 #Manual scaling
         for sig_file in hera_sigmar_files:
             print("Loading data file: ", sig_file)
             data_sigmar = get_data(data_path + sig_file, simulated=False)
