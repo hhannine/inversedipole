@@ -70,12 +70,26 @@ def z_inted_fw_sigmar_udsc(datum, r_grid, sigma02):
         (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
     r_grid=r_grid[0]
     z_inted_points = []
-    for i, r in enumerate(r_grid[:-1]):
-        delta_r = r_grid[i+1]-r_grid[i]
-        z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced_udsc(qsq, y, z, r), 0, 1, epsrel=1e-4)
-        z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
 
-def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True):
+    # Calculate integrand at interval end points.
+    for i, r in enumerate(r_grid[:-1]):
+        z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced_udsc(qsq, y, z, r), 0, 1, epsrel=1e-4)
+        z_inted_points.append([r, z_inted_fw_sigmar_val[0]])    
+    # Trapezoid rule of discrete integration
+    fwd_op_trapez = np.zeros((len(r_grid[:-1]), len(r_grid[:-1])))
+    for i, r in enumerate(r_grid[:-2]):
+        delta_r = r_grid[i+1]-r_grid[i]
+        z_int_i = z_inted_points[i][1]
+        z_int_ii = z_inted_points[i+1][1]
+        # print(z_int_i, z_int_ii)
+        # trap_op = [z_int_i/2.*delta_r, z_int_ii/2.*delta_r]
+        fwd_op_trapez[i][i] = z_int_i/2.*delta_r
+        fwd_op_trapez[i][i+1] = z_int_ii/2.*delta_r
+    return fwd_op_trapez
+
+
+
+def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False):
     interpolated_r_grid = []
     rmin=1e-6
     rmax=30
@@ -106,10 +120,13 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
             discrete_N_vals.append(1-S_interp(r))
         vec_discrete_N = np.array(discrete_N_vals)
 
-    print("Generating discrete forward operator.")
+    print("Generating discrete forward operator. use_charm=", use_charm)
     with multiprocessing.Pool(processes=16) as pool:
     # with multiprocessing.Pool(processes=1) as pool:
-        fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar, ((datum, (interpolated_r_grid,), sigma02) for datum in data_sigmar))
+        if use_charm:
+            fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udsc, ((datum, (interpolated_r_grid,), sigma02) for datum in data_sigmar))
+        else:
+            fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar, ((datum, (interpolated_r_grid,), sigma02) for datum in data_sigmar))
 
     fw_op_datum_r_matrix = []
     for array in fw_op_vals_z_int:
@@ -117,6 +134,10 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
         fw_op_datum_r_matrix.append(array) # Array only has operator elements
     fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
+    if use_charm:
+        str_id_charm = "light_plus_charm"
+    else:
+        str_id_charm = "light_only"
     if include_dipole:
         # Simulated data and dipole
         # dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N) # Riemann sum just has a vector dot product
@@ -126,27 +147,31 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
             # print(d["sigmar"])
             print(d, d["sigmar"], s, s/d["sigmar"])
         mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N}
-        # savemat("export_discrete_operator_"+parent_data_name+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
+        savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
         # exit()
     else:
         # Real data without dipole
         mat_dict = {"forward_op_A": fw_op_datum_r_matrix}
-        savemat("export_discrete_operator_"+parent_data_name+"_r_steps"+str(r_steps)+".mat", mat_dict)
+        savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
 
 # def main():
 if __name__=="__main__":
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
 
-    # Load data.
-    # data_sigmar = get_data("./data/simulated-lo-sigmar_WITH_DIPOLE_PRINT_higher_resolution_in_R_Q.dat")
-    # data_sigmar = get_data("./data/hera_II_binned_s_318.1_xbj_0.013.dat", simulated=False)
-    # data_sigmar = get_data("./data/hera_II_binned_s_318.1_xbj_0.002.dat", simulated=False)
+    ###################################
+    ### SETTINGS ######################
+    ###################################
 
-    # Automating file IO
+    use_charm = True
+    use_real_data = False
+    # use_real_data = True
+
     fits = ["MV", "MVgamma", "MVe"]
     fitname = fits[1]
 
+    ####################
+    # Reading data files
     data_path = "./data/paper1/"
     dipole_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
         'dipole_fit_'+fitname+"_" in i]
@@ -154,12 +179,17 @@ if __name__=="__main__":
     xbj_bins = [float(Path(i).stem.split("xbj")[1]) for i in dipole_files]
     print(xbj_bins)
 
-    sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-        'sigmar_'+fitname+"_" in i]
+    if use_charm:
+        sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
+            'sigmar_'+fitname+"_dipole-lightpluscharm" in i]
+    else:
+        sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
+            'sigmar_'+fitname+"_" in i]
     print(sigmar_files)
     hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
         "heraII_filtered" in i]
     
+    # loading data for the corret fit setup
     sig_file = data_path + sigmar_files[0]
     data_sigmar = get_data(sig_file)
     if len(sigmar_files)>1:
@@ -171,9 +201,8 @@ if __name__=="__main__":
     sigma02=read_sigma02(sig_file)
     print("sigma02 read as: ", sigma02, isinstance(sigma02, float))
 
+    #############################################
     # Discretizing and exporting forward problems
-    use_real_data = False
-    # use_real_data = True
     if use_real_data:
         print("Discretizing with HERA II data.")
         print(hera_sigmar_files)
@@ -184,7 +213,7 @@ if __name__=="__main__":
             data_sigmar = get_data(data_path + sig_file, simulated=False)
             xbj_bin = float(Path(sig_file).stem.split("xbj")[1])
             print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin)
-            export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False)
+            export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
         print("Export done. Exit.")
         exit()
     else:
@@ -196,10 +225,11 @@ if __name__=="__main__":
                 print("NO DATA FOUND IN THIS BIN: ", xbj_bin, " in file: ", sig_file)
                 continue
             print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
-            export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02)
+            export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
         exit()
 
-    ###########
+
+    ########################
     # Main cont.
     #
 
