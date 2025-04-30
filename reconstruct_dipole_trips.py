@@ -193,7 +193,6 @@ def gen_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma0
         # Simulated data and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
         for d, s in zip(data_sigmar, dscr_sigmar):
-            # print(d["sigmar"])
             print(d, d["sigmar"], s, s/d["sigmar"])
         # mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N}
         return (fw_op_datum_r_matrix, vec_discrete_N)
