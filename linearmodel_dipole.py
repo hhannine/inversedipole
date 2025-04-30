@@ -63,6 +63,31 @@ def z_inted_fw_sigmar(datum, r_grid, sigma02):
         fwd_op_trapez[i][i+1] = z_int_ii/2.*delta_r
     return fwd_op_trapez
 
+def z_inted_fw_sigmar_riem_uniftrapez(datum, r_grid, sigma02):
+    if len(datum)==6:
+        (xbj, qsq, y, sigmar, fl, ft) = datum
+    else:
+        (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+    r_grid=r_grid[0]
+    z_inted_points = []
+    # Riemann sum, lower boundary evaluation
+    # for i, r in enumerate(r_grid[:-1]):
+    #     delta_r = r_grid[i+1]-r_grid[i]
+    #     z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced(qsq, y, z, r), 0, 1, epsrel=1e-4)
+    #     z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
+    # return np.array(z_inted_points)
+
+    # Trapezoid rule, uniform interval width
+    for i, r in enumerate(r_grid[:-1]):
+        delta_r = r_grid[i+1]-r_grid[i]
+        z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced(qsq, y, z, r), 0, 1, epsrel=1e-4)
+        if ((i==0) or (i==len(r_grid[:-1])-1)):
+            z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r/2))
+        else:
+            z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
+    return np.array(z_inted_points)
+
+
 def z_inted_fw_sigmar_udsc(datum, r_grid, sigma02):
     if len(datum)==6:
         (xbj, qsq, y, sigmar, fl, ft) = datum
@@ -86,6 +111,30 @@ def z_inted_fw_sigmar_udsc(datum, r_grid, sigma02):
         fwd_op_trapez[i][i] = z_int_i/2.*delta_r
         fwd_op_trapez[i][i+1] = z_int_ii/2.*delta_r
     return fwd_op_trapez
+
+def z_inted_fw_sigmar_udsc_riem_uniftrapez(datum, r_grid, sigma02):
+    if len(datum)==6:
+        (xbj, qsq, y, sigmar, fl, ft) = datum
+    else:
+        (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+    r_grid=r_grid[0]
+    z_inted_points = []
+    # Riemann sum, lower boundary evaluation
+    # for i, r in enumerate(r_grid[:-1]):
+    #     delta_r = r_grid[i+1]-r_grid[i]
+    #     z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced_udsc(qsq, y, z, r), 0, 1, epsrel=1e-4)
+    #     z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
+    # return np.array(z_inted_points)
+
+    # Trapezoid rule, uniform interval width
+    for i, r in enumerate(r_grid[:-1]):
+        delta_r = r_grid[i+1]-r_grid[i]
+        z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced_udsc(qsq, y, z, r), 0, 1, epsrel=1e-4)
+        if ((i==0) or (i==len(r_grid[:-1])-1)):
+            z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r/2))
+        else:
+            z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
+    return np.array(z_inted_points)
 
 
 
@@ -134,10 +183,11 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
         fw_op_datum_r_matrix.append(array) # Array only has operator elements
     fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
-    if use_charm:
-        str_id_charm = "light_plus_charm"
-    else:
-        str_id_charm = "light_only"
+    # if use_charm:
+    #     str_id_charm = "light_plus_charm"
+    # else:
+    #     str_id_charm = "light_only"
+    str_id_charm = ""
     if include_dipole:
         # Simulated data and dipole
         # dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N) # Riemann sum just has a vector dot product
@@ -146,13 +196,70 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
         for d, s in zip(data_sigmar, dscr_sigmar):
             # print(d["sigmar"])
             print(d, d["sigmar"], s, s/d["sigmar"])
-        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N}
+        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N, "r_grid": interpolated_r_grid}
         savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
         # exit()
     else:
         # Real data without dipole
-        mat_dict = {"forward_op_A": fw_op_datum_r_matrix}
+        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "r_grid": interpolated_r_grid}
         savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
+
+def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False):
+    interpolated_r_grid = []
+    # rmin=0.001
+    # rmax=20
+    rmin=1e-6
+    rmax=30
+    r_steps=800
+
+    r=rmin
+    while len(interpolated_r_grid)<r_steps+1:
+        interpolated_r_grid.append(r)
+        r+=(rmax-rmin)/r_steps
+
+    if dipfile:
+        data_dipole = load_dipole(dipfile)
+        data_dipole = np.sort(data_dipole, order=['xbj','r'])
+        xbj_vals = data_dipole["xbj"]
+        if xbj_vals[0] != xbj_bin:
+            print("xbj bin mismatch in export!.")
+            print(xbj_bin, xbj_vals[0])
+            print(xbj_vals)
+        r_vals = data_dipole["r"]
+        S_vals = data_dipole["S"]
+
+        S_interp = CubicSpline(r_vals, S_vals)
+        discrete_N_vals = []
+        for r in interpolated_r_grid[:-1]:
+            discrete_N_vals.append(1-S_interp(r))
+        vec_discrete_N = np.array(discrete_N_vals)
+
+    print("Generating discrete forward operator using uniform intervals. use_charm=", use_charm)
+    with multiprocessing.Pool(processes=16) as pool:
+        if use_charm:
+            fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udsc_riem_uniftrapez, ((datum, (interpolated_r_grid,), sigma02) for datum in data_sigmar))
+        else:
+            fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_riem_uniftrapez, ((datum, (interpolated_r_grid,), sigma02) for datum in data_sigmar))
+
+    fw_op_datum_r_matrix = []
+    for array in fw_op_vals_z_int:
+        fw_op_datum_r_matrix.append(array[:,1]) # vector value riemann/uniform trapez sum operator, also has r in 0th col
+    fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
+
+    str_id_charm = ""
+    if include_dipole:
+        # Simulated data and dipole
+        dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
+        for d, s in zip(data_sigmar, dscr_sigmar):
+            print(d, d["sigmar"], s, s/d["sigmar"])
+        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N, "r_grid": interpolated_r_grid}
+        savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
+        # exit()
+    else:
+        # Real data without dipole
+        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "r_grid": interpolated_r_grid}
+        savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
+
 
 
 # def main():
@@ -213,7 +320,8 @@ if __name__=="__main__":
             data_sigmar = get_data(data_path + sig_file, simulated=False)
             xbj_bin = float(Path(sig_file).stem.split("xbj")[1])
             print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin)
-            export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
+            # export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
+            export_discrete_uniform(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
         print("Export done. Exit.")
         exit()
     else:
@@ -225,7 +333,8 @@ if __name__=="__main__":
                 print("NO DATA FOUND IN THIS BIN: ", xbj_bin, " in file: ", sig_file)
                 continue
             print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
-            export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
+            # export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
+            export_discrete_uniform(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
         exit()
 
 
