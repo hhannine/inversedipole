@@ -1,38 +1,35 @@
-%addpath(genpath('/Users/hjordis/Library/CloudStorage/OneDrive-Jyväskylänyliopisto/Updated documents/HenriAnttiPaper/Code'))
-%addpath(genpath('/Users/hjordis/Library/CloudStorage/OneDrive-Jyväskylänyliopisto/Updated documents/HenriAnttiPaper/Code/AIRToolsII-master'))
-% addpath(genpath('C:\Users\h-sch\Documents\HenriAnttiPaperv2\Code\AIRToolsII-master')) 
-% addpath(genpath('C:\Users\h-sch\Documents\HenriAnttiPaperv2\Code')) 
-addpath(genpath('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/Code'))
+% Include dependencies: AIRToolsII, Regtools
+addpath(genpath('./dependencies'))
 
 clear all
 
 % % xbj=0.002
-load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
-load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.002.mat')
+load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
+load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.002.mat')
 load('sigr0.002.mat')
 load('q2vals0.002.mat')
 
 
 %xbj=0.0013 (Ntrue for xbj=0.001)
-% load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.001.mat')
-% load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.0013.mat')
+% load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.001.mat')
+% load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.0013.mat')
 % load('sigr0.0013.mat')
 % load('q2vals0.0013.mat')
 
 %xbj=0.005 (Ntrue for xbj=0.001)
-% load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
-% load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.005.mat')
+% load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
+% load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.005.mat')
 % load('sigr0.005.mat')
 
 %xbj=0.008 (Ntrue for xbj=0.001)
-% load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.01.mat')
-% load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.008.mat')
+% load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.01.mat')
+% load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.008.mat')
 % load('sigr0.008.mat')
 
 
 %xbj=0.0032 (Ntrue for xbj=0.001)
-% load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
-% load('/Users/schluteh/Library/CloudStorage/OneDrive-UniversityofHelsinki(2)/HenriAnttiPaperv2/export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.0032.mat')
+% load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
+% load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.0032.mat')
 % load('sigr0.0032.mat')
 % load('q2vals0.0032.mat')
 %%
