@@ -257,6 +257,10 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
         # exit()
     else:
         # Real data without dipole
+        if use_charm:
+            str_id_charm = "_lightpluscharm"
+        else:
+            str_id_charm = "_lightonly"
         mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "r_grid": interpolated_r_grid}
         savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
@@ -272,8 +276,8 @@ if __name__=="__main__":
 
     # use_charm = False
     use_charm = True
-    use_real_data = False
-    # use_real_data = True
+    # use_real_data = False
+    use_real_data = True
 
     fits = ["MV", "MVgamma", "MVe"]
     fitname = fits[1]
