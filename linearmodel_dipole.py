@@ -247,12 +247,20 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
     fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
     str_id_charm = ""
+    qsq_vals = data_sigmar["qsq"]
+    sigmar_vals = data_sigmar["sigmar"]
     if include_dipole:
         # Simulated data and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
         for d, s in zip(data_sigmar, dscr_sigmar):
             print(d, d["sigmar"], s, s/d["sigmar"])
-        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "discrete_dipole_N": vec_discrete_N, "r_grid": interpolated_r_grid}
+        mat_dict = {
+            "forward_op_A": fw_op_datum_r_matrix, 
+            "discrete_dipole_N": vec_discrete_N, 
+            "r_grid": interpolated_r_grid,
+            "qsq_vals": qsq_vals,
+            "sigmar_vals": sigmar_vals
+            }
         savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
         # exit()
     else:
@@ -261,7 +269,12 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             str_id_charm = "_lightpluscharm"
         else:
             str_id_charm = "_lightonly"
-        mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "r_grid": interpolated_r_grid}
+        mat_dict = {
+            "forward_op_A": fw_op_datum_r_matrix,
+            "r_grid": interpolated_r_grid,
+            "qsq_vals": qsq_vals,
+            "sigmar_vals": sigmar_vals
+            }
         savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
 
