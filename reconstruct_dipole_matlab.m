@@ -4,32 +4,32 @@ addpath(genpath('./dependencies'))
 clear all
 
 % % xbj=0.002
-load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
-load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.002.mat')
-load('sigr0.002.mat')
-load('q2vals0.002.mat')
+% load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightonly_newbins_r_steps200_xbj0.002.mat')
+% load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.002_lightonly_r_steps200.mat')
+% load('./data/reconstruction_help/sigr0.002.mat')
+% load('./data/reconstruction_help/q2vals0.002.mat')
 
 
-%xbj=0.0013 (Ntrue for xbj=0.001)
-% load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.001.mat')
-% load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.0013.mat')
-% load('sigr0.0013.mat')
-% load('q2vals0.0013.mat')
+%xbj=0.008
+load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightpluscharm_newbins_r_steps200_xbj0.008.mat')
+load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.008_lightpluscharm_r_steps200.mat')
+load('./data/reconstruction_help/sigr0.008.mat')
+load('./data/reconstruction_help/q2vals0.002.mat')
 
 %xbj=0.005 (Ntrue for xbj=0.001)
-% load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
-% load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.005.mat')
+% load('./exports/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
+% load('./exports/export_discrete_operator_heraII_filtered_s318.1_xbj0.005.mat')
 % load('sigr0.005.mat')
 
 %xbj=0.008 (Ntrue for xbj=0.001)
-% load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.01.mat')
-% load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.008.mat')
+% load('./exports/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.01.mat')
+% load('./exports/export_discrete_operator_heraII_filtered_s318.1_xbj0.008.mat')
 % load('sigr0.008.mat')
 
 
 %xbj=0.0032 (Ntrue for xbj=0.001)
-% load('./export_discrete_operator_simulated-data/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
-% load('./export_discrete_operator_heraII_filtered_s318.1_more_xbj_bins/export_discrete_operator_heraII_filtered_s318.1_xbj0.0032.mat')
+% load('./exports/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
+% load('./exports/export_discrete_operator_heraII_filtered_s318.1_xbj0.0032.mat')
 % load('sigr0.0032.mat')
 % load('q2vals0.0032.mat')
 %%
@@ -40,7 +40,8 @@ load('q2vals0.002.mat')
 % ivec3=[1:800, 801:5:1000];
 
 % % ivec3= 1:5:1000;
-ivec3= 1:1000;
+% ivec3= 1:1000;
+ivec3= 1:200;
 
 
 
