@@ -3,23 +3,34 @@ addpath(genpath('./dependencies'))
 
 clear all
 
-% % xbj=0.002
+xbj_bin = "0.008";
+use_real_data = true;
+use_charm = false;
+
+% % xbj=0.002 lightonly
 % load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightonly_newbins_r_steps200_xbj0.002.mat')
 % load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.002_lightonly_r_steps200.mat')
 % load('./data/reconstruction_help/sigr0.002.mat')
 % load('./data/reconstruction_help/q2vals0.002.mat')
 
-
-%xbj=0.008
-load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightpluscharm_newbins_r_steps200_xbj0.008.mat')
-load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.008_lightpluscharm_r_steps200.mat')
-load('./data/reconstruction_help/sigr0.008.mat')
+% % xbj=0.002 lightpluscharm
+load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightpluscharm_newbins_r_steps200_xbj0.002.mat')
+% load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.002_lightpluscharm_r_steps200.mat')
+load('./data/reconstruction_help/sigr0.002.mat')
 load('./data/reconstruction_help/q2vals0.002.mat')
 
-%xbj=0.005 (Ntrue for xbj=0.001)
-% load('./exports/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.002.mat')
-% load('./exports/export_discrete_operator_heraII_filtered_s318.1_xbj0.005.mat')
-% load('sigr0.005.mat')
+
+%xbj=0.008
+% load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightpluscharm_newbins_r_steps200_xbj0.008.mat')
+% load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.008_lightpluscharm_r_steps200.mat')
+% load('./data/reconstruction_help/sigr0.008.mat')
+% load('./data/reconstruction_help/q2vals0.002.mat')
+
+%xbj=0.0008
+% load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightpluscharm_newbins_r_steps200_xbj0.0008.mat')
+% load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.0008_lightpluscharm_r_steps200.mat')
+% load('./data/reconstruction_help/sigr0.0008.mat')
+% load('./data/reconstruction_help/q2vals0.0008.mat')
 
 %xbj=0.008 (Ntrue for xbj=0.001)
 % load('./exports/export_discrete_operator_simulated-lo-sigmar_MVgamma_dipole0.01.mat')
@@ -34,24 +45,20 @@ load('./data/reconstruction_help/q2vals0.002.mat')
 % load('q2vals0.0032.mat')
 %%
 
-
-% ivec = [1 150 300 450 600 700 720 740 760 780 800 820 840 860 880 900 925 950 975 1000];
-% ivec2=[1:100:500, 501:10:1000];
-% ivec3=[1:800, 801:5:1000];
-
 % % ivec3= 1:5:1000;
 % ivec3= 1:1000;
 ivec3= 1:200;
-
-
 
 x = discrete_dipole_N;
 A = forward_op_A(:,ivec3);
 % bex = A*x';
 x = x(ivec3);
 bfit = A*x';
+length(bfit)
 
+% b is either the real data sigma_r, or one simulated by fit
 b = sigr;
+length(b)
 
 % rng(80,"twister");
 % eta = 0.01;
@@ -74,64 +81,48 @@ N=length(x);
 
 %%
 lambda = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
-
-
 X_tikh = tikhonov(UU,sm,XX,b,lambda);
-
 errtik = zeros(size(lambda));
-
 
 for i = 1:length(lambda)
     errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
 end
-
 [m,mI]=min(errtik);
 
 figure(1)
 plot(ivec3,x','-',ivec3,X_tikh(:,mI),'--','LineWidth',3)
 leg=legend('true','PTik')
 set(leg,'FontSize',14);
-% title('Preconditioned Tikhonov with xbj = 0.002','FontSize',16)
-
-
 title('Preconditioned Tikhonov with xbj = 0.002','FontSize',16)
 
 %%
 lambda = linspace(1,10,10);%[1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
-
-
 X_tikh = tikhonov(UU,sm,XX,b,lambda);
-
 errtik = zeros(size(lambda));
-
 
 for i = 1:length(lambda)
     errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
 end
-
 [m,mI]=min(errtik);
-
 
 figure(2)
 plot(ivec3,x','-',ivec3,X_tikh(:,mI),'--','LineWidth',3)
 leg=legend('true','PTik')
 set(leg,'FontSize',14);
-% title('Preconditioned Tikhonov with xbj = 0.002','FontSize',16)
-
-
 title('Preconditioned Tikhonov with xbj = 0.002','FontSize',16)
 
 %%
 figure(8)
 plot(q2vals,b,'o',q2vals,bfit,'*')
 
-%%
+%% Comparing lambdas
 figure(6)
 for i = 1:length(lambda)
 plot(1:N,x','-',1:N,X_tikh(:,i),'--','LineWidth',3)
 ylim([-0.4,1.1])
 hold on
 end
+title('Reconstructions at various lambda, xbj = 0.002','FontSize',16)
 hold off
 
 %%
