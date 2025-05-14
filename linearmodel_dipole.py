@@ -261,7 +261,7 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             "qsq_vals": qsq_vals,
             "sigmar_vals": sigmar_vals
             }
-        savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
+        savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
         # exit()
     else:
         # Real data without dipole
@@ -275,7 +275,7 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             "qsq_vals": qsq_vals,
             "sigmar_vals": sigmar_vals
             }
-        savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
+        savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
 
 
