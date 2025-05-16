@@ -103,7 +103,8 @@ if __name__=="__main__":
     for datum in data_sigmar:
         (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
         s = round(sqrt(qsq/(y*xbj)),1)
-        if (s == s_bin) and (xbj<=1e-2):
+        # if (s == s_bin) and (xbj<=1e-2):
+        if (s == s_bin) and (xbj<=1):
             binned_data.append(datum)
         # s_vals.append(round(sqrt(s),1))
         # print(datum, "sqrt(s)= ", sqrt(s))
@@ -149,6 +150,29 @@ if __name__=="__main__":
     # 0.0005 15
     # 0.0002  9
     # 0.00032 11
+
+    # no limits, all bins with >= 6 points
+    # 0.0008 19
+    # 0.0013 18
+    # 0.002 21
+    # 0.0032 24
+    # 0.005 24
+    # 0.008 23
+    # 0.013 30
+    # 0.02 35
+    # 0.032 33
+    # 0.05 30
+    # 0.08 30
+    # 0.13 31
+    # 0.18 33
+    # 0.25 31
+    # 0.4 33
+    # 0.65 23
+    # 0.00013 8
+    # 0.0005 15
+    # 0.0002 9
+    # 0.00032 11
+    # [0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25, 0.4, 0.65, 0.00013, 0.0005, 0.0002, 0.00032]
 
     # x_bin = 0.013
     binned_data2_s_xbj_arr = []
