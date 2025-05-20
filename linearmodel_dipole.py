@@ -292,8 +292,9 @@ if __name__=="__main__":
     use_real_data = False
     # use_real_data = True
 
-    fits = ["MV", "MVgamma", "MVe"]
-    fitname = fits[1]
+    #        0        1        2        3           4
+    fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
+    fitname = fits[4]
 
     ####################
     # Reading data files
@@ -309,7 +310,7 @@ if __name__=="__main__":
             'sigmar_'+fitname+"_dipole-lightpluscharm" in i]
     else:
         sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-            'sigmar_'+fitname+"_" in i]
+            'sigmar_'+fitname+"_dipole." in i]
     print(sigmar_files)
     hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
         "heraII_filtered" in i]
@@ -321,6 +322,7 @@ if __name__=="__main__":
         print("MORE THAN ONE SIGMAR_FILE AT LOAD TIME??")
         print("Using first file.")
         print(sigmar_files)
+        exit(1)
     qsq_vals = data_sigmar["qsq"]
     y_vals = data_sigmar["y"]
     sigma02=read_sigma02(sig_file)
@@ -331,7 +333,8 @@ if __name__=="__main__":
     if use_real_data:
         print("Discretizing with HERA II data.")
         print(hera_sigmar_files)
-        sigma02=42.0125 #MVe fit value
+        sigma02=35.6952 #bayesMV4 fit value
+        # sigma02=1 # TODO TEST IF WE CAN RECOVER THE OVERALL SIZE CORRECTLY -> independent xbj dependence of sigma02
         # sigma02=42.0125*0.4 #Manual scaling
         for sig_file in hera_sigmar_files:
             print("Loading data file: ", sig_file)
