@@ -206,11 +206,11 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
 
 def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False):
     interpolated_r_grid = []
-    # rmin=0.001
-    # rmax=20
-    rmin=1e-4
-    rmax=30
-    r_steps=200
+    # rmin=1e-4
+    # rmax=30
+    rmin=0.001
+    rmax=20 # tightening rmin and rmax help a little with the discretization precision
+    r_steps=500 # 500 by default for simulated!
 
     r=rmin
     while len(interpolated_r_grid)<r_steps+1:
@@ -289,8 +289,8 @@ if __name__=="__main__":
 
     # use_charm = False
     use_charm = True
-    # use_real_data = False
-    use_real_data = True
+    use_real_data = False
+    # use_real_data = True
 
     fits = ["MV", "MVgamma", "MVe"]
     fitname = fits[1]
