@@ -11,18 +11,22 @@ fitname = fits(5);
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 % xbj_bin = "0.0001"
 % xbj_bin = "1e-05";
-xbj_bin = "0.001";
+% xbj_bin = "0.001";
 % xbj_bin = "0.01";
+%real data bins [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08]
+% xbj_bin = "0.008";
+xbj_bin = "0.00013";
+% xbj_bin = "0.0002";
 r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
-use_real_data = false;
-% use_real_data = true;
-% use_charm = false;
-use_charm = true;
+% use_real_data = false;
+use_real_data = true;
+use_charm = false;
+% use_charm = true;
 [fitname, xbj_bin, r_steps,use_real_data,use_charm]
 
-% charm_opt = "lightonly"; % new files omitted this unfortunately
-charm_opt = "dipole_r";
+charm_opt = "lightonly"; % new files omitted this unfortunately
+sim_charm_opt = "dipole_r"; % simulated used this
 if (use_charm)
     charm_opt = "lightpluscharm";
 end
@@ -44,10 +48,11 @@ load(strcat(data_path, run_file))
 
 % if using real data, need to load reference fit dipole separately
 sim_type = "simulated";
-dip_file = 'exp_fwdop+data_simulated-lo-sigmar_MVgamma_dipole-lightpluscharm_newbins_r_steps200_xbj0.0008.mat'; % backup file to have something
+dip_file = "";
+% dip_file = 'exp_fwdop+data_simulated-lo-sigmar_MVgamma_dipole-lightpluscharm_newbins_r_steps200_xbj0.0008.mat'; % backup file to have something
 for k = 1:numel(data_files)
     fname = data_files(k).name;
-    if (contains(fname, fitname) && contains(fname, xbj_bin) && contains(fname, sim_type) && contains(fname, charm_opt) && contains(fname, r_steps_str))
+    if (contains(fname, fitname) && contains(fname, xbj_bin) && contains(fname, sim_type) && contains(fname, sim_charm_opt) && contains(fname, r_steps_str))
         dip_file = fname
     end
 end
@@ -62,7 +67,7 @@ ivec3= 1:r_steps;
 x = discrete_dipole_N;
 A = forward_op_A(:,ivec3);
 % bex = A*x';
-x = x(ivec3);
+x = 35*x(ivec3);
 bfit = A*x'; % bfit has numerical error from discretization
 % b is either the real data sigma_r, or one simulated by fit
 b = sigmar_vals'; % b is calculated by the C++ code, no error.
@@ -90,8 +95,8 @@ N=length(x);
 
 %%
 % lambda = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
-% lambda = [6e-1,5e-1,4e-1,3e-1,1e-1,9e-2,8e-2,7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3,1e-3];
-lambda = [1e-1,9e-2,8e-2,7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3];
+lambda = [5e-1,4e-1,3e-1,1e-1,9e-2,8e-2,7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3,1e-3,8e-4,4e-4];
+% lambda = [7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3];
 X_tikh = tikhonov(UU,sm,XX,b,lambda);
 errtik = zeros(size(lambda));
 
@@ -103,7 +108,8 @@ end
 figure(1) % best reconstruction vs. ground truth
 % plot(ivec3,x','-',ivec3,X_tikh(:,mI),'--','LineWidth',2)
 r_grid(end) = []; 
-loglog(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
+plot(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
+% loglog(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
 leg=legend('true',['PTik lambda=', num2str(lambda(mI))]);
 set(leg,'FontSize',12);
 set(leg,'Location',"northwest");
@@ -118,7 +124,7 @@ hold on
 for i = 1:length(lambda)
 % plot(1:N,x','-',1:N,X_tikh(:,i),'--','LineWidth',1)
 plot(1:N,X_tikh(:,i),'--','LineWidth',1)
-ylim([-0.4,1.5])
+% ylim([-0.4,1.5])
 hold on
 end
 title(['Reconstruction with various lambda xbj=',num2str(xbj_bin)],'FontSize',12)
