@@ -5,13 +5,14 @@ close all
 clear all
 
 % xbj_bin = "0.0001"
-xbj_bin = "1e-05"
-r_steps = 400
+xbj_bin = "1e-05";
+r_steps = 400;
 r_steps_str = strcat("r_steps",int2str(r_steps));
-use_real_data = false
-% use_charm = false
-% use_real_data = true
-use_charm = true
+use_real_data = false;
+% use_charm = false;
+% use_real_data = true;
+use_charm = true;
+[xbj_bin, r_steps,use_real_data,use_charm]
 
 charm_opt = "lightonly";
 if (use_charm)
@@ -47,30 +48,14 @@ ref_dip = dip_data.discrete_dipole_N;
 if (use_real_data)
     discrete_dipole_N = ref_dip;
 end
-
-% % xbj=0.002 lightonly
-% load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightonly_newbins_r_steps200_xbj0.002.mat')
-% load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.002_lightonly_r_steps200.mat')
-% load('./data/reconstruction_help/sigr0.002.mat')
-% load('./data/reconstruction_help/q2vals0.002.mat')
-
-% % xbj=0.002 lightpluscharm
-% load('./exports/exp_fwdop_simulated-lo-sigmar_MVgamma_dipole-lightpluscharm_newbins_r_steps200_xbj0.002.mat')
-% load('./exports/exp_fwdop_heraII_filtered_s318.1_xbj0.002_lightpluscharm_r_steps200.mat')
-% load('./data/reconstruction_help/sigr0.002.mat')
-% load('./data/reconstruction_help/q2vals0.002.mat')
-
 %%
 
 ivec3= 1:r_steps;
-% ivec3 = 1:20:200;
-
 x = discrete_dipole_N;
 A = forward_op_A(:,ivec3);
 % bex = A*x';
 x = x(ivec3);
 bfit = A*x'; % bfit has numerical error from discretization
-
 % b is either the real data sigma_r, or one simulated by fit
 b = sigmar_vals'; % b is calculated by the C++ code, no error.
 
@@ -80,20 +65,19 @@ b = sigmar_vals'; % b is calculated by the C++ code, no error.
 % e = eta*norm(bex)*e/norm(e);
 % b = bex + e;
 
-
 %%
 N=length(x);
 [L1,W1]=get_l(N,1);
 [L2,W2]=get_l(N,2);
 
 % classical 0th order tikhonov
-[U,s,V] = csvd(A);
+% [U,s,V] = csvd(A);
 
 % first order derivative operator
 [UU,sm,XX] = cgsvd(A,L1);
 
 % second order derivative operator
-[UU2,sm2,XX2] = cgsvd(A,L2);
+% [UU2,sm2,XX2] = cgsvd(A,L2);
 
 
 %%
@@ -107,7 +91,7 @@ for i = 1:length(lambda)
 end
 [m,mI]=min(errtik);
 
-figure(1)
+figure(1) % best reconstruction vs. ground truth
 % plot(ivec3,x','-',ivec3,X_tikh(:,mI),'--','LineWidth',2)
 r_grid(end) = []; 
 loglog(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
@@ -147,7 +131,7 @@ figure(3)
 % plot(q2vals,b,'bx-',q2vals,bfit,'ro',q2vals,bend,'go','LineWidth',1)
 % semilogx(q2vals,b,'bx',q2vals,bfit,'ro',q2vals,bend,'go','LineWidth',0.4)
 loglog(q2vals,b,'bx',q2vals,bfit,'ro',q2vals,bend,'go','LineWidth',0.4)
-leg=legend('b - measurements','b - fit','b - reconstruction')
+leg=legend('b - measurements','b - fit','b - reconstruction');
 title(['How well does the reconstruction fit the data for xbj=',num2str(xbj_bin)],'FontSize',12)
 set(leg,'FontSize',10);
 set(leg,'Location',"southeast");
@@ -171,6 +155,52 @@ set(gcf,'Position', pos3 + [3*pos2(3)/2,0,0,0]) % Shift position of Figure(2)
 
 % EXPORTING RESULTS
 
-%% todo export reconstructed dipole
+%% export reconstructed dipole
+% variables to export: N_reconst, N_true = N_fit, b_data = b_sim, b_from_reconst =
+% A*N_reconst, r_grid, q2vals
+
+% filename should have all settings / parameters
+% num2str(a_value,'%.2f') ; formatting
+
+fitname = "data_only";
+if (use_real_data==false)
+    if (contains(run_file, "_MV_"))
+        fitname = "MV";
+    elseif (contains(run_file, "_MVe_"))
+        fitname = "MVe";
+    elseif (contains(run_file, "_MVgamma_"))
+        fitname = "MVgamma";
+    elseif (contains(run_file, "_bayesMV4_"))
+        fitname = "bayesMV4";
+    elseif (contains(run_file, "_bayesMV5_"))
+        fitname = "bayesMV5";
+    else
+        fitname = "FITNAME_NOT_RECOGNIZED";
+        run_file
+        error([fitname ' with ' run_file]);
+    end
+end
+data_name = "sim";
+if (use_real_data)
+    data_name = "hera";
+end
+flavor_string = "lightonly";
+if (use_charm)
+    flavor_string = "lightpluscharm";
+end
+name = [data_name, '_', fitname, '_', flavor_string];
+f_exp_reconst = strjoin(['recon_out_' name '_xbj' xbj_bin '.mat'],"")
+N_reconst = X_tikh(:,mI);
+N_fit = discrete_dipole_N;
+b_cpp_sim = b; % data generated in C++, no discretization error.
+b_fit = bfit; % = A*Nfit, this has discretization error.
+b_from_reconst = bend; % prescription of the data by the reconstructred dipole.
+save(f_exp_reconst, ...
+    "r_grid", "q2vals", ...
+    "N_reconst", "N_fit", ...
+    "b_cpp_sim", "b_fit", "b_from_reconst", ...
+    "xbj_bin", "use_real_data", "use_charm", ...
+    "run_file", "dip_file", ...
+    "-nocompression","-v7.3")
 
 %% with real data, print max / peak and xbj_bin to a file
