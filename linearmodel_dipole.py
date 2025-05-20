@@ -269,13 +269,16 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             str_id_charm = "_lightpluscharm"
         else:
             str_id_charm = "_lightonly"
+        str_unity_sigma02 = ""
+        if sigma02==1:
+            str_unity_sigma02 = "_unitysigma"
         mat_dict = {
             "forward_op_A": fw_op_datum_r_matrix,
             "r_grid": interpolated_r_grid,
             "qsq_vals": qsq_vals,
             "sigmar_vals": sigmar_vals
             }
-        savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
+        savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
 
 
@@ -289,8 +292,8 @@ if __name__=="__main__":
 
     # use_charm = False
     use_charm = True
-    use_real_data = False
-    # use_real_data = True
+    # use_real_data = False
+    use_real_data = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
@@ -333,8 +336,8 @@ if __name__=="__main__":
     if use_real_data:
         print("Discretizing with HERA II data.")
         print(hera_sigmar_files)
-        sigma02=35.6952 #bayesMV4 fit value
-        # sigma02=1 # TODO TEST IF WE CAN RECOVER THE OVERALL SIZE CORRECTLY -> independent xbj dependence of sigma02
+        # sigma02=35.6952 #bayesMV4 fit value
+        sigma02=1 # TODO TEST IF WE CAN RECOVER THE OVERALL SIZE CORRECTLY -> independent xbj dependence of sigma02
         # sigma02=42.0125*0.4 #Manual scaling
         for sig_file in hera_sigmar_files:
             print("Loading data file: ", sig_file)
