@@ -204,7 +204,7 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
         mat_dict = {"forward_op_A": fw_op_datum_r_matrix, "r_grid": interpolated_r_grid}
         savemat("exp_fwdop_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
-def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False):
+def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False, use_unity_sigma0=False):
     interpolated_r_grid = []
     # rmin=1e-4
     # rmax=30
@@ -234,6 +234,13 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             discrete_N_vals.append(1-S_interp(r))
         vec_discrete_N = np.array(discrete_N_vals)
 
+    real_sigma = sigma02
+    if use_unity_sigma0:
+        # if dipfile:
+        #     print("Using unity sigma, multiplying sigma02 into the dipole amplitude")
+        #     vec_discrete_N = vec_discrete_N * sigma02
+        sigma02 = 1
+
     print("Generating discrete forward operator using uniform intervals. use_charm=", use_charm)
     with multiprocessing.Pool(processes=16) as pool:
         if use_charm:
@@ -246,9 +253,19 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
         fw_op_datum_r_matrix.append(array[:,1]) # vector value riemann/uniform trapez sum operator, also has r in 0th col
     fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
-    str_id_charm = ""
+    # Filename settings
+    if use_charm:
+        str_id_charm = "_lightpluscharm"
+    else:
+        str_id_charm = "_lightonly"
+    if use_unity_sigma0:
+        str_unity_sigma02 = "_unitysigma"
+    else:
+        str_unity_sigma02 = "_realsigma"
+    
     qsq_vals = data_sigmar["qsq"]
     sigmar_vals = data_sigmar["sigmar"]
+    # Export
     if include_dipole:
         # Simulated data and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
@@ -259,24 +276,19 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             "discrete_dipole_N": vec_discrete_N, 
             "r_grid": interpolated_r_grid,
             "qsq_vals": qsq_vals,
-            "sigmar_vals": sigmar_vals
+            "sigmar_vals": sigmar_vals,
+            "real_sigma": real_sigma
             }
-        savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
+        savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
         # exit()
     else:
         # Real data without dipole
-        if use_charm:
-            str_id_charm = "_lightpluscharm"
-        else:
-            str_id_charm = "_lightonly"
-        str_unity_sigma02 = ""
-        if sigma02==1:
-            str_unity_sigma02 = "_unitysigma"
         mat_dict = {
             "forward_op_A": fw_op_datum_r_matrix,
             "r_grid": interpolated_r_grid,
             "qsq_vals": qsq_vals,
-            "sigmar_vals": sigmar_vals
+            "sigmar_vals": sigmar_vals,
+            "real_sigma": real_sigma
             }
         savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
@@ -290,10 +302,11 @@ if __name__=="__main__":
     ### SETTINGS ######################
     ###################################
 
-    # use_charm = False
-    use_charm = True
-    # use_real_data = False
-    use_real_data = True
+    use_charm = False
+    # use_charm = True
+    use_real_data = False
+    # use_real_data = True
+    use_unity_sigma0 = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
@@ -330,14 +343,20 @@ if __name__=="__main__":
     y_vals = data_sigmar["y"]
     sigma02=read_sigma02(sig_file)
     print("sigma02 read as: ", sigma02, isinstance(sigma02, float))
+    if use_unity_sigma0:
+        # sigma02=1 ## Instead multiply the sigma into the fit dipole to train lambda?
+        print("Using unity sigma02 with real sigma02 = ", sigma02)
 
     #############################################
     # Discretizing and exporting forward problems
     if use_real_data:
         print("Discretizing with HERA II data.")
         print(hera_sigmar_files)
+        xbj_bin_vals = [float(Path(i).stem.split("xbj")[1]) for i in hera_sigmar_files]
+        print(xbj_bin_vals)
+        # exit()
         # sigma02=35.6952 #bayesMV4 fit value
-        sigma02=1 # TODO TEST IF WE CAN RECOVER THE OVERALL SIZE CORRECTLY -> independent xbj dependence of sigma02
+        # sigma02=1 # TODO TEST IF WE CAN RECOVER THE OVERALL SIZE CORRECTLY -> independent xbj dependence of sigma02
         # sigma02=42.0125*0.4 #Manual scaling
         for sig_file in hera_sigmar_files:
             print("Loading data file: ", sig_file)
@@ -345,7 +364,7 @@ if __name__=="__main__":
             xbj_bin = float(Path(sig_file).stem.split("xbj")[1])
             print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin)
             # export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
-            export_discrete_uniform(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
+            export_discrete_uniform(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm, use_unity_sigma0=use_unity_sigma0)
         print("Export done. Exit.")
         exit()
     else:
@@ -358,7 +377,7 @@ if __name__=="__main__":
                 continue
             print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
             # export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
-            export_discrete_uniform(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
+            export_discrete_uniform(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm, use_unity_sigma0=use_unity_sigma0)
         exit()
 
 
