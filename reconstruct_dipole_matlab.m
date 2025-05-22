@@ -10,23 +10,23 @@ fitname = fits(5);
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 % xbj_bin = "0.0001"
-% xbj_bin = "1e-05";
+xbj_bin = "1e-05";
 % xbj_bin = "0.001";
 % xbj_bin = "0.01";
 %real data bins [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08]
 % xbj_bin = "0.008";
-xbj_bin = "0.00013";
+% xbj_bin = "0.00013";
 % xbj_bin = "0.0002";
 r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
-% use_real_data = false;
-use_real_data = true;
+use_real_data = false;
+% use_real_data = true;
 use_charm = false;
 % use_charm = true;
 [fitname, xbj_bin, r_steps,use_real_data,use_charm]
 
 charm_opt = "lightonly"; % new files omitted this unfortunately
-sim_charm_opt = "dipole_r"; % simulated used this
+sim_charm_opt = charm_opt; %"dipole_r"; % simulated used this for a bit
 if (use_charm)
     charm_opt = "lightpluscharm";
 end
@@ -36,7 +36,8 @@ if (use_real_data)
 end
 
 % load forward operator file
-data_path = './exports/';
+% data_path = './exports/';
+data_path = './';
 data_files = dir(fullfile(data_path,'*.mat'));
 for k = 1:numel(data_files)
     fname = data_files(k).name;
@@ -67,7 +68,7 @@ ivec3= 1:r_steps;
 x = discrete_dipole_N;
 A = forward_op_A(:,ivec3);
 % bex = A*x';
-x = 35*x(ivec3);
+x = real_sigma*x(ivec3);
 bfit = A*x'; % bfit has numerical error from discretization
 % b is either the real data sigma_r, or one simulated by fit
 b = sigmar_vals'; % b is calculated by the C++ code, no error.
