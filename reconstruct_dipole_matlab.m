@@ -6,23 +6,23 @@ clear all
 
 %         1       2        3        4            5
 fits = ["MV_", "MVgamma", "MVe", "bayesMV4", "bayesMV5"];
-fitname = fits(5);
+fitname = fits(4);
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 % xbj_bin = "0.0001"
-xbj_bin = "1e-05";
+% xbj_bin = "1e-05";
 % xbj_bin = "0.001";
 % xbj_bin = "0.01";
 %real data bins [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08]
-% xbj_bin = "0.008";
+xbj_bin = "0.008";
 % xbj_bin = "0.00013";
 % xbj_bin = "0.0002";
 r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
-use_real_data = false;
-% use_real_data = true;
-use_charm = false;
-% use_charm = true;
+% use_real_data = false;
+use_real_data = true;
+% use_charm = false;
+use_charm = true;
 [fitname, xbj_bin, r_steps,use_real_data,use_charm]
 
 charm_opt = "lightonly"; % new files omitted this unfortunately
@@ -96,7 +96,13 @@ N=length(x);
 
 %%
 % lambda = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
-lambda = [5e-1,4e-1,3e-1,1e-1,9e-2,8e-2,7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3,1e-3,8e-4,4e-4];
+lambda = [5e-1,4e-1,3e-1,1e-1,9e-2,8e-2,7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3,1e-3,8e-4,4e-4,1e-4,8e-5,4e-5,2e-5,1e-5];
+lam1 = 1:9;
+lam2 = 1:999;
+lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
+lambda = [0.01, 0.02, 0.03, 0.04, 0.05];
+lambda = [0.01];
+% lambda = [lam2*1e-5];
 % lambda = [7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3];
 X_tikh = tikhonov(UU,sm,XX,b,lambda);
 errtik = zeros(size(lambda));
@@ -105,38 +111,70 @@ for i = 1:length(lambda)
     errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
 end
 [m,mI]=min(errtik);
+best_lambda = lambda(mI);
+N_maxima = [];
+if length(lambda)>5
+    for i = 1:5
+        N_maxima(i) = max(X_tikh(:,mI-3+i));
+    end
+else
+    for i = 1:length(lambda)
+        N_maxima(i) = max(X_tikh(:,i));
+    end
+end
+N_maxima
+[xbj_bin, N_maxima(1), lambda(mI)]
+real_sigma
 
 figure(1) % best reconstruction vs. ground truth
 % plot(ivec3,x','-',ivec3,X_tikh(:,mI),'--','LineWidth',2)
 r_grid(end) = []; 
-plot(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
-% loglog(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
+% plot(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
+semilogx(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
+xlim([r_grid(1), r_grid(end)]);
 leg=legend('true',['PTik lambda=', num2str(lambda(mI))]);
 set(leg,'FontSize',12);
 set(leg,'Location',"northwest");
 title(['Preconditioned Tikhonov with xbj=',num2str(xbj_bin)],'FontSize',12)
 pos1 = get(gcf,'Position'); % get position of Figure(1) 
-set(gcf,'Position', pos1 - [pos1(3)/2,0,0,0]) % Shift position of Figure(1) 
+% set(gcf,'Position', pos1 - [pos1(3)/2,0,0,0]) % Shift position of Figure(1) 
 
 %% Comparing lambdas
 figure(2)
-plot(1:N,x','-','LineWidth',1)
+semilogx(r_grid',x','-','LineWidth',1)
 hold on
-for i = 1:length(lambda)
-% plot(1:N,x','-',1:N,X_tikh(:,i),'--','LineWidth',1)
-plot(1:N,X_tikh(:,i),'--','LineWidth',1)
-% ylim([-0.4,1.5])
-hold on
+% for i = 1:length(lambda)
+% mI
+% length(lambda)
+if mI<3 | length(lambda)-mI <3
+    for i = 1:length(lambda)
+        % plot(1:N,x','-',1:N,X_tikh(:,i),'--','LineWidth',1)
+        semilogx(r_grid',X_tikh(:,i),'--','LineWidth',1)
+        % ylim([-0.4,1.5]);
+        xlim([0.1, r_grid(end)]);
+        hold on
+    end
+    legend_lambdas = cellstr(num2str(lambda', 'lambda=%-f'));
+    legend_items = cat(1, 'true', legend_lambdas(1:length(lambda)));
+else
+    for i = mI-2:mI+2
+        % plot(1:N,x','-',1:N,X_tikh(:,i),'--','LineWidth',1)
+        semilogx(r_grid',X_tikh(:,i),'--','LineWidth',1)
+        % ylim([-0.4,1.5]);
+        xlim([0.1, r_grid(end)]);
+        hold on
+    end
+    legend_lambdas = cellstr(num2str(lambda', 'lambda=%-f'));
+    legend_items = cat(1, 'true', legend_lambdas(mI-2:mI+2));
 end
 title(['Reconstruction with various lambda xbj=',num2str(xbj_bin)],'FontSize',12)
-legend_lambdas = cellstr(num2str(lambda', 'l=%-f'));
-legend_items = cat(1, 'true', legend_lambdas);
+
 leg=legend(legend_items);
 set(leg,'FontSize',10);
-set(leg,'Location',"southeast");
+set(leg,'Location',"northwest");
 hold off
 pos2 = get(gcf,'Position');  % get position of Figure(2) 
-set(gcf,'Position', pos2 + [pos1(3)/2,0,0,0]) % Shift position of Figure(2)
+set(gcf,'Position', pos2 + [pos1(3),0,0,0]) % Shift position of Figure(2)
 
 %% Plot: data b vs fit b vs b from reconstruction
 
@@ -152,7 +190,7 @@ title(['How well does the reconstruction fit the data for xbj=',num2str(xbj_bin)
 set(leg,'FontSize',10);
 set(leg,'Location',"southeast");
 pos3 = get(gcf,'Position');  % get position of Figure(3) 
-set(gcf,'Position', pos3 + [3*pos2(3)/2,0,0,0]) % Shift position of Figure(2)
+set(gcf,'Position', pos3 + [2*pos2(3),0,0,0]) % Shift position of Figure(2)
 
 %%
 
@@ -213,8 +251,9 @@ b_fit = bfit; % = A*Nfit, this has discretization error.
 b_from_reconst = bend; % prescription of the data by the reconstructred dipole.
 save(f_exp_reconst, ...
     "r_grid", "q2vals", ...
-    "N_reconst", "N_fit", ...
+    "N_reconst", "N_fit", "N_maxima", ...
     "b_cpp_sim", "b_fit", "b_from_reconst", ...
+    "best_lambda", "lambda",...
     "xbj_bin", "use_real_data", "use_charm", ...
     "run_file", "dip_file", ...
     "-nocompression","-v7.3")
