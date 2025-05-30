@@ -9,8 +9,8 @@ deepinelasticscattering module implements calculation of DIS cross sections in t
 import math
 import numpy as np
 import scipy.integrate as integrate
-import vegas
 import scipy.special as special
+import vegas
 from scipy import stats
 from scipy.interpolate import CubicSpline, PchipInterpolator, griddata, RegularGridInterpolator, make_interp_spline
 
