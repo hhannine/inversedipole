@@ -35,15 +35,16 @@ helpstring = "usage: python plottool_reconst.py"
 
 def dipole_interp(dipole):
     global R_GRID
-    N_interp = InterpolatedUnivariateSpline(R_GRID, dipole, k=5, ext=3)
+    N_interp = InterpolatedUnivariateSpline(R_GRID, dipole, ext=3)
     # print(dipole.shape)
     # N_interp = CubicSpline(R_GRID, dipole)
     return N_interp
 
-def S_interp(N_interp, r):
+def S_interp(N_interp, r, N_max=None):
     # if r > R_GRID[-1]:
         # return 0
-    N_max = N_interp(R_GRID[-1]) # TODO should find actual maximum
+    if not N_max:
+        N_max = N_interp(R_GRID[-1])
     return N_max-N_interp(r)
 
 def prob_ball_line_pick(s, R):
@@ -62,8 +63,10 @@ def prob_uniformly_decreasing_v1(s, R):
 def prob_uniformly_decreasing_v2(s, R):
     """integrate Divide[pi*Power[R,2],pi*Power[R+r,2]] dr from 0 to 2R"""
     if s>2*R:
+    # if s>3*R:
         return 0
     return 3/(2*R) * (R**2 / (R+s)**2)
+    # return 4/(3*R) * (R**2 / (R+s)**2)
 
 def main():
     global G_PATH, PLOT_TYPE, R_GRID
@@ -163,14 +166,14 @@ def main():
         # 2D Fourier of the dipole
         # S_p(\mathbf{k}) = \int d^2 {\mathbf{r}} e^{i\mathbf{k} \cdot \mathbf{r}} [1 - N(\mathbf{r})]
         # Assuming angular non-dependence this is the Hankel transform of 1-N
-        kays = np.linspace(0.1, 10, 1000)
+        kays = np.linspace(0.1, 20, 500)
         ht = hankel.HankelTransform(
             nu= 0,     # The order of the bessel function
             N = 500*2,   # Number of steps in the integration
-            h = 0.03*0.01   # Proxy for "size" of steps in integration
+            h = 0.03*0.001   # Proxy for "size" of steps in integration
         )
         # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r), kays, ret_err=False) for i in dip_data]
-        S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r) * prob_vectorized(r, np.sqrt(1/2**2*N_max/math.pi)), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
+        S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max) * prob_vectorized(r, np.sqrt(N_max/(math.pi*2))), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
         # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r) * prob_vectorized(r, np.sqrt(N_max/math.pi)), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
         fig, ax = plt.subplots()
         fig.set_size_inches(10.5, 10.5)
@@ -182,6 +185,7 @@ def main():
             plt.plot(kays , S_p, label=xbj, color=colors[xbj_bins.index(xbj)])
         plt.legend(loc="best", frameon=False)
         ax = plt.gca()
+        # ax.set_xscale('log')
         ax.set_yscale('log')
         plt.show()
         exit()
