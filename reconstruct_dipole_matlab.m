@@ -22,8 +22,9 @@ if use_real_data
     all_xbj_bins = real_xbj_bins;
 end
 
+lambda_type = "broad";
 % lambda_type = "semiconstrained";
-lambda_type = "fixed";
+% lambda_type = "fixed";
 if lambda_type == "broad"
     lam1 = 1:9;
     lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
@@ -183,7 +184,7 @@ for xi = 1:length(all_xbj_bins)
     set(leg,'Location',"northwest");
     hold off
     pos2 = get(gcf,'Position');  % get position of Figure(2) 
-    set(gcf,'Position', pos2 + [pos1(3),0,0,0]) % Shift position of Figure(2)
+    set(gcf,'Position', pos2 + [pos1(3)/2,0,0,0]) % Shift position of Figure(2)
     
     %% Plot: data b vs fit b vs b from reconstruction
     
@@ -199,7 +200,7 @@ for xi = 1:length(all_xbj_bins)
     set(leg,'FontSize',10);
     set(leg,'Location',"southeast");
     pos3 = get(gcf,'Position');  % get position of Figure(3) 
-    set(gcf,'Position', pos3 + [2*pos2(3),0,0,0]) % Shift position of Figure(2)
+    set(gcf,'Position', pos3 + [2/2*pos2(3),0,0,0]) % Shift position of Figure(2)
     
     %%
     
