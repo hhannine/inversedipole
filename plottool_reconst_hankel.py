@@ -40,9 +40,11 @@ def dipole_interp(dipole):
     # N_interp = CubicSpline(R_GRID, dipole)
     return N_interp
 
-def S_interp(N_interp, r, N_max=None):
+def S_interp_scalar(N_interp, r, N_max=None):
     # if r > R_GRID[-1]:
-        # return 0
+    #     return 0
+    # if r < R_GRID[0]:
+    #     return 1
     if not N_max:
         N_max = N_interp(R_GRID[-1])
     return N_max-N_interp(r)
@@ -84,21 +86,22 @@ def main():
     ### SETTINGS ######################
     ###################################
 
-    # use_charm = False
-    use_charm = True
-    # use_real_data = False
-    use_real_data = True
+    use_charm = False
+    # use_charm = True
+    use_real_data = False
+    # use_real_data = True
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[4] + "_"
+    fitname = fits[3] + "_"
 
     ####################
     # Data filename settings
-    data_path = "./reconstructions/"
+    # data_path = "./reconstructions/"
+    data_path = "./reconstructions_IUSdip/"
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
@@ -111,8 +114,8 @@ def main():
     if use_noise:
         name_base = 'recon_with_noise_out_'
     lambda_type = ""
-    # lambda_type = "broad_"
-    lambda_type = "semiconstrained_"
+    lambda_type = "broad_"
+    # lambda_type = "semiconstrained_"
     # lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
     print(composite_fname)
@@ -143,42 +146,42 @@ def main():
         XBJ = np.array(xbj_bins)
         rr, xx = np.meshgrid(R,XBJ)
         dip_data = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+        # dip_data = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
         if lambda_type=="fixed_":
             N_max_data = [dat["N_maxima"][0] for dat in data_list]
         else:
             N_max_data = [dat["N_maxima"][0][2] for dat in data_list]
 
-        # print(N_max_data[0][0][2])
-        # exit()
-
-        # dip_data = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
         print("SIZES", R.shape, XBJ.shape, dip_data[0].shape)
         reshape_dip = dip_data.reshape((len(XBJ), len(R)))
         print(reshape_dip.shape)
 
-        # test plot one dipole
-        # plt.plot(R , dip_data[0].T)
-        # plt.show()
-
+        S_interp = np.vectorize(S_interp_scalar)
         # prob_vectorized = np.vectorize(prob_ball_line_pick)
         # prob_vectorized = np.vectorize(prob_uniformly_decreasing_v1)
         prob_vectorized = np.vectorize(prob_uniformly_decreasing_v2)
+
         # 2D Fourier of the dipole
         # S_p(\mathbf{k}) = \int d^2 {\mathbf{r}} e^{i\mathbf{k} \cdot \mathbf{r}} [1 - N(\mathbf{r})]
         # Assuming angular non-dependence this is the Hankel transform of 1-N
-        kays = np.linspace(0.1, 20, 500)
+
+        kays = np.linspace(0.1, 10, 200)
         ht = hankel.HankelTransform(
             nu= 0,     # The order of the bessel function
-            N = 500*2,   # Number of steps in the integration
-            h = 0.03*0.001   # Proxy for "size" of steps in integration
+            N = 750,   # Number of steps in the integration
+            h = 0.00005   # Proxy for "size" of steps in integration
         )
+        ## IF N_FIT : CANNOT USE N_max FROM THE RECONSTRUCTION!!
         # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r), kays, ret_err=False) for i in dip_data]
+
+        # Hankel from Reconstruction
+        # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
         S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max) * prob_vectorized(r, np.sqrt(N_max/(math.pi*2))), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
-        # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r) * prob_vectorized(r, np.sqrt(N_max/math.pi)), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
         fig, ax = plt.subplots()
         fig.set_size_inches(10.5, 10.5)
         plt.subplots_adjust(bottom=0.025, left=0.035)
-        plt.title(composite_fname + 'disc_area_probability_mod_R3.6')
+        plt.title(composite_fname)
+        # plt.title(composite_fname + 'disc_area_probability_mod_R3.6')
         cmap = plt.get_cmap('RdBu_r')
         colors = [cmap(i) for i in np.linspace(0, 1, len(XBJ))]
         for S_p, xbj in zip(S_p_array, xbj_bins):
@@ -187,6 +190,7 @@ def main():
         ax = plt.gca()
         # ax.set_xscale('log')
         ax.set_yscale('log')
+        # ax.set_ylim([1e-4, 10])
         plt.show()
         exit()
         
