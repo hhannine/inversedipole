@@ -35,16 +35,16 @@ helpstring = "usage: python plottool_reconst.py"
 
 def dipole_interp(dipole):
     global R_GRID
-    N_interp = InterpolatedUnivariateSpline(R_GRID, dipole, ext=3)
+    N_interp = InterpolatedUnivariateSpline(R_GRID, dipole, k=1, ext=3)
     # print(dipole.shape)
     # N_interp = CubicSpline(R_GRID, dipole)
     return N_interp
 
 def S_interp_scalar(N_interp, r, N_max=None):
-    # if r > R_GRID[-1]:
-    #     return 0
-    # if r < R_GRID[0]:
-    #     return 1
+    if r > R_GRID[-1]:
+        return 0
+    if r < R_GRID[0]:
+        return 1
     if not N_max:
         N_max = N_interp(R_GRID[-1])
     return N_max-N_interp(r)
@@ -69,6 +69,10 @@ def prob_uniformly_decreasing_v2(s, R):
         return 0
     return 3/(2*R) * (R**2 / (R+s)**2)
     # return 4/(3*R) * (R**2 / (R+s)**2)
+
+def prob_uniformly_decreasing_v3(s, R):
+    """integrate Divide[pi*Power[R,2],pi*Power[R+r,2]] dr from 0 to infinity"""
+    return 1/(R) * (R**2 / (R+s)**2)
 
 def main():
     global G_PATH, PLOT_TYPE, R_GRID
@@ -96,7 +100,7 @@ def main():
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[3] + "_"
+    fitname = fits[0] + "_"
 
     ####################
     # Data filename settings
@@ -145,38 +149,49 @@ def main():
         # print(R)
         XBJ = np.array(xbj_bins)
         rr, xx = np.meshgrid(R,XBJ)
-        dip_data = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-        # dip_data = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+        dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+        dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
         if lambda_type=="fixed_":
             N_max_data = [dat["N_maxima"][0] for dat in data_list]
         else:
             N_max_data = [dat["N_maxima"][0][2] for dat in data_list]
 
-        print("SIZES", R.shape, XBJ.shape, dip_data[0].shape)
-        reshape_dip = dip_data.reshape((len(XBJ), len(R)))
-        print(reshape_dip.shape)
+        print("SIZES", R.shape, XBJ.shape, dip_data_rec[0][:,0].shape, dip_data_fit[0][0].T.shape)
+        # print(dip_data_rec[0][0])
+        # reshape_dip = dip_data.reshape((len(XBJ), len(R)))
+        # print(reshape_dip.shape)
+        
+        # i=0
+        # # print(dip_data_fit[i])
+        # # for dipr, dipf in zip(dip_data_rec[i],dip_data_fit[i]):
+        # #     print(dipr/dipf)
+        # # exit()
+        # plt.plot(R_GRID, np.divide(dip_data_rec[i][0],dip_data_fit[i][0]))
+        # plt.show()
+        # exit()
 
         S_interp = np.vectorize(S_interp_scalar)
         # prob_vectorized = np.vectorize(prob_ball_line_pick)
         # prob_vectorized = np.vectorize(prob_uniformly_decreasing_v1)
-        prob_vectorized = np.vectorize(prob_uniformly_decreasing_v2)
+        prob_vectorized = np.vectorize(prob_uniformly_decreasing_v3)
 
         # 2D Fourier of the dipole
         # S_p(\mathbf{k}) = \int d^2 {\mathbf{r}} e^{i\mathbf{k} \cdot \mathbf{r}} [1 - N(\mathbf{r})]
         # Assuming angular non-dependence this is the Hankel transform of 1-N
 
-        kays = np.linspace(0.1, 10, 200)
+        kays = np.linspace(0.1, 10, 100)
+        hank = 30e-3
         ht = hankel.HankelTransform(
             nu= 0,     # The order of the bessel function
-            N = 750,   # Number of steps in the integration
-            h = 0.00005   # Proxy for "size" of steps in integration
+            N = int(3.2/hank),   # Number of steps in the integration
+            h = hank   # Proxy for "size" of steps in integration
         )
         ## IF N_FIT : CANNOT USE N_max FROM THE RECONSTRUCTION!!
-        # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r), kays, ret_err=False) for i in dip_data]
+        # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r), kays, ret_err=False) for i in dip_data_fit]
 
         # Hankel from Reconstruction
-        # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
-        S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max) * prob_vectorized(r, np.sqrt(N_max/(math.pi*2))), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
+        # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max), kays, ret_err=False) for i, N_max in zip(dip_data_rec, N_max_data)]
+        S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max) * prob_vectorized(r, np.sqrt(N_max/(math.pi*2))), kays, ret_err=False) for i, N_max in zip(dip_data_rec, N_max_data)]
         fig, ax = plt.subplots()
         fig.set_size_inches(10.5, 10.5)
         plt.subplots_adjust(bottom=0.025, left=0.035)
