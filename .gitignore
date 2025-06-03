@@ -161,3 +161,4 @@ cython_debug/
 *.mat
 *.zip
 /dependencies
+*.asv
