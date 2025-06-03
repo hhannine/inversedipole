@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import multiprocessing
 import scipy.integrate as integrate
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, InterpolatedUnivariateSpline
 from scipy.io import savemat
 from timeit import default_timer as timer
 
@@ -163,7 +163,8 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
         r_vals = data_dipole["r"]
         S_vals = data_dipole["S"]
 
-        S_interp = CubicSpline(r_vals, S_vals)
+        # S_interp = CubicSpline(r_vals, S_vals)
+        S_interp = InterpolatedUnivariateSpline(r_vals, S_vals, ext=3)
         discrete_N_vals = []
         for r in interpolated_r_grid[:-1]:
             discrete_N_vals.append(1-S_interp(r))
@@ -206,10 +207,10 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
 
 def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False, use_unity_sigma0=False):
     interpolated_r_grid = []
-    # rmin=1e-4
+    rmin=1e-4
     # rmax=30
-    rmin=0.001
-    rmax=20 # tightening rmin and rmax help a little with the discretization precision
+    # rmin=0.001
+    rmax=25 # tightening rmin and rmax help a little with the discretization precision
     r_steps=500 # 500 by default for simulated!
 
     r=rmin
@@ -228,7 +229,8 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
         r_vals = data_dipole["r"]
         S_vals = data_dipole["S"]
 
-        S_interp = CubicSpline(r_vals, S_vals)
+        # S_interp = CubicSpline(r_vals, S_vals)
+        S_interp = InterpolatedUnivariateSpline(r_vals, S_vals, ext=3)
         discrete_N_vals = []
         for r in interpolated_r_grid[:-1]:
             discrete_N_vals.append(1-S_interp(r))
@@ -266,11 +268,13 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
     qsq_vals = data_sigmar["qsq"]
     sigmar_vals = data_sigmar["sigmar"]
     # Export
+    exp_folder = "./export_fwd_IUSinterp/"
+    base_name = exp_folder+"exp_fwdop_v2+data_"
     if include_dipole:
         # Simulated data and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
         for d, s in zip(data_sigmar, dscr_sigmar):
-            print(d, d["sigmar"], s, s/d["sigmar"])
+            print(d, d["sigmar"], real_sigma*s, real_sigma*s/d["sigmar"])
         mat_dict = {
             "forward_op_A": fw_op_datum_r_matrix, 
             "discrete_dipole_N": vec_discrete_N, 
@@ -279,7 +283,7 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             "sigmar_vals": sigmar_vals,
             "real_sigma": real_sigma
             }
-        savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
+        savemat(base_name+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
         # exit()
     else:
         # Real data without dipole
@@ -290,7 +294,7 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             "sigmar_vals": sigmar_vals,
             "real_sigma": real_sigma
             }
-        savemat("exp_fwdop+data_"+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+".mat", mat_dict)
+        savemat(base_name+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+".mat", mat_dict)
 
 
 
@@ -310,7 +314,7 @@ if __name__=="__main__":
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[4]
+    fitname = fits[3]
 
     ####################
     # Reading data files
