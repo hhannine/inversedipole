@@ -22,13 +22,13 @@ numbers = re.compile(r'(\d+)')
 from matplotlib import rc, cm
 rc('text', usetex=True)
 
-
 G_PATH = ""
 STRUCT_F_TYPE = ""
 PLOT_TYPE = ""
 # USE_TITLE = True
 USE_TITLE = False
 R_GRID = []
+gev_to_mb = 1/2.56819
 
 helpstring = "usage: python plottool_reconst.py"
  
@@ -57,26 +57,26 @@ def main():
         # exit(1)
     G_PATH = os.path.dirname(os.path.realpath("."))
 
-
     ###################################
     ### SETTINGS ######################
     ###################################
 
-    # use_charm = False
-    use_charm = True
-    # use_real_data = False
-    use_real_data = True
+    use_charm = False
+    # use_charm = True
+    use_real_data = False
+    # use_real_data = True
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[4] + "_"
+    fitname = fits[0] + "_"
 
     ####################
     # Data filename settings
-    data_path = "./reconstructions/"
+    # data_path = "./reconstructions/"
+    data_path = "./reconstructions_IUSdip/"
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
@@ -89,8 +89,8 @@ def main():
     if use_noise:
         name_base = 'recon_with_noise_out_'
     lambda_type = ""
-    # lambda_type = "broad_"
-    lambda_type = "semiconstrained_"
+    lambda_type = "broad_"
+    # lambda_type = "semiconstrained_"
     # lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
     print(composite_fname)
@@ -103,93 +103,66 @@ def main():
         print("No files found!")
         print(data_path, composite_fname)
         exit(None)
-    xbj_bins = sorted([float(Path(i).stem.split("xbj")[1]) for i in recon_files])
-    print(xbj_bins)
+    # xbj_bins = sorted([float(Path(i).stem.split("xbj")[1]) for i in recon_files])
+    xbj_bins = [float(Path(i).stem.split("xbj")[1]) for i in recon_files]
+    # print(xbj_bins)
     recon_files = [x for _, x in sorted(zip(xbj_bins, recon_files))]
+    xbj_bins = sorted(xbj_bins)
+    print(xbj_bins)
 
     data_list = []
     for fle in recon_files:
         data_list.append(loadmat(data_path + fle))
     
-    # if True:
-    #     # plt.style.use('_mpl-gallery')
-    #     # plt.style.use('_mpl-gallery-nogrid')
-    #     # plot_2d()
-    #     R = data_list[0]["r_grid"][0]
-    #     R_GRID = R
-    #     # print(R)
-    #     XBJ = np.array(xbj_bins)
-    #     rr, xx = np.meshgrid(R,XBJ)
-    #     dip_data = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-    #     if lambda_type=="fixed_":
-    #         N_max_data = [dat["N_maxima"][0] for dat in data_list]
-    #     else:
-    #         N_max_data = [dat["N_maxima"][0][2] for dat in data_list]
+    # Reading data
+    R_GRID = data_list[0]["r_grid"][0]
+    XBJ = np.array(xbj_bins)
+    real_sigma = data_list[0]["real_sigma"][0]
+    best_lambdas = [dat["best_lambda"][0] for dat in data_list]
+    lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
+    mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
+    uncert_i = [range(mI-4,mI+5,2) for mI in mI_list]
+    # print(best_lambda, mI, lambda_list[mI-2:mI+3], )
+    print(uncert_i)
+    # exit()
 
-    #     # print(N_max_data[0][0][2])
-    #     # exit()
+    dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    dip_data_rec_adj = np.array([dat["N_rec_adjacent"] for dat in data_list]) # matrix of all the reconstructions, need to find correct lambda
 
-    #     # dip_data = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-    #     print("SIZES", R.shape, XBJ.shape, dip_data[0].shape)
-    #     reshape_dip = dip_data.reshape((len(XBJ), len(R)))
-    #     print(reshape_dip.shape)
+    if lambda_type=="fixed_":
+        N_max_data = [dat["N_maxima"][0] for dat in data_list]
+    else:
+        N_max_data = [dat["N_maxima"][0][2] for dat in data_list]
+    
+    # PROPER PLOTS
+    # 1. reconstruction from simulated data (light only)
+    #       - dipole vs reconstruction
+    #       - data vs data_reconst
+    # 2. --||-- with charm
+    # 3.
+    # 4.
+    # 5. Sigma0(xbj) plot from real data reconstruction
 
-    #     # test plot one dipole
-    #     # plt.plot(R , dip_data[0].T)
-    #     # plt.show()
-
-    #     # prob_vectorized = np.vectorize(prob_ball_line_pick)
-    #     # prob_vectorized = np.vectorize(prob_uniformly_decreasing_v1)
-    #     prob_vectorized = np.vectorize(prob_uniformly_decreasing_v2)
-    #     # 2D Fourier of the dipole
-    #     # S_p(\mathbf{k}) = \int d^2 {\mathbf{r}} e^{i\mathbf{k} \cdot \mathbf{r}} [1 - N(\mathbf{r})]
-    #     # Assuming angular non-dependence this is the Hankel transform of 1-N
-    #     kays = np.linspace(0.1, 20, 500)
-    #     ht = hankel.HankelTransform(
-    #         nu= 0,     # The order of the bessel function
-    #         N = 500*2,   # Number of steps in the integration
-    #         h = 0.03*0.001   # Proxy for "size" of steps in integration
-    #     )
-    #     # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r), kays, ret_err=False) for i in dip_data]
-    #     S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max) * prob_vectorized(r, np.sqrt(N_max/(math.pi*2))), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
-    #     # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r) * prob_vectorized(r, np.sqrt(N_max/math.pi)), kays, ret_err=False) for i, N_max in zip(dip_data, N_max_data)]
-    #     fig, ax = plt.subplots()
-    #     fig.set_size_inches(10.5, 10.5)
-    #     plt.subplots_adjust(bottom=0.025, left=0.035)
-    #     plt.title(composite_fname + 'disc_area_probability_mod_R3.6')
-    #     cmap = plt.get_cmap('RdBu_r')
-    #     colors = [cmap(i) for i in np.linspace(0, 1, len(XBJ))]
-    #     for S_p, xbj in zip(S_p_array, xbj_bins):
-    #         plt.plot(kays , S_p, label=xbj, color=colors[xbj_bins.index(xbj)])
-    #     plt.legend(loc="best", frameon=False)
-    #     ax = plt.gca()
-    #     # ax.set_xscale('log')
-    #     ax.set_yscale('log')
-    #     plt.show()
-    #     exit()
-        
-
-    #     # plot
-    #     fig, ax = plt.subplots()
-    #     fig.set_size_inches(10.5, 10.5)
-    #     plt.subplots_adjust(bottom=0.025, left=0.035)
-    #     # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    #     # ax.pcolormesh(rr, xx, reshape_dip, shading='auto') 
-    #     c = ax.pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=30.0, cmap = plt.colormaps['magma']) 
-    #     plt.colorbar(c)
-    #     # ax.plot_surface(xx, rr, reshape_dip, cmap=cm.Blues) 
-    #     ax.set_xscale('log')
-    #     ax.set_yscale('log')
-    #     # ax.set_xlim([min(R), max(R)])
-    #     ax.set_xlim([1e-1, max(R)])
-    #     ax.set_ylim([min(XBJ), max(XBJ)])
-    #     plt.show()
-    #     exit()
-    # TODO START IMPLEMENTING PROPER PLOTS
-
-    ####
-    # old plotting (needed for below?)
-    plt.figure()
+    ####################
+    ### PLOT TYPE 1 ---
+    ####################
+    plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
+    # print("plt1_xbj_bins", plt1_xbj_bins)
+    for xbj, dat in zip(xbj_bins, data_list):
+        # print(dat.keys())
+        if (str(xbj) not in dat["dip_file"][0]):
+            print("SORT ERROR?", str(xbj), dat["dip_file"][0])
+    if not plt1_xbj_bins:
+        print("No xbj bins found!", xbj_bins)
+        exit()
+    binned_dip_data_fit = [dip_data_fit[i] for i in plt1_xbj_bins]
+    binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
+    binned_dip_data_rec_adj = [dip_data_rec_adj[i].T for i in plt1_xbj_bins]
+    # print([el.shape for el in binned_dip_data_rec_adj])
+    # exit()
+    
+    fig = plt.figure()
     ax = plt.gca()
     plt.xticks(fontsize=20, rotation=0)
     plt.yticks(fontsize=20, rotation=0)
@@ -202,7 +175,7 @@ def main():
     #     plt.title(title)
     if PLOT_TYPE == "dipole":
         plt.xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=22)
-        plt.ylabel(r'$N(r)$', fontsize=22)
+        plt.ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
         xvar = data_list[0]["r_grid"]
     elif PLOT_TYPE == "sigmar":
         plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=22)
@@ -213,107 +186,140 @@ def main():
     ax.set_xscale('log')
     # ax.set_yscale('log')
     
-    fit_color_set = ["orange", "red", "blue", "green", "magenta", "cyan"]
-    fit_line_style = ['-', '--', '-.', ':']
+    fit_color_set = ["orange", "red", "blue", "green", "green", "cyan"]
+    fit_line_style = ['-', '--', ':']
 
     # make labels, line styles and colors
     labels = []
     colors = []
     line_styles = []
     scalings = []
-    for fname in f_path_list:
-            fname = os.path.splitext(os.path.basename(fname))[0]
-            if "urp" in fname:
-                label = r'$\mathrm{Fit ~ 1}$'
+    for fname in recon_files:
+            # print(fname)
+            if "bayesMV4" in fname:
+                label = r'$\mathrm{bayesMV4}$'
                 col = "red"
-            elif "ukp" in fname:
-                label = r'$\mathrm{Fit ~ 2}$'
-                col = "orange"
-            elif "utp" in fname:
-                label = r'$\mathrm{TBK ~ p.d.}$'
-                col = "black"
-            elif "urs" in fname:
-                label = r'$\mathrm{ResumBK ~ bs.d.}$'
-                col = "magenta"
-            elif "uks" in fname:
-                label = r'$\mathrm{KCBK ~ bs.d.}$'
-                col = "brown"
-            elif "uts" in fname:
-                label = r'$\mathrm{Fit ~ 3}$'
+            elif "bayesMV5" in fname:
+                label = r'$\mathrm{bayesMV5}$'
                 col = "blue"
-            if "cc" in fname:
+            elif "MV_" in fname:
+                label = r'$\mathrm{MV}$'
+                col = "black"
+            else:
+                continue
+            if "xbj0.01" in fname:
                 # label += r"$~ \mathrm{charm}$"
-                style = "--"
-                scale = 2
-            elif "bb" in fname:
-                # label += r"$~ \mathrm{bottom}$"
-                style = ":"
-                scale = 30
-            elif "lpcb" in fname:
-                # label += r"$~ \mathrm{incl.}$"
                 style = "-"
-                scale = 1
+                # scale = 0.8
+            elif "xbj0.001" in fname:
+                # label += r"$~ \mathrm{bottom}$"
+                style = "--"
+                # scale = 0.9
+            elif "xbj1e-05" in fname:
+                # label += r"$~ \mathrm{incl.}$"
+                style = ":"
+                # scale = 1
+            else:
+                continue
             labels.append(label)
-            colors.append(col)
+            # colors.append(col)
             line_styles.append(style)
-            scalings.append(scale)
+            # scalings.append(scale)
 
-    # colors = ["red", "orange", "blue"]
+    # scalings = [1, 1.06, 1.09]
+    # scalings = [0.8, 0.9, 1]
+    scalings = [1, 1, 1]
+    additives = [0, 2, 4]
+    colors = ["orange", "orange", "black", "red", "green", "green"]
+    lw=2.8
 
-    # print(labels)
-    # line1 = Line2D([0,1],[0,1],linestyle='-', color='r')
-    # line2 = Line2D([0,1],[0,1],linestyle='-', color='black')
-    # line3 = Line2D([0,1],[0,1],linestyle='-', color='blue')
-    line1 = Patch(facecolor=colors[0])
-    line2 = Patch(facecolor=colors[1])
-    line3 = Patch(facecolor=colors[2])
-    line_incl = Line2D([0,1],[0,1],linestyle='-', color='grey')
-    line_char = Line2D([0,1],[0,1],linestyle='--', color='grey')
-    line_bott = Line2D([0,1],[0,1],linestyle=':', color='grey')
-    manual_handles = [line1, line2, line3, line_incl, line_char, line_bott]
+    uncert_col0 = Patch(facecolor=colors[1], alpha=0.3)
+    uncert_col1 = Patch(facecolor=colors[3], alpha=0.3)
+    uncert_col2 = Patch(facecolor=colors[5], alpha=0.3)
+    # line_fit0 = Line2D([0,1],[0,1],linestyle='-', color=colors[0])
+    line_fit0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw, color="black")
+    line_rec0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[1])
+    # line_fit1 = Line2D([0,1],[0,1],linestyle='-', color=colors[2])
+    line_fit1 = Line2D([0,1],[0,1],linestyle='--',linewidth=lw, color="black")
+    line_rec1 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[3])
+    # line_fit2 = Line2D([0,1],[0,1],linestyle='-', color=colors[4])
+    line_fit2 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
+    line_rec2 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[5])
+
+    manual_handles = [line_fit0, line_rec0, uncert_col0,
+                      line_fit1, line_rec1, uncert_col1,
+                      line_fit2, line_rec2, uncert_col2,]
     manual_labels = [
-        # r'$\mathrm{Fit ~ 1}$',
-        # r'$\mathrm{Fit ~ 2}$',
-        # r'$\mathrm{Fit ~ 3}$',
-        labels[0],
-        labels[1],
-        labels[2],
-        r'$\mathrm{inclusive}$',
-        r'$\mathrm{charm}\times 2$',
-        r'$\mathrm{bottom}\times 30$'
+        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-2}} ~ (\times 1)$',
+        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-2}} ~ (+ 0 \mathrm{mb})$',
+        r'${\mathrm{Reconstructed ~ dipole}}$',
+        r'$\mathrm{Reconstruction ~ uncertainty}$',
+        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}~ (\times 1.06)$',
+        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}~ (+ 2 \mathrm{mb})$',
+        # r'${\mathrm{Reconstructed ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}$',
+        r'${\mathrm{Reconstructed ~ dipole}}$',
+        r'$\mathrm{Reconstruction ~ uncertainty}$',
+        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}~ (\times 1.09)$',
+        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}~ (+ 4 \mathrm{mb})$',
+        # r'${\mathrm{Reconstructed ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}$',
+        r'${\mathrm{Reconstructed ~ dipole}}$',
+        r'$\mathrm{Reconstruction ~ uncertainty}$',
     ]
 
-    for i, f_nlo in enumerate(f_list_nlo):
-        plt.plot(xvar , scalings[i]*f_nlo,
-                label=labels[i],
-                linestyle=line_styles[i],
-                linewidth=1.2,
-                color=colors[i % 3]
+    # Plot fit dipoles and their reconstructions
+    for i, (dip_fit, dip_rec) in enumerate(zip(binned_dip_data_fit, binned_dip_data_rec)):
+        ax.plot(xvar[0], gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
+                # label=labels[i],
+                label="Fit dipole",
+                linestyle=fit_line_style[i%3],
+                # linestyle="-",
+                linewidth=lw*1.,
+                # color=colors[2*i]
+                color="black"
                 )
+        ax.plot(xvar[0], gev_to_mb*scalings[i%3]*dip_rec.T[0]+additives[i%3],
+                # label=labels[i+1],
+                label="Reconstuction of fit dipole",
+                # linestyle=line_styles[i],
+                # linestyle=":",
+                linestyle="-",
+                linewidth=lw/2,
+                color=colors[2*i+1],
+                alpha=1
+                # color="blue"
+                )
+        
+    # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
+    i=0
+    for i_rnge, adj_dips in zip(uncert_i, binned_dip_data_rec_adj):
+        needed_adj_dips = [adj_dips[i] for i in i_rnge]
+        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*needed_adj_dips[0]+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[4]+additives[i%3], color=colors[2*i+1], alpha=0.09)
+        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i+1], alpha=0.16)
+        i+=1
+
 
     # plt.text(0.95, 0.146, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black')
     # plt.text(0.95, 0.14, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled log log
-    plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
+    # plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
+    
+    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
+    
 
-    # if len(f_path_list) < 6:
-    #     plt.legend(loc="best", frameon=False)
-    # else:
-    #     order=[1,0,2,4,3,5,7,6,8]
-    #     handles, labels = plt.gca().get_legend_handles_labels()
-    #     plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order], frameon=False, fontsize=14) 
-    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=2) 
-    # plt.legend(handlelength=1, handleheight=1)
-
-    ax.xaxis.set_major_formatter(ScalarFormatter())
-    plt.xlim(1, 100)
-    plt.ylim(bottom=0, top=0.33)
-    plt.draw()
+    # ax.xaxis.set_major_formatter(ScalarFormatter())
+    # plt.xlim(1e-3, 20)
+    plt.xlim(0.05, 25)
+    # plt.ylim(bottom=0, top=40)
+    fig.set_size_inches(7,7)
+    
+    mpl.use('agg') # if writing to PDF
     plt.tight_layout()
-    outfilename = 'plot-EIC-' + "{}".format(STRUCT_F_TYPE) + '.pdf'
+    plt.draw()
+    # plt.show()
+    # exit()
+    outfilename = 'plot1-'+ composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
+    print(os.path.join(G_PATH, outfilename))
     plt.savefig(os.path.join(G_PATH, outfilename))
     return 0
-
-
 
 
 main()
