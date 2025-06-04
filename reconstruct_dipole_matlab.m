@@ -6,7 +6,7 @@ clear all
 
 %         1       2        3        4            5
 fits = ["MV_", "MVgamma", "MVe", "bayesMV4", "bayesMV5"];
-fitname = fits(4);
+fitname = fits(1);
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 % xbj_bin = "1e-05";
@@ -14,10 +14,10 @@ real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032
 
 r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
-% use_real_data = false;
-use_real_data = true;
-% use_charm = false;
-use_charm = true;
+use_real_data = false;
+% use_real_data = true;
+use_charm = false;
+% use_charm = true;
 if use_real_data
     all_xbj_bins = real_xbj_bins;
 end
@@ -50,7 +50,8 @@ end
 
 % load forward operator file
 % data_path = './exports/';
-data_path = './exports_unitysigma/';
+% data_path = './exports_unitysigma/';
+data_path = './export_fwd_IUSinterp/';
 data_files = dir(fullfile(data_path,'*.mat'));
 sim_type = "simulated";
 
@@ -72,6 +73,7 @@ for xi = 1:length(all_xbj_bins)
         fname = data_files(k).name;
         if (contains(fname, fitname) && contains(fname, xbj_bin) && contains(fname, sim_type) && contains(fname, sim_charm_opt) && contains(fname, r_steps_str))
             dip_file = fname
+            break
         end
     end
     dip_data = load(strcat(data_path, dip_file));
@@ -253,16 +255,31 @@ for xi = 1:length(all_xbj_bins)
         flavor_string = "lightpluscharm";
     end
     name = [data_name, '_', fitname, '_', flavor_string, '_', lambda_type];
-    recon_path = "./reconstructions/";
+    recon_path = "./reconstructions_IUSdip/";
     f_exp_reconst = strjoin([recon_path 'recon_out_' name '_xbj' xbj_bin '.mat'],"")
     N_reconst = X_tikh(:,mI);
+    N_rec_adjacent = X_tikh;
+    % if lambda_type == "fixed"
+    %     N_rec_adjacent(1) = false
+    % else
+    %     if mI<3 | length(lambda)-mI <3
+    %         for i = 1:length(lambda)
+    %             N_rec_adjacent(i) = X_tikh(:,i);
+    %         end
+    %     else
+    %         for i = mI-2:mI+2
+    %             N_rec_adjacent(i) = X_tikh(:,i);
+    %         end
+    %     end
+    % end
     N_fit = discrete_dipole_N;
     b_cpp_sim = b; % data generated in C++, no discretization error.
     b_fit = bfit; % = A*Nfit, this has discretization error.
     b_from_reconst = bend; % prescription of the data by the reconstructred dipole.
     save(f_exp_reconst, ...
         "r_grid", "q2vals", ...
-        "N_reconst", "N_fit", "N_maxima", ...
+        "N_fit", "real_sigma",...
+        "N_reconst", "N_maxima", "N_rec_adjacent", ...
         "b_cpp_sim", "b_fit", "b_from_reconst", ...
         "best_lambda", "lambda", "lambda_type", ...
         "xbj_bin", "use_real_data", "use_charm", ...
