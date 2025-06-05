@@ -125,6 +125,8 @@ for xi = 1:length(all_xbj_bins)
     [m,mI]=min(errtik);
     best_lambda = lambda(mI);
     N_maxima = [];
+    N_bpluseps_maxima = [];
+    N_bminuseps_maxima = [];
     if length(lambda)>5
         for i = 1:5
             N_maxima(i) = max(X_tikh(:,mI-3+i));
@@ -259,28 +261,25 @@ for xi = 1:length(all_xbj_bins)
     f_exp_reconst = strjoin([recon_path 'recon_out_' name '_xbj' xbj_bin '.mat'],"")
     N_reconst = X_tikh(:,mI);
     N_rec_adjacent = X_tikh;
-    % if lambda_type == "fixed"
-    %     N_rec_adjacent(1) = false
-    % else
-    %     if mI<3 | length(lambda)-mI <3
-    %         for i = 1:length(lambda)
-    %             N_rec_adjacent(i) = X_tikh(:,i);
-    %         end
-    %     else
-    %         for i = mI-2:mI+2
-    %             N_rec_adjacent(i) = X_tikh(:,i);
-    %         end
-    %     end
-    % end
+    N_reconst_from_b_plus_eps = [];
+    N_bpluseps_rec_adjacent = [];
+    N_reconst_from_b_minus_eps = [];
+    N_bminuseps_rec_adjacent = [];
     N_fit = discrete_dipole_N;
     b_cpp_sim = b; % data generated in C++, no discretization error.
     b_fit = bfit; % = A*Nfit, this has discretization error.
     b_from_reconst = bend; % prescription of the data by the reconstructred dipole.
+    b_from_reconst_adjacent = A*X_tikh;
+    b_plus_eps_from_reconst = []; % should we include lambda variation here also?
+    b_minus_eps_from_reconst = []; % should we include lambda variation here also?
     save(f_exp_reconst, ...
         "r_grid", "q2vals", ...
         "N_fit", "real_sigma",...
         "N_reconst", "N_maxima", "N_rec_adjacent", ...
-        "b_cpp_sim", "b_fit", "b_from_reconst", ...
+        "N_reconst_from_b_plus_eps", "N_bpluseps_maxima", "N_bpluseps_rec_adjacent", ...
+        "N_reconst_from_b_minus_eps", "N_bminuseps_maxima", "N_bminuseps_rec_adjacent", ...
+        "b_cpp_sim", "b_fit", "b_from_reconst", "b_from_reconst_adjacent", ...
+        "b_plus_eps_from_reconst", "b_minus_eps_from_reconst", ...
         "best_lambda", "lambda", "lambda_type", ...
         "xbj_bin", "use_real_data", "use_charm", ...
         "run_file", "dip_file", ...
