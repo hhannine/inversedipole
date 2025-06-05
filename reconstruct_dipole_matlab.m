@@ -269,7 +269,10 @@ for xi = 1:length(all_xbj_bins)
     b_cpp_sim = b; % data generated in C++, no discretization error.
     b_fit = bfit; % = A*Nfit, this has discretization error.
     b_from_reconst = bend; % prescription of the data by the reconstructred dipole.
-    b_from_reconst_adjacent = A*X_tikh;
+    b_from_reconst_adjacent = [];
+    for i = 1:length(lambda)
+        b_from_reconst_adjacent(:,i) = A*X_tikh(:,i);
+    end
     b_plus_eps_from_reconst = []; % should we include lambda variation here also?
     b_minus_eps_from_reconst = []; % should we include lambda variation here also?
     save(f_exp_reconst, ...
