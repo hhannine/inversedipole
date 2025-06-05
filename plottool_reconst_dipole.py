@@ -317,8 +317,9 @@ def main():
     # plt.show()
     # exit()
     outfilename = 'plot1-'+ composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
-    print(os.path.join(G_PATH, outfilename))
-    plt.savefig(os.path.join(G_PATH, outfilename))
+    plotpath = G_PATH+"/inversedipole/plots/"
+    print(os.path.join(plotpath, outfilename))
+    plt.savefig(os.path.join(plotpath, outfilename))
     return 0
 
 

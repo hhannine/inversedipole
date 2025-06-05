@@ -50,10 +50,10 @@ def main():
     global G_PATH, PLOT_TYPE, R_GRID
     f_path_list = []
     # PLOT_TYPE = sys.argv[1]
-    PLOT_TYPE = "dipole"
+    PLOT_TYPE = "sigmar"
     if PLOT_TYPE not in ["dipole", "sigmar", "noise"]:
         print(helpstring)
-        PLOT_TYPE = "dipole"
+        PLOT_TYPE = "sigmar"
         # exit(1)
     G_PATH = os.path.dirname(os.path.realpath("."))
 
@@ -179,7 +179,7 @@ def main():
         xvar = data_list[0]["r_grid"]
     elif PLOT_TYPE == "sigmar":
         plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=22)
-        plt.ylabel(r'$\sigma_r ~ \left(\mathrm{GeV}^{-2} \right)$', fontsize=22)
+        plt.ylabel(r'$\sigma_r ~ \left(\mathrm{mb}\right)$', fontsize=22)
         xvar = data_list[0]["q2vals"]
 
     # LOG AXIS
@@ -314,11 +314,12 @@ def main():
     mpl.use('agg') # if writing to PDF
     plt.tight_layout()
     plt.draw()
-    # plt.show()
-    # exit()
+    plt.show()
+    exit()
     outfilename = 'plot1-'+ composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
-    print(os.path.join(G_PATH, outfilename))
-    plt.savefig(os.path.join(G_PATH, outfilename))
+    plotpath = G_PATH+"/inversedipole/plots/"
+    print(os.path.join(plotpath, outfilename))
+    plt.savefig(os.path.join(plotpath, outfilename))
     return 0
 
 
