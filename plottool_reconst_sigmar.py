@@ -116,6 +116,7 @@ def main():
     
     # Reading data
     R_GRID = data_list[0]["r_grid"][0]
+    Q2vals_grid = [dat["q2vals"][0] for dat in data_list]
     XBJ = np.array(xbj_bins)
     real_sigma = data_list[0]["real_sigma"][0]
     best_lambdas = [dat["best_lambda"][0] for dat in data_list]
@@ -124,11 +125,24 @@ def main():
     uncert_i = [range(mI-4,mI+5,2) for mI in mI_list]
     # print(best_lambda, mI, lambda_list[mI-2:mI+3], )
     print(uncert_i)
-    # exit()
 
+    # for dat, qsq in zip(data_list, Q2vals_grid):
+    #     print(dat["run_file"], len(qsq))
+    # exit(0)
+
+    # Reading dipoles
     dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec_adj = np.array([dat["N_rec_adjacent"] for dat in data_list]) # matrix of all the reconstructions, need to find correct lambda
+
+    # Reading sigma_r (b)
+    # for dat in data_list:
+    #     print(dat["run_file"], len(dat["q2vals"][0]), len(dat["b_fit"]))
+    b_fit = [dat["b_fit"] for dat in data_list]
+    b_rec = [dat["b_from_reconst"] for dat in data_list]
+    b_rec_adj = [dat["b_from_reconst_adjacent"].T for dat in data_list] # this is a list of arrays [b_i,] instead of b_rec, which is just an array of elements of b_rec 
+    print(b_rec_adj[0])
+    print(b_rec_adj[0][0])
 
     if lambda_type=="fixed_":
         N_max_data = [dat["N_maxima"][0] for dat in data_list]
@@ -145,10 +159,9 @@ def main():
     # 5. Sigma0(xbj) plot from real data reconstruction
 
     ####################
-    ### PLOT TYPE 1 ---
+    ### PLOT TYPE 1B --- sigma_r comparison
     ####################
     plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
-    # print("plt1_xbj_bins", plt1_xbj_bins)
     for xbj, dat in zip(xbj_bins, data_list):
         # print(dat.keys())
         if (str(xbj) not in dat["dip_file"][0]):
@@ -159,9 +172,11 @@ def main():
     binned_dip_data_fit = [dip_data_fit[i] for i in plt1_xbj_bins]
     binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
     binned_dip_data_rec_adj = [dip_data_rec_adj[i].T for i in plt1_xbj_bins]
-    # print([el.shape for el in binned_dip_data_rec_adj])
-    # exit()
-    
+    binned_b_fit = [b_fit[i] for i in plt1_xbj_bins]
+    binned_b_rec = [b_rec[i] for i in plt1_xbj_bins]
+    binned_b_rec_adj = [b_rec_adj[i] for i in plt1_xbj_bins]
+    binned_qsq_grids = [Q2vals_grid[i] for i in plt1_xbj_bins]
+        
     fig = plt.figure()
     ax = plt.gca()
     plt.xticks(fontsize=20, rotation=0)
@@ -176,11 +191,11 @@ def main():
     if PLOT_TYPE == "dipole":
         plt.xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=22)
         plt.ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
-        xvar = data_list[0]["r_grid"]
+        xvar = data_list[0]["r_grid"][0]
     elif PLOT_TYPE == "sigmar":
         plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=22)
-        plt.ylabel(r'$\sigma_r ~ \left(\mathrm{mb}\right)$', fontsize=22)
-        xvar = data_list[0]["q2vals"]
+        plt.ylabel(r'$\sigma_r$', fontsize=22)
+        xvar = binned_qsq_grids
 
     # LOG AXIS
     ax.set_xscale('log')
@@ -237,7 +252,7 @@ def main():
     uncert_col1 = Patch(facecolor=colors[3], alpha=0.3)
     uncert_col2 = Patch(facecolor=colors[5], alpha=0.3)
     # line_fit0 = Line2D([0,1],[0,1],linestyle='-', color=colors[0])
-    line_fit0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw, color="black")
+    line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     line_rec0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[1])
     # line_fit1 = Line2D([0,1],[0,1],linestyle='-', color=colors[2])
     line_fit1 = Line2D([0,1],[0,1],linestyle='--',linewidth=lw, color="black")
@@ -245,44 +260,70 @@ def main():
     # line_fit2 = Line2D([0,1],[0,1],linestyle='-', color=colors[4])
     line_fit2 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     line_rec2 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[5])
+    
+    uncert_col = Patch(facecolor="black", alpha=0.3)
+    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="black")
 
-    manual_handles = [line_fit0, line_rec0, uncert_col0,
-                      line_fit1, line_rec1, uncert_col1,
-                      line_fit2, line_rec2, uncert_col2,]
-    manual_labels = [
-        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-2}} ~ (\times 1)$',
-        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-2}} ~ (+ 0 \mathrm{mb})$',
-        r'${\mathrm{Reconstructed ~ dipole}}$',
-        r'$\mathrm{Reconstruction ~ uncertainty}$',
-        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}~ (\times 1.06)$',
-        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}~ (+ 2 \mathrm{mb})$',
-        # r'${\mathrm{Reconstructed ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}$',
-        r'${\mathrm{Reconstructed ~ dipole}}$',
-        r'$\mathrm{Reconstruction ~ uncertainty}$',
-        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}~ (\times 1.09)$',
-        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}~ (+ 4 \mathrm{mb})$',
-        # r'${\mathrm{Reconstructed ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}$',
-        r'${\mathrm{Reconstructed ~ dipole}}$',
-        r'$\mathrm{Reconstruction ~ uncertainty}$',
+    manual_handles = [line_fit0, (line_rec, uncert_col),
+                      uncert_col0,
+                      uncert_col1,
+                      uncert_col2,
     ]
+    manual_labels = [
+        r'${\mathrm{Fit ~ } \sigma_r}$',
+        r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \mathrm{uncertainty}}$',
+        r'${x_{\mathrm{Bj.}} = 10^{-2}}$',
+        r'${x_{\mathrm{Bj.}} = 10^{-3}}$',
+        r'${x_{\mathrm{Bj.}} = 10^{-5}}$',
+    ]
+    # manual_handles = [line_fit0, (line_rec0, uncert_col0),
+    #                   line_fit1, (line_rec1, uncert_col1),
+    #                   line_fit2, (line_rec2,uncert_col2),]
+    # manual_labels = [
+    #     # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-2}} ~ (\times 1)$',
+    #     # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-2}} ~ (+ 0 \mathrm{mb})$',
+    #     r'${\mathrm{Fit ~ } \sigma_r, ~ x_{\mathrm{Bj.}} = 10^{-2}}$',
+    #     # r'${\mathrm{Reconstructed ~ dipole}}$',
+    #     r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \mathrm{uncertainty}}$',
+    #     # r'$\mathrm{Reconstruction ~ uncertainty}$',
+    #     # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}~ (\times 1.06)$',
+    #     # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}~ (+ 2 \mathrm{mb})$',
+    #     r'${\mathrm{Fit ~ } \sigma_r, ~ x_{\mathrm{Bj.}} = 10^{-3}}$',
+    #     # r'${\mathrm{Reconstructed ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}$',
+    #     # r'${\mathrm{Reconstructed ~ dipole}}$',
+    #     r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \mathrm{uncertainty}}$',
+    #     # r'$\mathrm{Reconstruction ~ uncertainty}$',
+    #     # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}~ (\times 1.09)$',
+    #     # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}~ (+ 4 \mathrm{mb})$',
+    #     r'${\mathrm{Fit ~ } \sigma_r, ~ x_{\mathrm{Bj.}} = 10^{-5}}$',
+    #     # r'${\mathrm{Reconstructed ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}$',
+    #     r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, \mathrm{uncertainty}}$',
+    #     # r'$\mathrm{Reconstruction ~ uncertainty}$',
+    # ]
 
     # Plot fit dipoles and their reconstructions
-    for i, (dip_fit, dip_rec) in enumerate(zip(binned_dip_data_fit, binned_dip_data_rec)):
-        ax.plot(xvar[0], gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
+    for i, (b_fit, b_rec) in enumerate(zip(binned_b_fit, binned_b_rec)):
+        x_srted, b_fit = zip(*sorted(zip(xvar[i], b_fit)))
+        x_srted, b_rec = zip(*sorted(zip(xvar[i], b_rec)))
+        # ax.plot(xvar[i], scalings[i%3]*b_fit+additives[i%3],
+        ax.plot(x_srted, b_fit,
                 # label=labels[i],
-                label="Fit dipole",
-                linestyle=fit_line_style[i%3],
-                # linestyle="-",
-                linewidth=lw*1.,
+                label="Fit sigma",
+                # linestyle=fit_line_style[i%3],
+                linestyle=":",
+                # marker="x",
+                linewidth=lw*1.2,
                 # color=colors[2*i]
                 color="black"
                 )
-        ax.plot(xvar[0], gev_to_mb*scalings[i%3]*dip_rec.T[0]+additives[i%3],
+        # ax.plot(xvar[i], scalings[i%3]*b_rec+additives[i%3],
+        ax.plot(x_srted, b_rec,
                 # label=labels[i+1],
-                label="Reconstuction of fit dipole",
+                label="Reconstuction sigma",
                 # linestyle=line_styles[i],
-                # linestyle=":",
+                # linestyle="",
                 linestyle="-",
+                # marker="x",
                 linewidth=lw/2,
                 color=colors[2*i+1],
                 alpha=1
@@ -291,10 +332,18 @@ def main():
         
     # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
     i=0
-    for i_rnge, adj_dips in zip(uncert_i, binned_dip_data_rec_adj):
-        needed_adj_dips = [adj_dips[i] for i in i_rnge]
-        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*needed_adj_dips[0]+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[4]+additives[i%3], color=colors[2*i+1], alpha=0.09)
-        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i+1], alpha=0.16)
+    xvar = binned_qsq_grids
+    for i_rnge, adj_sigr in zip(list(uncert_i), binned_b_rec_adj):
+        needed_adj_sigr = [adj_sigr[i] for i in i_rnge]
+        x_srted, adj_sig0 = zip(*sorted(zip(xvar[i], needed_adj_sigr[0])))
+        x_srted, adj_sig1 = zip(*sorted(zip(xvar[i], needed_adj_sigr[1])))
+        x_srted, adj_sig3 = zip(*sorted(zip(xvar[i], needed_adj_sigr[3])))
+        x_srted, adj_sig4 = zip(*sorted(zip(xvar[i], needed_adj_sigr[4])))
+        # ax.fill_between(x_srted, adj_sig0, adj_sig4, color=colors[2*i+1], alpha=0.59)
+        ax.fill_between(x_srted, adj_sig0, adj_sig4, color=colors[2*i+1], alpha=0.2)
+        ax.fill_between(x_srted, adj_sig1, adj_sig3, color=colors[2*i+1], alpha=0.4)
+        # ax.fill_between(xvar[i], scalings[i%3]*needed_adj_sigr[0]+additives[i%3], scalings[i%3]*needed_adj_sigr[4]+additives[i%3], color=colors[2*i+1], alpha=0.09)
+        # ax.fill_between(xvar[i], scalings[i%3]*needed_adj_sigr[1]+additives[i%3], scalings[i%3]*needed_adj_sigr[3]+additives[i%3], color=colors[2*i+1], alpha=0.16)
         i+=1
 
 
@@ -307,20 +356,22 @@ def main():
 
     # ax.xaxis.set_major_formatter(ScalarFormatter())
     # plt.xlim(1e-3, 20)
-    plt.xlim(0.05, 25)
-    # plt.ylim(bottom=0, top=40)
+    plt.xlim(0.1, 200)
+    # plt.ylim(bottom=0, top=6)
     fig.set_size_inches(7,7)
     
-    mpl.use('agg') # if writing to PDF
+    # write2file = False
+    write2file = True
     plt.tight_layout()
-    plt.draw()
-    plt.show()
-    exit()
-    outfilename = 'plot1-'+ composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
-    plotpath = G_PATH+"/inversedipole/plots/"
-    print(os.path.join(plotpath, outfilename))
-    plt.savefig(os.path.join(plotpath, outfilename))
+    if write2file:
+        mpl.use('agg') # if writing to PDF
+        plt.draw()
+        outfilename = 'plot1-'+ composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
+        plotpath = G_PATH+"/inversedipole/plots/"
+        print(os.path.join(plotpath, outfilename))
+        plt.savefig(os.path.join(plotpath, outfilename))
+    else:
+        plt.show()
     return 0
-
 
 main()
