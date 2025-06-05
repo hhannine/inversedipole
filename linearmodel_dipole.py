@@ -207,7 +207,7 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
 
 def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False, use_unity_sigma0=False):
     interpolated_r_grid = []
-    rmin=1e-4
+    rmin=10e-4
     # rmax=30
     # rmin=0.001
     rmax=25 # tightening rmin and rmax help a little with the discretization precision
@@ -235,6 +235,9 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
         for r in interpolated_r_grid[:-1]:
             discrete_N_vals.append(1-S_interp(r))
         vec_discrete_N = np.array(discrete_N_vals)
+    
+    # print(vec_discrete_N)
+    # exit()
 
     real_sigma = sigma02
     if use_unity_sigma0:
