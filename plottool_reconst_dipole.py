@@ -61,17 +61,18 @@ def main():
     ### SETTINGS ######################
     ###################################
 
-    use_charm = False
-    # use_charm = True
-    use_real_data = False
-    # use_real_data = True
+    # use_charm = False
+    use_charm = True
+    # use_real_data = False
+    use_real_data = True
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[0] + "_"
+    fitname = fits[3] + "_"
+    # fitname = fits[4] + "_"
 
     ####################
     # Data filename settings
@@ -88,7 +89,7 @@ def main():
         str_fit = "data_only_"
     if use_noise:
         name_base = 'recon_with_noise_out_'
-    lambda_type = ""
+    
     lambda_type = "broad_"
     # lambda_type = "semiconstrained_"
     # lambda_type = "fixed_"
@@ -121,7 +122,9 @@ def main():
     best_lambdas = [dat["best_lambda"][0] for dat in data_list]
     lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
     mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
-    uncert_i = [range(mI-4,mI+5,2) for mI in mI_list]
+    # uncert_i = [range(mI-4,mI+5,2) for mI in mI_list]
+    ucrt_step = 2
+    uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
     # print(best_lambda, mI, lambda_list[mI-2:mI+3], )
     print(uncert_i)
     # exit()
@@ -147,7 +150,10 @@ def main():
     ####################
     ### PLOT TYPE 1 ---
     ####################
-    plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
+    if not use_real_data:
+        plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
+    else:
+        plt1_xbj_bins = [xbj_bins.index(1.3e-2), xbj_bins.index(1.3e-3), xbj_bins.index(1.3e-4)]
     # print("plt1_xbj_bins", plt1_xbj_bins)
     for xbj, dat in zip(xbj_bins, data_list):
         # print(dat.keys())
@@ -237,7 +243,7 @@ def main():
     uncert_col1 = Patch(facecolor=colors[3], alpha=0.3)
     uncert_col2 = Patch(facecolor=colors[5], alpha=0.3)
     # line_fit0 = Line2D([0,1],[0,1],linestyle='-', color=colors[0])
-    line_fit0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw, color="black")
+    line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     line_rec0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[1])
     # line_fit1 = Line2D([0,1],[0,1],linestyle='-', color=colors[2])
     line_fit1 = Line2D([0,1],[0,1],linestyle='--',linewidth=lw, color="black")
@@ -245,35 +251,38 @@ def main():
     # line_fit2 = Line2D([0,1],[0,1],linestyle='-', color=colors[4])
     line_fit2 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     line_rec2 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[5])
+    
+    uncert_col = Patch(facecolor="black", alpha=0.3)
+    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="black")
 
-    manual_handles = [line_fit0, line_rec0, uncert_col0,
-                      line_fit1, line_rec1, uncert_col1,
-                      line_fit2, line_rec2, uncert_col2,]
-    manual_labels = [
-        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-2}} ~ (\times 1)$',
-        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-2}} ~ (+ 0 \mathrm{mb})$',
-        r'${\mathrm{Reconstructed ~ dipole}}$',
-        r'$\mathrm{Reconstruction ~ uncertainty}$',
-        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}~ (\times 1.06)$',
-        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}~ (+ 2 \mathrm{mb})$',
-        # r'${\mathrm{Reconstructed ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-3}}$',
-        r'${\mathrm{Reconstructed ~ dipole}}$',
-        r'$\mathrm{Reconstruction ~ uncertainty}$',
-        # r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}~ (\times 1.09)$',
-        r'${\mathrm{Fit ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}~ (+ 4 \mathrm{mb})$',
-        # r'${\mathrm{Reconstructed ~ dipole,} ~ x_{\mathrm{Bj.}} = 10^{-5}}$',
-        r'${\mathrm{Reconstructed ~ dipole}}$',
-        r'$\mathrm{Reconstruction ~ uncertainty}$',
+    manual_handles = [line_fit0, (line_rec, uncert_col),
+                      uncert_col0,
+                      uncert_col1,
+                      uncert_col2,
     ]
+
+    if use_real_data:
+        manual_labels = [
+            r'${\mathrm{Fit ~ dipole}}$',
+            r'${\mathrm{Reconstruction ~ from ~ HERA ~ data}\, \pm \, \varepsilon_\lambda}$',
+        ]
+    else:
+        manual_labels = [
+            r'${\mathrm{Fit ~ dipole}}$',
+            r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
+        ]
+    for ibin in plt1_xbj_bins:
+        manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_bins[ibin]))
+
 
     # Plot fit dipoles and their reconstructions
     for i, (dip_fit, dip_rec) in enumerate(zip(binned_dip_data_fit, binned_dip_data_rec)):
         ax.plot(xvar[0], gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
                 # label=labels[i],
                 label="Fit dipole",
-                linestyle=fit_line_style[i%3],
-                # linestyle="-",
-                linewidth=lw*1.,
+                # linestyle=fit_line_style[i%3],
+                linestyle=":",
+                linewidth=lw*1.2,
                 # color=colors[2*i]
                 color="black"
                 )
@@ -311,15 +320,33 @@ def main():
     # plt.ylim(bottom=0, top=40)
     fig.set_size_inches(7,7)
     
-    mpl.use('agg') # if writing to PDF
+    if not use_real_data:
+        if not use_charm:
+            n_plot = "plot1-"
+        elif use_charm:
+            n_plot = "plot3-"
+    elif use_real_data:
+        if not use_charm:
+            n_plot = "plot5-"
+        elif use_charm:
+            n_plot = "plot7-"
+    
+    if not n_plot:
+        print("Plot number?")
+        exit()
+
+    # write2file = False
+    write2file = True
     plt.tight_layout()
-    plt.draw()
-    # plt.show()
-    # exit()
-    outfilename = 'plot1-'+ composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
-    plotpath = G_PATH+"/inversedipole/plots/"
-    print(os.path.join(plotpath, outfilename))
-    plt.savefig(os.path.join(plotpath, outfilename))
+    if write2file:
+        mpl.use('agg') # if writing to PDF
+        plt.draw()
+        outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
+        plotpath = G_PATH+"/inversedipole/plots/"
+        print(os.path.join(plotpath, outfilename))
+        plt.savefig(os.path.join(plotpath, outfilename))
+    else:
+        plt.show()
     return 0
 
 
