@@ -61,10 +61,10 @@ def main():
     ### SETTINGS ######################
     ###################################
 
-    use_charm = False
-    # use_charm = True
-    # use_real_data = False
-    use_real_data = True
+    # use_charm = False
+    use_charm = True
+    use_real_data = False
+    # use_real_data = True
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
@@ -138,9 +138,11 @@ def main():
 
     # Reading sigma_r (b)
     b_fit = [dat["b_fit"] for dat in data_list]
-    b_hera = [dat["b_cpp_sim"] for dat in data_list]
     b_rec = [dat["b_from_reconst"] for dat in data_list]
     b_rec_adj = [dat["b_from_reconst_adjacent"].T for dat in data_list] # this is a list of arrays [b_i,] instead of b_rec, which is just an array of elements of b_rec 
+    if use_real_data:
+        b_hera = [dat["b_hera"] for dat in data_list]
+        b_err = [dat["b_errs"] for dat in data_list]
     # print(b_rec_adj[0])
     # print(b_rec_adj[0][0])
 
@@ -152,11 +154,19 @@ def main():
     # PROPER PLOTS
     # 1. reconstruction from simulated data (light only)
     #       - dipole vs reconstruction
-    #       - data vs data_reconst
-    # 2. --||-- with charm
-    # 3.
-    # 4.
-    # 5. Sigma0(xbj) plot from real data reconstruction
+    # 2. simu sigmar data vs data from reconst
+    # 3. dipole rec with charm (simulated)
+    # 4. simu sigmar rec with charm
+    # 5. dipole reconstruction from HERA, light only
+    # 6. HERA sigmar vs sigmar(fit) vs sigmar(reconst), light only
+    # 7. dipole reconstruction from HERA, light plus charm
+    # 8. HERA sigmar vs sigmar(fit) vs sigmar(reconst), light plus charm
+    # 9. Sigma0(xbj) plot from real data reconstruction (or in W^2?)
+    #       - lightonly rec vs lightpluscharm rec vs horizontal line from fits (how about average of rec values?)
+    # 10. 2D dipole comparison in (r, xbj) or (r, W^2)
+    #       - fit vs real rec lightonly vs real rec lightpluscharm (3 plots/figures/images)
+    
+
 
     ####################
     ### PLOT TYPE 1B --- sigma_r comparison
@@ -177,10 +187,12 @@ def main():
     binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
     binned_dip_data_rec_adj = [dip_data_rec_adj[i].T for i in plt1_xbj_bins]
     binned_b_fit = [b_fit[i] for i in plt1_xbj_bins]
-    binned_b_hera = [b_hera[i] for i in plt1_xbj_bins]
     binned_b_rec = [b_rec[i] for i in plt1_xbj_bins]
     binned_b_rec_adj = [b_rec_adj[i] for i in plt1_xbj_bins]
     binned_qsq_grids = [Q2vals_grid[i] for i in plt1_xbj_bins]
+    if use_real_data:
+        binned_b_hera = [b_hera[i].T for i in plt1_xbj_bins]
+        binned_b_err = [b_err[i].T for i in plt1_xbj_bins]
         
     fig = plt.figure()
     ax = plt.gca()
@@ -218,46 +230,27 @@ def main():
             # print(fname)
             if "bayesMV4" in fname:
                 label = r'$\mathrm{bayesMV4}$'
-                col = "red"
             elif "bayesMV5" in fname:
                 label = r'$\mathrm{bayesMV5}$'
-                col = "blue"
             elif "MV_" in fname:
                 label = r'$\mathrm{MV}$'
-                col = "black"
-            else:
-                continue
-            if "xbj0.01" in fname:
-                # label += r"$~ \mathrm{charm}$"
-                style = "-"
-                # scale = 0.8
-            elif "xbj0.001" in fname:
-                # label += r"$~ \mathrm{bottom}$"
-                style = "--"
-                # scale = 0.9
-            elif "xbj1e-05" in fname:
-                # label += r"$~ \mathrm{incl.}$"
-                style = ":"
-                # scale = 1
             else:
                 continue
             labels.append(label)
-            # colors.append(col)
-            line_styles.append(style)
-            # scalings.append(scale)
 
     # scalings = [1, 1.06, 1.09]
     # scalings = [0.8, 0.9, 1]
     scalings = [1, 1, 1]
     additives = [0, 2, 4]
-    colors = ["blue", "orange", "brown", "red", "magenta", "green"]
+    colors = ["blue", "green", "brown", "orange", "magenta", "red"]
     lw=2.8
     ms=4
     mstyle = "o"
+    color_alph = 1
 
-    uncert_col0 = Patch(facecolor=colors[1], alpha=0.3)
-    uncert_col1 = Patch(facecolor=colors[3], alpha=0.3)
-    uncert_col2 = Patch(facecolor=colors[5], alpha=0.3)
+    uncert_col0 = Patch(facecolor=colors[1], alpha=color_alph)
+    uncert_col1 = Patch(facecolor=colors[3], alpha=color_alph)
+    uncert_col2 = Patch(facecolor=colors[5], alpha=color_alph)
     # line_fit0 = Line2D([0,1],[0,1],linestyle='-', color=colors[0])
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     line_rec0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[1])
@@ -278,17 +271,26 @@ def main():
         # Now we want to plot the HERA data POINTS, not a fit curve
         manual_handles = [
                     data_square, 
-                    (line_fit0, uncert_col), # show HERA data, fit, AND reconstruction
+                    # (line_fit0, uncert_col), # show HERA data, fit, AND reconstruction
+                    (line_fit0,), # show HERA data, fit, AND reconstruction
                     (line_rec, uncert_col),
                     uncert_col0,
                     uncert_col1,
                     uncert_col2,
         ]
-        manual_labels = [
-            r'${\mathrm{HERA ~ data ~ } \sigma_r}$',
-            r'${\sigma_r ~ \mathrm{from ~ fit}\, \pm \, 2\sigma}$',
-            r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
-        ]
+        if use_charm:
+            manual_labels = [
+                r'${\mathrm{HERA ~ data ~ } \sigma_r}$',
+                r'${\sigma_r ~ \mathrm{prediction ~ for ~ f \in \{u,d,s,c\} ~ from ~ fit} ~ (\sigma_0 ~ \mathrm{refit})}$',
+                r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
+            ]
+        else:
+            manual_labels = [
+                r'${\mathrm{HERA ~ data ~ } \sigma_r}$',
+                # r'${\sigma_r ~ \mathrm{from ~ fit}\, \pm \, 2\sigma}$',
+                r'${\sigma_r ~ \mathrm{from ~ fit}}$',
+                r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
+            ]
         sigr_marker = "s"
         sigr_linestyle = ""
     else:
@@ -308,7 +310,11 @@ def main():
         sigr_marker = ""
         sigr_linestyle = ":"
     for ibin in plt1_xbj_bins:
-        manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_bins[ibin]))
+        xbj_str = str(xbj_bins[ibin])
+        if "e" in xbj_str:
+            # xbj_str = "0.00001" #"10^{{-5}}"
+            xbj_str = "10^{{-5}}"
+        manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str))
 
 
 
@@ -320,8 +326,8 @@ def main():
                 label="Fit sigma",
                 linestyle=":",
                 linewidth=lw*1.,
-                color=colors[2*i]
-                # color="black"
+                # color=colors[2*i]
+                color="black"
                 )
         # ax.plot(xvar[i], scalings[i%3]*b_rec+additives[i%3],
         ax.plot(x_srted, b_rec,
@@ -332,14 +338,22 @@ def main():
                 alpha=1
                 )
         if use_real_data:
-            x_srted, b_hera = zip(*sorted(zip(xvar[i], binned_b_hera[i])))
-            ax.plot(x_srted, b_rec,
+            x_srted, b_hera = zip(*sorted(zip(xvar[i], binned_b_hera[i][0])))
+            x_srted, b_err = zip(*sorted(zip(xvar[i], binned_b_err[i][0])))
+            ax.plot(x_srted, b_hera,
                 label="HERA data",
                 linestyle="",
                 marker=mstyle,
                 markersize=ms,
                 color=colors[2*i+1],
                 alpha=1
+                )
+            print("x_srted", x_srted)
+            print(b_hera)
+            print(b_err)
+            ax.errorbar(x_srted, b_hera, yerr=b_err,
+                        linestyle="",
+                        color=colors[2*i+1],
                 )
 
         
@@ -378,14 +392,14 @@ def main():
     
     if not use_real_data:
         if not use_charm:
-            n_plot = "plot1-"
+            n_plot = "plot2-"
         elif use_charm:
-            n_plot = "plot3-"
+            n_plot = "plot4-"
     elif use_real_data:
         if not use_charm:
-            n_plot = "plot5-"
+            n_plot = "plot6-"
         elif use_charm:
-            n_plot = "plot7-"
+            n_plot = "plot8-"
     
     if not n_plot:
         print("Plot number?")
