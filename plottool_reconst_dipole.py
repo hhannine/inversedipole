@@ -61,10 +61,10 @@ def main():
     ### SETTINGS ######################
     ###################################
 
-    # use_charm = False
-    use_charm = True
-    # use_real_data = False
-    use_real_data = True
+    use_charm = False
+    # use_charm = True
+    use_real_data = False
+    # use_real_data = True
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
@@ -123,8 +123,11 @@ def main():
     lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
     mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
     # uncert_i = [range(mI-4,mI+5,2) for mI in mI_list]
-    ucrt_step = 2
-    uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
+    if lambda_type == "semiconstrained_":
+        uncert_i = [range(0, 5) for mI in mI_list]
+    else:
+        ucrt_step = 2
+        uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
     # print(best_lambda, mI, lambda_list[mI-2:mI+3], )
     print(uncert_i)
     # exit()
@@ -204,44 +207,30 @@ def main():
             # print(fname)
             if "bayesMV4" in fname:
                 label = r'$\mathrm{bayesMV4}$'
-                col = "red"
             elif "bayesMV5" in fname:
                 label = r'$\mathrm{bayesMV5}$'
-                col = "blue"
             elif "MV_" in fname:
                 label = r'$\mathrm{MV}$'
-                col = "black"
-            else:
-                continue
-            if "xbj0.01" in fname:
-                # label += r"$~ \mathrm{charm}$"
-                style = "-"
-                # scale = 0.8
-            elif "xbj0.001" in fname:
-                # label += r"$~ \mathrm{bottom}$"
-                style = "--"
-                # scale = 0.9
-            elif "xbj1e-05" in fname:
-                # label += r"$~ \mathrm{incl.}$"
-                style = ":"
-                # scale = 1
             else:
                 continue
             labels.append(label)
-            # colors.append(col)
-            line_styles.append(style)
-            # scalings.append(scale)
 
     # scalings = [1, 1.06, 1.09]
     # scalings = [0.8, 0.9, 1]
     scalings = [1, 1, 1]
-    additives = [0, 2, 4]
-    colors = ["orange", "orange", "black", "red", "green", "green"]
+    if use_real_data:
+        additives = [0, 5, 10]
+    else:
+        additives = [0, 2, 4]
+    colors = ["blue", "green", "brown", "orange", "magenta", "red"]
     lw=2.8
+    ms=4
+    mstyle = "o"
+    color_alph = 1
 
-    uncert_col0 = Patch(facecolor=colors[1], alpha=0.3)
-    uncert_col1 = Patch(facecolor=colors[3], alpha=0.3)
-    uncert_col2 = Patch(facecolor=colors[5], alpha=0.3)
+    uncert_col0 = Patch(facecolor=colors[1], alpha=color_alph)
+    uncert_col1 = Patch(facecolor=colors[3], alpha=color_alph)
+    uncert_col2 = Patch(facecolor=colors[5], alpha=color_alph)
     # line_fit0 = Line2D([0,1],[0,1],linestyle='-', color=colors[0])
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     line_rec0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[1])
@@ -272,7 +261,11 @@ def main():
             r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
         ]
     for ibin in plt1_xbj_bins:
-        manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_bins[ibin]))
+        xbj_str = str(xbj_bins[ibin])
+        if "e" in xbj_str:
+            # xbj_str = "0.00001" #"10^{{-5}}"
+            xbj_str = "10^{{-5}}"
+        manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str))
 
 
     # Plot fit dipoles and their reconstructions
@@ -280,7 +273,6 @@ def main():
         ax.plot(xvar[0], gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
                 # label=labels[i],
                 label="Fit dipole",
-                # linestyle=fit_line_style[i%3],
                 linestyle=":",
                 linewidth=lw*1.2,
                 # color=colors[2*i]
@@ -289,21 +281,21 @@ def main():
         ax.plot(xvar[0], gev_to_mb*scalings[i%3]*dip_rec.T[0]+additives[i%3],
                 # label=labels[i+1],
                 label="Reconstuction of fit dipole",
-                # linestyle=line_styles[i],
-                # linestyle=":",
                 linestyle="-",
                 linewidth=lw/2,
                 color=colors[2*i+1],
                 alpha=1
-                # color="blue"
                 )
         
     # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
     i=0
     for i_rnge, adj_dips in zip(uncert_i, binned_dip_data_rec_adj):
         needed_adj_dips = [adj_dips[i] for i in i_rnge]
-        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*needed_adj_dips[0]+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[4]+additives[i%3], color=colors[2*i+1], alpha=0.09)
-        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i+1], alpha=0.16)
+        rec_dip = needed_adj_dips[2]
+        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[4]+additives[i%3], color=colors[2*i+1], alpha=0.09)
+        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[0]+additives[i%3], color=colors[2*i+1], alpha=0.09)
+        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i+1], alpha=0.16)
+        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], color=colors[2*i+1], alpha=0.16)
         i+=1
 
 
