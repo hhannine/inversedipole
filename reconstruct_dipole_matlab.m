@@ -6,7 +6,7 @@ clear all
 
 %         1       2        3        4            5
 fits = ["MV_", "MVgamma", "MVe", "bayesMV4", "bayesMV5"];
-fitname = fits(1);
+fitname = fits(4);
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 % xbj_bin = "1e-05";
@@ -14,8 +14,8 @@ real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032
 
 r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
-use_real_data = false;
-% use_real_data = true;
+% use_real_data = false;
+use_real_data = true;
 use_charm = false;
 % use_charm = true;
 if use_real_data
@@ -58,7 +58,7 @@ sim_type = "simulated";
 for xi = 1:length(all_xbj_bins)
     close all
     xbj_bin = string(all_xbj_bins(xi));
-    [fitname, xbj_bin, r_steps,use_real_data,use_charm]
+    % [fitname, xbj_bin, r_steps,use_real_data,use_charm]
 
     for k = 1:numel(data_files)
         fname = data_files(k).name;
@@ -69,13 +69,25 @@ for xi = 1:length(all_xbj_bins)
     load(strcat(data_path, run_file))
     
     % if using real data, need to load reference fit dipole separately
+    dip_file="";
     for k = 1:numel(data_files)
+        if str2double(xbj_bin) > 0.01
+            sim_xbj = '0.01';
+        else
+            sim_xbj = xbj_bin;
+        end
         fname = data_files(k).name;
-        if (contains(fname, fitname) && contains(fname, xbj_bin) && contains(fname, sim_type) && contains(fname, sim_charm_opt) && contains(fname, r_steps_str))
-            dip_file = fname
+        fnameb = strrep(fname,'-','_');
+        if (contains(fnameb, sim_xbj) && contains(fnameb, fitname) && contains(fnameb, sim_type) && contains(fnameb, charm_opt) && contains(fnameb, r_steps_str))
+            dip_file = fname;
             break
         end
     end
+    if dip_file == ""
+            ["failed to match dip_file!", fname, sim_xbj, fitname, sim_type, charm_opt, r_steps_str]
+            return
+    end
+    dip_file
     dip_data = load(strcat(data_path, dip_file));
     ref_dip = dip_data.discrete_dipole_N;
     if (use_real_data)
@@ -91,7 +103,18 @@ for xi = 1:length(all_xbj_bins)
     bfit = A*x'; % bfit has numerical error from discretization
     % b is either the real data sigma_r, or one simulated by fit
     b = sigmar_vals'; % b is calculated by the C++ code, no error.
-    
+    % todo bfit_errs??? Maybe we can say that they're apples and oranges,
+    % not direcly comparable?
+
+    b_hera = sigmar_vals';
+    b_errs = sigmar_errs'; % THIS IS NEEDED TO DO THE DATA \pm error reconstructions!
+    % only do best reconst to b_err_upper and b_err_lower
+    b_err_upper = b_hera + b_errs;
+    b_err_lower = b_hera - b_errs;
+    bfit_plus_err = bfit + b_errs;
+    bfit_minus_err = bfit - b_errs;
+
+
     % rng(80,"twister");
     % eta = 0.01;
     % e = randn(size(bex));
@@ -118,6 +141,11 @@ for xi = 1:length(all_xbj_bins)
 
     X_tikh = tikhonov(UU,sm,XX,b,lambda);
     errtik = zeros(size(lambda));
+
+    X_tikh_upper = tikhonov(UU,sm,XX,b_err_upper,lambda);
+    % errtik_upper = zeros(size(lambda));
+    X_tikh_lower = tikhonov(UU,sm,XX,b_err_lower,lambda);
+    % errtik_lower = zeros(size(lambda));
     
     for i = 1:length(lambda)
         errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
@@ -136,9 +164,9 @@ for xi = 1:length(all_xbj_bins)
             N_maxima(i) = max(X_tikh(:,i));
         end
     end
-    N_maxima
-    [xbj_bin, N_maxima(1), lambda(mI)]
-    real_sigma
+    % N_maxima
+    % [xbj_bin, N_maxima(1), lambda(mI)]
+    % real_sigma
     
     figure(1) % best reconstruction vs. ground truth
     % plot(ivec3,x','-',ivec3,X_tikh(:,mI),'--','LineWidth',2)
@@ -230,40 +258,43 @@ for xi = 1:length(all_xbj_bins)
     % filename should have all settings / parameters
     % num2str(a_value,'%.2f') ; formatting
     
-    fitname = "data_only";
+    if use_real_data
+        reconst_type = "data_only";
+    end
     if (use_real_data==false)
         if (contains(run_file, "_MV_"))
-            fitname = "MV";
+            reconst_type = "MV";
         elseif (contains(run_file, "_MVe_"))
-            fitname = "MVe";
+            reconst_type = "MVe";
         elseif (contains(run_file, "_MVgamma_"))
-            fitname = "MVgamma";
+            reconst_type = "MVgamma";
         elseif (contains(run_file, "_bayesMV4_"))
-            fitname = "bayesMV4";
+            reconst_type = "bayesMV4";
         elseif (contains(run_file, "_bayesMV5_"))
-            fitname = "bayesMV5";
+            reconst_type = "bayesMV5";
         else
-            fitname = "FITNAME_NOT_RECOGNIZED";
-            run_file
-            error([fitname ' with ' run_file]);
+            reconst_type = "FITNAME_NOT_RECOGNIZED";
+            error([reconst_type ' with ' run_file]);
         end
     end
-    data_name = "sim";
     if (use_real_data)
         data_name = "hera";
+    else
+        data_name = "sim";
     end
-    flavor_string = "lightonly";
     if (use_charm)
         flavor_string = "lightpluscharm";
+    else
+        flavor_string = "lightonly";
     end
-    name = [data_name, '_', fitname, '_', flavor_string, '_', lambda_type];
+    name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
     recon_path = "./reconstructions_IUSdip/";
     f_exp_reconst = strjoin([recon_path 'recon_out_' name '_xbj' xbj_bin '.mat'],"")
     N_reconst = X_tikh(:,mI);
     N_rec_adjacent = X_tikh;
-    N_reconst_from_b_plus_eps = [];
+    N_reconst_from_b_plus_err = X_tikh_upper(:,mI);
     N_bpluseps_rec_adjacent = [];
-    N_reconst_from_b_minus_eps = [];
+    N_reconst_from_b_minus_err = X_tikh_lower(:,mI);
     N_bminuseps_rec_adjacent = [];
     N_fit = discrete_dipole_N;
     b_cpp_sim = b; % data generated in C++, no discretization error.
@@ -273,16 +304,17 @@ for xi = 1:length(all_xbj_bins)
     for i = 1:length(lambda)
         b_from_reconst_adjacent(:,i) = A*X_tikh(:,i);
     end
-    b_plus_eps_from_reconst = []; % should we include lambda variation here also?
-    b_minus_eps_from_reconst = []; % should we include lambda variation here also?
+    b_plus_err_from_reconst = A*X_tikh_upper(:,mI); % should we include lambda variation here also? No?
+    b_minus_err_from_reconst = A*X_tikh_lower(:,mI); % should we include lambda variation here also? No?
     save(f_exp_reconst, ...
         "r_grid", "q2vals", ...
         "N_fit", "real_sigma",...
         "N_reconst", "N_maxima", "N_rec_adjacent", ...
-        "N_reconst_from_b_plus_eps", "N_bpluseps_maxima", "N_bpluseps_rec_adjacent", ...
-        "N_reconst_from_b_minus_eps", "N_bminuseps_maxima", "N_bminuseps_rec_adjacent", ...
+        "N_reconst_from_b_plus_err", "N_bpluseps_maxima", "N_bpluseps_rec_adjacent", ...
+        "N_reconst_from_b_minus_err", "N_bminuseps_maxima", "N_bminuseps_rec_adjacent", ...
         "b_cpp_sim", "b_fit", "b_from_reconst", "b_from_reconst_adjacent", ...
-        "b_plus_eps_from_reconst", "b_minus_eps_from_reconst", ...
+        "b_hera", "b_errs", ...
+        "b_plus_err_from_reconst", "b_minus_err_from_reconst", ...
         "best_lambda", "lambda", "lambda_type", ...
         "xbj_bin", "use_real_data", "use_charm", ...
         "run_file", "dip_file", ...
