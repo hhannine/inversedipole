@@ -63,8 +63,8 @@ def main():
 
     use_charm = False
     # use_charm = True
-    use_real_data = False
-    # use_real_data = True
+    # use_real_data = False
+    use_real_data = True
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
@@ -90,9 +90,10 @@ def main():
     if use_noise:
         name_base = 'recon_with_noise_out_'
     
-    lambda_type = "broad_"
+    # lambda_type = "broad_"
     # lambda_type = "semiconstrained_"
-    # lambda_type = "fixed_"
+    # lambda_type = "semicon2_"
+    lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
     print(composite_fname)
 
@@ -122,19 +123,21 @@ def main():
     best_lambdas = [dat["best_lambda"][0] for dat in data_list]
     lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
     mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
-    # uncert_i = [range(mI-4,mI+5,2) for mI in mI_list]
-    if lambda_type == "semiconstrained_":
+    if lambda_type in ["semiconstrained_", "fixed_"]:
         uncert_i = [range(0, 5) for mI in mI_list]
     else:
         ucrt_step = 2
         uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
-    # print(best_lambda, mI, lambda_list[mI-2:mI+3], )
+    print(mI_list)
     print(uncert_i)
-    # exit()
+
 
     dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec_adj = np.array([dat["N_rec_adjacent"] for dat in data_list]) # matrix of all the reconstructions, need to find correct lambda
+    if use_real_data:
+        dip_rec_from_b_plus_err = [dat["N_reconst_from_b_plus_err"] for dat in data_list]
+        dip_rec_from_b_minus_err = [dat["N_reconst_from_b_minus_err"] for dat in data_list]
 
     if lambda_type=="fixed_":
         N_max_data = [dat["N_maxima"][0] for dat in data_list]
@@ -144,14 +147,21 @@ def main():
     # PROPER PLOTS
     # 1. reconstruction from simulated data (light only)
     #       - dipole vs reconstruction
-    #       - data vs data_reconst
-    # 2. --||-- with charm
-    # 3.
-    # 4.
-    # 5. Sigma0(xbj) plot from real data reconstruction
+    # 2. simu sigmar data vs data from reconst
+    # 3. dipole rec with charm (simulated)
+    # 4. simu sigmar rec with charm
+    # 5. dipole reconstruction from HERA, light only
+    # 6. HERA sigmar vs sigmar(fit) vs sigmar(reconst), light only
+    # 7. dipole reconstruction from HERA, light plus charm
+    # 8. HERA sigmar vs sigmar(fit) vs sigmar(reconst), light plus charm
+    # 9. Sigma0(xbj) plot from real data reconstruction (or in W^2?)
+    #       - lightonly rec vs lightpluscharm rec vs horizontal line from fits (how about average of rec values?)
+    # 10. 2D dipole comparison in (r, xbj) or (r, W^2)
+    #       - fit vs real rec lightonly vs real rec lightpluscharm (3 plots/figures/images)
+
 
     ####################
-    ### PLOT TYPE 1 ---
+    ### PLOT TYPE DIPOLE
     ####################
     if not use_real_data:
         plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
@@ -168,8 +178,9 @@ def main():
     binned_dip_data_fit = [dip_data_fit[i] for i in plt1_xbj_bins]
     binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
     binned_dip_data_rec_adj = [dip_data_rec_adj[i].T for i in plt1_xbj_bins]
-    # print([el.shape for el in binned_dip_data_rec_adj])
-    # exit()
+    binned_dip_rec_from_bplus = [dip_rec_from_b_plus_err[i] for i in plt1_xbj_bins]
+    binned_dip_rec_from_bminus = [dip_rec_from_b_minus_err[i] for i in plt1_xbj_bins]
+    binned_mI_list = [mI_list[i] for i in plt1_xbj_bins]
     
     fig = plt.figure()
     ax = plt.gca()
@@ -195,10 +206,8 @@ def main():
     ax.set_xscale('log')
     # ax.set_yscale('log')
     
-    fit_color_set = ["orange", "red", "blue", "green", "green", "cyan"]
-    fit_line_style = ['-', '--', ':']
-
-    # make labels, line styles and colors
+    ##############
+    # LABELS
     labels = []
     colors = []
     line_styles = []
@@ -215,11 +224,9 @@ def main():
                 continue
             labels.append(label)
 
-    # scalings = [1, 1.06, 1.09]
-    # scalings = [0.8, 0.9, 1]
     scalings = [1, 1, 1]
     if use_real_data:
-        additives = [0, 5, 10]
+        additives = [0, 10, 20]
     else:
         additives = [0, 2, 4]
     colors = ["blue", "green", "brown", "orange", "magenta", "red"]
@@ -231,29 +238,31 @@ def main():
     uncert_col0 = Patch(facecolor=colors[1], alpha=color_alph)
     uncert_col1 = Patch(facecolor=colors[3], alpha=color_alph)
     uncert_col2 = Patch(facecolor=colors[5], alpha=color_alph)
-    # line_fit0 = Line2D([0,1],[0,1],linestyle='-', color=colors[0])
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
-    line_rec0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[1])
-    # line_fit1 = Line2D([0,1],[0,1],linestyle='-', color=colors[2])
-    line_fit1 = Line2D([0,1],[0,1],linestyle='--',linewidth=lw, color="black")
-    line_rec1 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[3])
-    # line_fit2 = Line2D([0,1],[0,1],linestyle='-', color=colors[4])
-    line_fit2 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
-    line_rec2 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[5])
     
     uncert_col = Patch(facecolor="black", alpha=0.3)
     line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="black")
+    line_rec_bplus = Line2D([0,1],[0,1],linestyle='-.',linewidth=lw/3, color="black")
+    line_rec_bminus = Line2D([0,1],[0,1],linestyle=':',linewidth=lw/3, color="black")
 
-    manual_handles = [line_fit0, (line_rec, uncert_col),
-                      uncert_col0,
-                      uncert_col1,
-                      uncert_col2,
-    ]
+    if use_real_data:
+        manual_handles = [line_fit0, (line_rec, uncert_col),
+                        line_rec_bplus, line_rec_bminus,
+                        uncert_col0,
+                        uncert_col1,
+                        uncert_col2,]
+    else:
+        manual_handles = [line_fit0, (line_rec, uncert_col),
+                        uncert_col0,
+                        uncert_col1,
+                        uncert_col2,]
 
     if use_real_data:
         manual_labels = [
             r'${\mathrm{Fit ~ dipole}}$',
             r'${\mathrm{Reconstruction ~ from ~ HERA ~ data}\, \pm \, \varepsilon_\lambda}$',
+            r'${\mathrm{Reconstruction ~ to} ~ \sigma_r + \mathrm{error}}$',
+            r'${\mathrm{Reconstruction ~ to} ~ \sigma_r - \mathrm{error}}$',
         ]
     else:
         manual_labels = [
@@ -268,13 +277,17 @@ def main():
         manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str))
 
 
+    ####################
+    #################### PLOTTING
+    #################### 
+
     # Plot fit dipoles and their reconstructions
     for i, (dip_fit, dip_rec) in enumerate(zip(binned_dip_data_fit, binned_dip_data_rec)):
         ax.plot(xvar[0], gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
                 # label=labels[i],
                 label="Fit dipole",
                 linestyle=":",
-                linewidth=lw*1.2,
+                linewidth=lw*1,
                 # color=colors[2*i]
                 color="black"
                 )
@@ -282,20 +295,54 @@ def main():
                 # label=labels[i+1],
                 label="Reconstuction of fit dipole",
                 linestyle="-",
-                linewidth=lw/2,
+                linewidth=lw/2.5,
                 color=colors[2*i+1],
                 alpha=1
                 )
-        
+        if use_real_data:
+            dip_from_bplus = binned_dip_rec_from_bplus[i].T[0]
+            dip_from_bminus = binned_dip_rec_from_bminus[i].T[0]
+            ax.plot(xvar[0], gev_to_mb*scalings[i%3]*dip_from_bplus+additives[i%3],
+                    # label=labels[i+1],
+                    label="Reconstuction of fit dipole",
+                    linestyle="-.",
+                    linewidth=lw/3.5,
+                    color=colors[2*i+1],
+                    alpha=1
+                    )
+            ax.plot(xvar[0], gev_to_mb*scalings[i%3]*dip_from_bminus+additives[i%3],
+                    # label=labels[i+1],
+                    label="Reconstuction of fit dipole",
+                    linestyle=":",
+                    linewidth=lw/3.5,
+                    color=colors[2*i+1],
+                    alpha=1
+                    )
+
+    ################## SHADING        
     # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
     i=0
-    for i_rnge, adj_dips in zip(uncert_i, binned_dip_data_rec_adj):
+    shade_alph_closer = 0.2
+    shade_alph_further = 0.1
+    for i, (i_rnge, adj_dips) in enumerate(zip(uncert_i, binned_dip_data_rec_adj)):
+        mI = binned_mI_list[i]
+        print(mI)
+        rec_dip = adj_dips[mI]
         needed_adj_dips = [adj_dips[i] for i in i_rnge]
-        rec_dip = needed_adj_dips[2]
-        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[4]+additives[i%3], color=colors[2*i+1], alpha=0.09)
-        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[0]+additives[i%3], color=colors[2*i+1], alpha=0.09)
-        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i+1], alpha=0.16)
-        ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], color=colors[2*i+1], alpha=0.16)
+        if mI==0:
+            ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_closer)
+            ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[2]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
+        elif mI==4:
+            ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i-1], alpha=shade_alph_closer)
+            ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[2]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
+        else:
+            # at least one step on both sides
+            ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_closer)
+            ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_closer)
+            if mI==2:
+                # 2 steps on either side
+                ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[4]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
+                ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[0]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
         i+=1
 
 
@@ -303,9 +350,8 @@ def main():
     # plt.text(0.95, 0.14, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled log log
     # plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
     
-    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
+    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="upper left") 
     
-
     # ax.xaxis.set_major_formatter(ScalarFormatter())
     # plt.xlim(1e-3, 20)
     plt.xlim(0.05, 25)
