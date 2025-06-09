@@ -16,8 +16,8 @@ r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
 % use_real_data = false;
 use_real_data = true;
-use_charm = false;
-% use_charm = true;
+% use_charm = false;
+use_charm = true;
 if use_real_data
     all_xbj_bins = real_xbj_bins;
 end
@@ -176,10 +176,14 @@ for xi = 1:length(all_xbj_bins)
     if (length(lambda)>5) && (mI>=3) && (mI<=length(lambda)-2)
         for i = 1:5
             N_maxima(i) = max(X_tikh(:,mI-3+i));
+            N_bpluseps_maxima(i) = max(X_tikh_upper(:,mI-3+i));
+            N_bminuseps_maxima(i) = max(X_tikh_lower(:,mI-3+i));
         end
     else
         for i = 1:length(lambda)
             N_maxima(i) = max(X_tikh(:,i));
+            N_bpluseps_maxima(i) = max(X_tikh_upper(:,i));
+            N_bminuseps_maxima(i) = max(X_tikh_lower(:,i));
         end
     end
     % N_maxima
