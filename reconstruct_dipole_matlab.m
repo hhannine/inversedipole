@@ -22,16 +22,25 @@ if use_real_data
     all_xbj_bins = real_xbj_bins;
 end
 
-lambda_type = "broad";
+% lambda_type = "broad";
 % lambda_type = "semiconstrained";
-% lambda_type = "fixed";
+% lambda_type = "semicon2";
+lambda_type = "fixed";
+% lambda_type = "semifix";
+% lambda_type = "old";
 if lambda_type == "broad"
     lam1 = 1:9;
-    lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
+    lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
 elseif lambda_type == "semiconstrained"
     lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
+elseif lambda_type == "semicon2"
+    lambda = [0.007, 0.008, 0.009, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09];
+elseif lambda_type == "semifix"
+    lambda = [0.01, 0.02, 0.03, 0.04, 0.05];
 elseif lambda_type =="fixed"
-    lambda = [0.01];
+    % lambda = [0.01];
+    fac = 1.2;
+    lambda = [0.01*fac^-2, 0.01*fac^-1, 0.01*fac^0, 0.01*fac^1, 0.01*fac^2];
 elseif lambda_type == "old"
     lambda = [5e-1,4e-1,3e-1,1e-1,9e-2,8e-2,7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3,1e-3,8e-4,4e-4,1e-4,8e-5,4e-5,2e-5,1e-5];
 else
@@ -148,14 +157,23 @@ for xi = 1:length(all_xbj_bins)
     % errtik_lower = zeros(size(lambda));
     
     for i = 1:length(lambda)
-        errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
+        % errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
+        % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % this is wrong, cannot really minimize against b since it has error
+        errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1); 
     end
     [m,mI]=min(errtik);
+    % if lambda_type == "semifix"
+    %     mI = 3;
+    % else
+    %     [m,mI]=min(errtik);
+    % end
     best_lambda = lambda(mI);
+    [mI, best_lambda, lambda_type]
+
     N_maxima = [];
     N_bpluseps_maxima = [];
     N_bminuseps_maxima = [];
-    if length(lambda)>5
+    if (length(lambda)>5) && (mI>=3) && (mI<=length(lambda)-2)
         for i = 1:5
             N_maxima(i) = max(X_tikh(:,mI-3+i));
         end
