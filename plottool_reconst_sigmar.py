@@ -63,8 +63,8 @@ def main():
 
     # use_charm = False
     use_charm = True
-    use_real_data = False
-    # use_real_data = True
+    # use_real_data = False
+    use_real_data = True
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
@@ -127,9 +127,6 @@ def main():
     # print(best_lambda, mI, lambda_list[mI-2:mI+3], )
     print(uncert_i)
 
-    # for dat, qsq in zip(data_list, Q2vals_grid):
-    #     print(dat["run_file"], len(qsq))
-    # exit(0)
 
     # Reading dipoles
     dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
@@ -143,14 +140,18 @@ def main():
     if use_real_data:
         b_hera = [dat["b_hera"] for dat in data_list]
         b_err = [dat["b_errs"] for dat in data_list]
-    # print(b_rec_adj[0])
-    # print(b_rec_adj[0][0])
+        dip_rec_from_b_plus_err = [dat["N_reconst_from_b_plus_err"] for dat in data_list]
+        dip_rec_from_b_minus_err = [dat["N_reconst_from_b_minus_err"] for dat in data_list]
+        b_plus_err_from_reconst = [dat["b_plus_err_from_reconst"] for dat in data_list]
+        b_minus_err_from_reconst = [dat["b_minus_err_from_reconst"] for dat in data_list]
 
     if lambda_type=="fixed_":
         N_max_data = [dat["N_maxima"][0] for dat in data_list]
     else:
         N_max_data = [dat["N_maxima"][0][2] for dat in data_list]
     
+
+
     # PROPER PLOTS
     # 1. reconstruction from simulated data (light only)
     #       - dipole vs reconstruction
@@ -193,6 +194,8 @@ def main():
     if use_real_data:
         binned_b_hera = [b_hera[i].T for i in plt1_xbj_bins]
         binned_b_err = [b_err[i].T for i in plt1_xbj_bins]
+        binned_b_plus_err = [b_plus_err_from_reconst[i].T for i in plt1_xbj_bins]
+        binned_b_minus_err = [b_minus_err_from_reconst[i].T for i in plt1_xbj_bins]
         
     fig = plt.figure()
     ax = plt.gca()
@@ -217,11 +220,9 @@ def main():
     # LOG AXIS
     ax.set_xscale('log')
     # ax.set_yscale('log')
-    
-    fit_color_set = ["orange", "red", "blue", "green", "green", "cyan"]
-    fit_line_style = ['-', '--', ':']
 
-    # make labels, line styles and colors
+    ##############
+    # LABELS
     labels = []
     colors = []
     line_styles = []
@@ -238,8 +239,6 @@ def main():
                 continue
             labels.append(label)
 
-    # scalings = [1, 1.06, 1.09]
-    # scalings = [0.8, 0.9, 1]
     scalings = [1, 1, 1]
     additives = [0, 2, 4]
     colors = ["blue", "green", "brown", "orange", "magenta", "red"]
@@ -251,21 +250,11 @@ def main():
     uncert_col0 = Patch(facecolor=colors[1], alpha=color_alph)
     uncert_col1 = Patch(facecolor=colors[3], alpha=color_alph)
     uncert_col2 = Patch(facecolor=colors[5], alpha=color_alph)
-    # line_fit0 = Line2D([0,1],[0,1],linestyle='-', color=colors[0])
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
-    line_rec0 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[1])
-    # line_fit1 = Line2D([0,1],[0,1],linestyle='-', color=colors[2])
-    line_fit1 = Line2D([0,1],[0,1],linestyle='--',linewidth=lw, color="black")
-    line_rec1 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[3])
-    # line_fit2 = Line2D([0,1],[0,1],linestyle='-', color=colors[4])
-    line_fit2 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
-    line_rec2 = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[5])
     
     uncert_col = Patch(facecolor="black", alpha=0.3)
     line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="black")
     data_square = Line2D([], [], color='black', marker=mstyle, linestyle='None', markersize=ms)
-
-    
 
     if use_real_data:
         # Now we want to plot the HERA data POINTS, not a fit curve
@@ -317,6 +306,9 @@ def main():
         manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str))
 
 
+    ####################
+    #################### PLOTTING
+    #################### 
 
     # Plot fit dipoles and their reconstructions
     for i, (b_fit, b_rec) in enumerate(zip(binned_b_fit, binned_b_rec)):
@@ -333,13 +325,15 @@ def main():
         ax.plot(x_srted, b_rec,
                 label="Reconstuction sigma",
                 linestyle="-",
-                linewidth=lw/2,
+                linewidth=lw/3,
                 color=colors[2*i+1],
                 alpha=1
                 )
         if use_real_data:
             x_srted, b_hera = zip(*sorted(zip(xvar[i], binned_b_hera[i][0])))
             x_srted, b_err = zip(*sorted(zip(xvar[i], binned_b_err[i][0])))
+            x_srted, b_plus_from_rec = zip(*sorted(zip(xvar[i], binned_b_plus_err[i][0])))
+            x_srted, b_minus_from_rec = zip(*sorted(zip(xvar[i], binned_b_minus_err[i][0])))
             ax.plot(x_srted, b_hera,
                 label="HERA data",
                 linestyle="",
@@ -348,15 +342,30 @@ def main():
                 color=colors[2*i+1],
                 alpha=1
                 )
-            print("x_srted", x_srted)
-            print(b_hera)
-            print(b_err)
+            ax.plot(x_srted, b_plus_from_rec,
+                label="b_plus_from_rec",
+                linestyle="-.",
+                linewidth=lw/4,
+                # marker="",
+                # markersize=ms,
+                color=colors[2*i+1],
+                alpha=0.8
+                )
+            ax.plot(x_srted, b_minus_from_rec,
+                label="b_minus_from_rec",
+                linestyle=":",
+                linewidth=lw/4,
+                # marker="",
+                # markersize=ms,
+                color=colors[2*i+1],
+                alpha=0.8
+                )
             ax.errorbar(x_srted, b_hera, yerr=b_err,
                         linestyle="",
                         color=colors[2*i+1],
                 )
 
-        
+    ################## SHADING
     # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
     i=0
     xvar = binned_qsq_grids
