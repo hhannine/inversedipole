@@ -46,23 +46,17 @@ def S_interp(N_interp, r, N_max=None):
     return N_max-N_interp(r)
 
 
-def main():
-    global G_PATH, PLOT_TYPE, R_GRID
+def main(plotvar="xbj"):
+    global G_PATH, PLOT_TYPE, gev_to_mb
     f_path_list = []
-    # PLOT_TYPE = sys.argv[1]
-    PLOT_TYPE = "size"
-    if PLOT_TYPE not in ["dipole", "sigmar", "noise", "size"]:
-        print(helpstring)
-        PLOT_TYPE = "dipole"
-        # exit(1)
     G_PATH = os.path.dirname(os.path.realpath("."))
 
     ###################################
     ### SETTINGS ######################
     ###################################
 
-    # use_charm = False
-    use_charm = True
+    use_charm = False
+    # use_charm = True
     # use_real_data = False
     use_real_data = True
     # use_unity_sigma0 = True # ?
@@ -114,10 +108,17 @@ def main():
     for fle in recon_files:
         data_list.append(loadmat(data_path + fle))
     
+    #######################
     # Reading data
     Q2vals_grid = [dat["q2vals"][0] for dat in data_list]
-    q2_averages = [np.average(qvals) for qvals in Q2vals_grid]
-    print(q2_averages)
+    # q_averages = [np.average(np.sqrt(qvals)) for qvals in Q2vals_grid]
+    q_averages = [np.median(np.sqrt(qvals)) for qvals in Q2vals_grid] # Best?
+    # q_averages = [np.mean(np.sqrt(qvals)) for qvals in Q2vals_grid] # Better!
+    # W2_vals = np.array([1/x for q2, x in zip(q2_averages, xbj_bins)])
+    W_vals = np.array([math.sqrt((1/x)-1)*q for q, x in zip(q_averages, xbj_bins)])
+    # W_vals = np.array([math.sqrt((1/x)-1)*2 for q, x in zip(q_averages, xbj_bins)])
+    print("q_averages", q_averages)
+
     real_sigma = data_list[0]["real_sigma"][0]
     best_lambdas = [dat["best_lambda"][0] for dat in data_list]
     lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
@@ -128,17 +129,9 @@ def main():
         ucrt_step = 2
         uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
 
-
-    dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-    dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-    dip_data_rec_adj = np.array([dat["N_rec_adjacent"] for dat in data_list]) # matrix of all the reconstructions, need to find correct lambda
-    if use_real_data:
-        dip_rec_from_b_plus_err = [dat["N_reconst_from_b_plus_err"] for dat in data_list]
-        dip_rec_from_b_minus_err = [dat["N_reconst_from_b_minus_err"] for dat in data_list]
-
-        N_max_data = [dat["N_maxima"][0] for dat in data_list]
-        N_bpluseps_max_data = [dat["N_bpluseps_maxima"][0] for dat in data_list]
-        N_bminuseps_max_data = [dat["N_bminuseps_maxima"][0] for dat in data_list]
+    N_max_data = [dat["N_maxima"][0] for dat in data_list]
+    N_bpluseps_max_data = [dat["N_bpluseps_maxima"][0] for dat in data_list]
+    N_bminuseps_max_data = [dat["N_bminuseps_maxima"][0] for dat in data_list]
 
     
     # PROPER PLOTS
@@ -158,26 +151,8 @@ def main():
 
 
     ####################
-    ### PLOT TYPE DIPOLE
+    ### PLOT TYPE TARGET SIZE / sigma0 or B_D
     ####################
-    if not use_real_data:
-        plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
-    else:
-        plt1_xbj_bins = [xbj_bins.index(1.3e-2), xbj_bins.index(1.3e-3), xbj_bins.index(1.3e-4)]
-    # print("plt1_xbj_bins", plt1_xbj_bins)
-    for xbj, dat in zip(xbj_bins, data_list):
-        # print(dat.keys())
-        if (str(xbj) not in dat["dip_file"][0]):
-            print("SORT ERROR?", str(xbj), dat["dip_file"][0])
-    if not plt1_xbj_bins:
-        print("No xbj bins found!", xbj_bins)
-        exit()
-    binned_dip_data_fit = [dip_data_fit[i] for i in plt1_xbj_bins]
-    binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
-    binned_dip_data_rec_adj = [dip_data_rec_adj[i].T for i in plt1_xbj_bins]
-    binned_dip_rec_from_bplus = [dip_rec_from_b_plus_err[i] for i in plt1_xbj_bins]
-    binned_dip_rec_from_bminus = [dip_rec_from_b_minus_err[i] for i in plt1_xbj_bins]
-    binned_mI_list = [mI_list[i] for i in plt1_xbj_bins]
     
     fig = plt.figure()
     ax = plt.gca()
@@ -188,34 +163,18 @@ def main():
     ax.tick_params(axis='both', pad=7)
     ax.tick_params(axis='both', which='both', direction="in")
 
-    # if USE_TITLE:
-    #     plt.title(title)
-    if PLOT_TYPE == "size":
-        plt.xlabel(r'$x ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=22)
+
+    if plotvar == "xbj":
+        plt.xlabel(r'$x_{\mathrm{Bj.}}$', fontsize=22)
         plt.ylabel(r'$\frac{\sigma_0}{2} ~ \left(\mathrm{mb}\right)$', fontsize=22)
         xvar = xbj_bins
+    elif plotvar == "W":
+        plt.xlabel(r'$W ~ \left(\mathrm{GeV}\right)$', fontsize=22)
+        plt.ylabel(r'$B_G ~ \left(\mathrm{GeV}^{-2}\right)$', fontsize=22)
 
-    # LOG AXIS
-    # ax.set_xscale('log')
-    # ax.set_yscale('log')
     
     ##############
     # LABELS
-    labels = []
-    colors = []
-    line_styles = []
-    scalings = []
-    for fname in recon_files:
-            # print(fname)
-            if "bayesMV4" in fname:
-                label = r'$\mathrm{bayesMV4}$'
-            elif "bayesMV5" in fname:
-                label = r'$\mathrm{bayesMV5}$'
-            elif "MV_" in fname:
-                label = r'$\mathrm{MV}$'
-            else:
-                continue
-            labels.append(label)
 
     scalings = [1, 1, 1]
     if use_real_data:
@@ -238,56 +197,74 @@ def main():
     line_rec_bplus = Line2D([0,1],[0,1],linestyle='-.',linewidth=lw/3, color="black")
     line_rec_bminus = Line2D([0,1],[0,1],linestyle=':',linewidth=lw/3, color="black")
 
-    if use_real_data:
-        manual_handles = [line_fit0, (line_rec, uncert_col),
-                        line_rec_bplus, line_rec_bminus,
-                        uncert_col0,
-                        uncert_col1,
-                        uncert_col2,]
-    else:
-        manual_handles = [line_fit0, (line_rec, uncert_col),
-                        uncert_col0,
-                        uncert_col1,
-                        uncert_col2,]
+    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, color="blue")
+    line_h1_bd = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="red")
 
-    if use_real_data:
+    if plotvar=="xbj":
+        manual_handles = [line_fit0,
+                          data_rec_point,
+                          ]
         manual_labels = [
-            r'${\mathrm{Fit ~ dipole}}$',
-            r'${\mathrm{Reconstruction ~ from ~ HERA ~ data}\, \pm \, \varepsilon_\lambda}$',
-            r'${\mathrm{Reconstruction ~ to} ~ \sigma_r + \mathrm{error}}$',
-            r'${\mathrm{Reconstruction ~ to} ~ \sigma_r - \mathrm{error}}$',
+            r'${\mathrm{Fit} ~ \frac{\sigma_0}{2}}$',
+            r'${\mathrm{Reconstruction} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
         ]
-    else:
+    elif plotvar=="W":
+        manual_handles = [line_fit0,
+                          data_rec_point, 
+                          line_h1_bd,]
         manual_labels = [
-            r'${\mathrm{Fit ~ dipole}}$',
-            r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
+            r'${B_G ~ \mathrm{from ~ HERA ~ inclusive ~ DIS ~ fit} ~ \frac{\sigma_0}{2}}$',
+            r'${B_G ~ \mathrm{from ~ reconstruction} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            r"${\mathrm{H1 ~ parametrization:} ~ b_0 + 4 \alpha' \log(W/90\, GeV)}$",
         ]
-    for ibin in plt1_xbj_bins:
-        xbj_str = str(xbj_bins[ibin])
-        if "e" in xbj_str:
-            # xbj_str = "0.00001" #"10^{{-5}}"
-            xbj_str = "10^{{-5}}"
-        manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str))
+    # for ibin in plt1_xbj_bins:
+    #     xbj_str = str(xbj_bins[ibin])
+    #     if "e" in xbj_str:
+    #         # xbj_str = "0.00001" #"10^{{-5}}"
+    #         xbj_str = "10^{{-5}}"
+    #     manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str))
 
 
     ####################
     #################### PLOTTING
     #################### 
 
+    # LOG AXIS
+    ax.set_xscale('log')
+    # ax.set_yscale('log')
+    
+    if plotvar=="xbj":
+        # xvar = xbj_bins
+        xvar = np.array(xbj_bins)
+    elif plotvar=="W":
+        # xvar = np.sqrt(W2_vals)
+        xvar = W_vals
+        gev_to_mb = 1 # reset back to GeV
+        sigma0_to_B_d = 1/(2*math.pi) # from sigma0 (in GeV) to B_D assuming a gaussian profile for the proton
+        gev_to_mb = sigma0_to_B_d
+
     # Plot sigma0(xbj) for light only, light plus charm, and fit constant
     # W^2 = Q^2 / xbj
-    W2_vals = np.array([q2/x for q2, x in zip(q2_averages, xbj_bins)])
+    # W2_vals = np.array([q2/(x) for q2, x in zip(q2_averages, xbj_bins)])
+
     Nlight_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_max_data)])
     Nlight_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_bpluseps_max_data)])
     Nlight_bminus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_bminuseps_max_data)])
-    print(Nlight_max.shape)
-    print(Nlight_bplus_max.shape)
-    print(Nlight_bminus_max.shape)
-    Nlight_errs = np.array([gev_to_mb*Nlight_bminus_max, gev_to_mb*Nlight_bplus_max])
-    # Nlight_errs = np.array([Nlight_bminus_max, Nlight_bplus_max])
-    print(Nlight_errs.shape)
-    # ax.plot(xvar[0], gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
-    ax.plot(W2_vals, [gev_to_mb*real_sigma]*len(xbj_bins),
+    Nlight_err_upper = Nlight_bplus_max - Nlight_max
+    Nlight_err_lower = Nlight_max - Nlight_bminus_max
+    Nlight_errs = np.array([gev_to_mb*Nlight_err_lower, gev_to_mb*Nlight_err_upper])
+
+    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_max_data)])
+    Ncharm_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_bpluseps_max_data)])
+    Ncharm_bminus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_bminuseps_max_data)])
+    Ncharm_err_upper = Ncharm_bplus_max - Ncharm_max
+    Ncharm_err_lower = Ncharm_max - Ncharm_bminus_max
+    Ncharm_errs = np.array([gev_to_mb*Ncharm_err_lower, gev_to_mb*Ncharm_err_upper])
+
+    x_srted = sorted(xvar)
+    # x_srted, b_rec = zip(*sorted(zip(xvar, b_rec)))
+
+    ax.plot(x_srted, [gev_to_mb*real_sigma]*len(x_srted),
             # label=labels[i],
             label="Fit sigma0/2",
             linestyle=":",
@@ -295,18 +272,44 @@ def main():
             # color=colors[2*i]
             color="black"
             )
-    # ax.plot(xbj_bins, gev_to_mb*Nlight_max,
-    #         # label=labels[i+1],
-    #         label="Reconstuction of target transverse area",
-    #         linestyle="-",
-    #         linewidth=lw/2.5,
-    #         color=colors[0],
-    #         alpha=1
-    #         )
-    ax.errorbar(W2_vals, gev_to_mb*Nlight_max, yerr=Nlight_errs,
-                linestyle="", marker="o",
+    ax.plot(xvar, gev_to_mb*Nlight_max,
+            label="Reconstuction of target transverse area",
+            linestyle="", marker="o", markersize=7,
+            color=colors[0],
+            alpha=1
+            )
+    ax.errorbar(xvar, gev_to_mb*Nlight_max, yerr=Nlight_errs,
+                linestyle="", marker="",
+                linewidth=2.0,
+                capsize=4.,
+                capthick=1.0,
                 color=colors[0],
                 )
+    if plotvar=="W":
+        # ax.plot(xvar, 2*math.pi*gev_to_mb*(4.15+4*0.115*np.log(xvar/90)),
+        ax.plot(xvar, (4.63+4*0.164*np.log(xvar/90)),
+                label="H1 log-fit",
+                linestyle="-",
+                color="red",
+                alpha=1
+                )
+
+    # lambda uncertainty for the maxima: (probably not useful since it's often one sided?)
+    for i, (mI, max_vals) in enumerate(zip(mI_list, N_max_data)):
+        Nmax = Nlight_max[i]
+        if mI==0:
+            err_tuple = ([0], [gev_to_mb*abs(max_vals[mI+1]-Nmax)])
+        elif mI==4:
+            err_tuple = ([gev_to_mb*abs(Nmax-max_vals[mI-1])], [0])
+        else:
+            err_tuple = [[gev_to_mb*abs(Nmax-max_vals[mI-1])], [gev_to_mb*abs(max_vals[mI+1]-Nmax)]]
+        ax.errorbar(xvar[i], gev_to_mb*Nmax, yerr=err_tuple,
+                    linestyle="", marker="",
+                    linewidth=2.0,
+                    capsize=3.0,
+                    capthick=1.0,
+                    color=colors[3],
+                    )
 
 
     ################## SHADING        
@@ -340,22 +343,31 @@ def main():
     # plt.text(0.95, 0.14, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled log log
     # plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
     
-    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="upper left") 
     
     # ax.xaxis.set_major_formatter(ScalarFormatter())
-    # plt.xlim(1e-3, 20)
-    # plt.xlim(0.05, 25)
-    # plt.ylim(bottom=0, top=40)
+    
+    if plotvar=="xbj":
+        plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
+        plt.xlim(1e-4, 1e-1)
+    elif plotvar=="W":
+        plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
+        # plt.xlim(100, 190)
+        plt.xlim(0.98*min(W_vals), 1.02*max(W_vals))
+        # plt.xlim(3, 110) # for Q^2 = 1 average
+        plt.ylim(bottom=0, top=10)
     fig.set_size_inches(7,7)
     
 
-    n_plot = "plot9-"
+    if plotvar=="xbj":
+        n_plot = "plot9-xbj-sigma0-"
+    elif plotvar=="W":
+        n_plot = "plot9_alt-w-B_G-"
     if not n_plot:
         print("Plot number?")
         exit()
 
-    write2file = False
-    # write2file = True
+    # write2file = False
+    write2file = True
     plt.tight_layout()
     if write2file:
         mpl.use('agg') # if writing to PDF
@@ -366,7 +378,10 @@ def main():
         plt.savefig(os.path.join(plotpath, outfilename))
     else:
         plt.show()
+    fig.clear()
+    plt.close()
     return 0
 
-
-main()
+# plotvar xbj / W
+main("xbj")
+main("W")
