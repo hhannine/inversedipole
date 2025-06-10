@@ -75,9 +75,8 @@ def main(plotvar="xbj"):
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
+    str_flavor_c = "lightpluscharm_"
     name_base = 'recon_out_'
-    if use_charm:
-        str_flavor = "lightpluscharm_"
     if use_real_data:
         str_data = "hera_"
         str_fit = "data_only_"
@@ -89,24 +88,26 @@ def main(plotvar="xbj"):
     # lambda_type = "semicon2_"
     lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
-    print(composite_fname)
+    composite_fname_c = name_base+str_data+str_fit+str_flavor_c+lambda_type
+    print(composite_fname, composite_fname_c)
 
     # Reading data files
-    recon_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-                   composite_fname in i]
+    recon_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and composite_fname in i]
+    recon_files_c = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and composite_fname_c in i]
     print(recon_files)
+    print(recon_files_c)
     if not recon_files:
         print("No files found!")
         print(data_path, composite_fname)
         exit(None)
     xbj_bins = [float(Path(i).stem.split("xbj")[1]) for i in recon_files]
     recon_files = [x for _, x in sorted(zip(xbj_bins, recon_files))]
+    recon_files_c = [x for _, x in sorted(zip(xbj_bins, recon_files_c))]
     xbj_bins = sorted(xbj_bins)
     print(xbj_bins)
 
-    data_list = []
-    for fle in recon_files:
-        data_list.append(loadmat(data_path + fle))
+    data_list = [loadmat(data_path + fle) for fle in recon_files]
+    data_list_c = [loadmat(data_path + fle) for fle in recon_files_c]
     
     #######################
     # Reading data
@@ -114,9 +115,8 @@ def main(plotvar="xbj"):
     # q_averages = [np.average(np.sqrt(qvals)) for qvals in Q2vals_grid]
     q_averages = [np.median(np.sqrt(qvals)) for qvals in Q2vals_grid] # Best?
     # q_averages = [np.mean(np.sqrt(qvals)) for qvals in Q2vals_grid] # Better!
-    # W2_vals = np.array([1/x for q2, x in zip(q2_averages, xbj_bins)])
+
     W_vals = np.array([math.sqrt((1/x)-1)*q for q, x in zip(q_averages, xbj_bins)])
-    # W_vals = np.array([math.sqrt((1/x)-1)*2 for q, x in zip(q_averages, xbj_bins)])
     print("q_averages", q_averages)
 
     real_sigma = data_list[0]["real_sigma"][0]
@@ -132,6 +132,9 @@ def main(plotvar="xbj"):
     N_max_data = [dat["N_maxima"][0] for dat in data_list]
     N_bpluseps_max_data = [dat["N_bpluseps_maxima"][0] for dat in data_list]
     N_bminuseps_max_data = [dat["N_bminuseps_maxima"][0] for dat in data_list]
+    Nc_max_data = [dat["N_maxima"][0] for dat in data_list_c]
+    Nc_bpluseps_max_data = [dat["N_bpluseps_maxima"][0] for dat in data_list_c]
+    Nc_bminuseps_max_data = [dat["N_bminuseps_maxima"][0] for dat in data_list_c]
 
     
     # PROPER PLOTS
@@ -181,40 +184,37 @@ def main(plotvar="xbj"):
         additives = [0, 10, 20]
     else:
         additives = [0, 2, 4]
-    colors = ["blue", "green", "brown", "orange", "magenta", "red"]
+    colors = ["blue", "red", "brown", "orange", "magenta", "green"]
     lw=2.8
     ms=4
     mstyle = "o"
     color_alph = 1
 
-    uncert_col0 = Patch(facecolor=colors[1], alpha=color_alph)
-    uncert_col1 = Patch(facecolor=colors[3], alpha=color_alph)
-    uncert_col2 = Patch(facecolor=colors[5], alpha=color_alph)
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
-    
-    uncert_col = Patch(facecolor="black", alpha=0.3)
-    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="black")
-    line_rec_bplus = Line2D([0,1],[0,1],linestyle='-.',linewidth=lw/3, color="black")
-    line_rec_bminus = Line2D([0,1],[0,1],linestyle=':',linewidth=lw/3, color="black")
 
-    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, color="blue")
-    line_h1_bd = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="red")
+    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, color=colors[0])
+    data_rec_point_c = Line2D([0,1],[0,1],linestyle='', marker="s", color=colors[1])
+    line_h1_bd = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[4])
 
     if plotvar=="xbj":
         manual_handles = [line_fit0,
                           data_rec_point,
+                          data_rec_point_c,
                           ]
         manual_labels = [
             r'${\mathrm{Fit} ~ \frac{\sigma_0}{2}}$',
-            r'${\mathrm{Reconstruction} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            r'${\mathrm{Reconstruction ~ (light)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
         ]
     elif plotvar=="W":
         manual_handles = [line_fit0,
                           data_rec_point, 
+                          data_rec_point_c,
                           line_h1_bd,]
         manual_labels = [
             r'${B_G ~ \mathrm{from ~ HERA ~ inclusive ~ DIS ~ fit} ~ \frac{\sigma_0}{2}}$',
-            r'${B_G ~ \mathrm{from ~ reconstruction} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            r'${B_G ~ \mathrm{from ~ reconstruction~ (light)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            r'${B_G ~ \mathrm{from ~ reconstruction~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
             r"${\mathrm{H1 ~ parametrization:} ~ b_0 + 4 \alpha' \log(W/90\, GeV)}$",
         ]
     # for ibin in plt1_xbj_bins:
@@ -234,18 +234,12 @@ def main(plotvar="xbj"):
     # ax.set_yscale('log')
     
     if plotvar=="xbj":
-        # xvar = xbj_bins
         xvar = np.array(xbj_bins)
     elif plotvar=="W":
-        # xvar = np.sqrt(W2_vals)
         xvar = W_vals
         gev_to_mb = 1 # reset back to GeV
         sigma0_to_B_d = 1/(2*math.pi) # from sigma0 (in GeV) to B_D assuming a gaussian profile for the proton
         gev_to_mb = sigma0_to_B_d
-
-    # Plot sigma0(xbj) for light only, light plus charm, and fit constant
-    # W^2 = Q^2 / xbj
-    # W2_vals = np.array([q2/(x) for q2, x in zip(q2_averages, xbj_bins)])
 
     Nlight_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_max_data)])
     Nlight_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_bpluseps_max_data)])
@@ -254,9 +248,9 @@ def main(plotvar="xbj"):
     Nlight_err_lower = Nlight_max - Nlight_bminus_max
     Nlight_errs = np.array([gev_to_mb*Nlight_err_lower, gev_to_mb*Nlight_err_upper])
 
-    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_max_data)])
-    Ncharm_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_bpluseps_max_data)])
-    Ncharm_bminus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_bminuseps_max_data)])
+    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_max_data)])
+    Ncharm_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_bpluseps_max_data)])
+    Ncharm_bminus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_bminuseps_max_data)])
     Ncharm_err_upper = Ncharm_bplus_max - Ncharm_max
     Ncharm_err_lower = Ncharm_max - Ncharm_bminus_max
     Ncharm_errs = np.array([gev_to_mb*Ncharm_err_lower, gev_to_mb*Ncharm_err_upper])
@@ -274,7 +268,7 @@ def main(plotvar="xbj"):
             )
     ax.plot(xvar, gev_to_mb*Nlight_max,
             label="Reconstuction of target transverse area",
-            linestyle="", marker="o", markersize=7,
+            linestyle="", marker="o", markersize=5,
             color=colors[0],
             alpha=1
             )
@@ -285,63 +279,46 @@ def main(plotvar="xbj"):
                 capthick=1.0,
                 color=colors[0],
                 )
+    ax.plot(xvar, gev_to_mb*Ncharm_max,
+            label="Reconstuction of target transverse area",
+            linestyle="", marker="s", markersize=5,
+            color=colors[1],
+            alpha=0.7
+            )
+    ax.errorbar(xvar, gev_to_mb*Ncharm_max, yerr=Ncharm_errs,
+                linestyle="", marker="",
+                linewidth=2.0,
+                capsize=4.,
+                capthick=1.0,
+                alpha=0.7,
+                color=colors[1],
+                )
     if plotvar=="W":
         # ax.plot(xvar, 2*math.pi*gev_to_mb*(4.15+4*0.115*np.log(xvar/90)),
         ax.plot(xvar, (4.63+4*0.164*np.log(xvar/90)),
                 label="H1 log-fit",
                 linestyle="-",
-                color="red",
+                color=colors[4],
                 alpha=1
                 )
 
     # lambda uncertainty for the maxima: (probably not useful since it's often one sided?)
-    for i, (mI, max_vals) in enumerate(zip(mI_list, N_max_data)):
-        Nmax = Nlight_max[i]
-        if mI==0:
-            err_tuple = ([0], [gev_to_mb*abs(max_vals[mI+1]-Nmax)])
-        elif mI==4:
-            err_tuple = ([gev_to_mb*abs(Nmax-max_vals[mI-1])], [0])
-        else:
-            err_tuple = [[gev_to_mb*abs(Nmax-max_vals[mI-1])], [gev_to_mb*abs(max_vals[mI+1]-Nmax)]]
-        ax.errorbar(xvar[i], gev_to_mb*Nmax, yerr=err_tuple,
-                    linestyle="", marker="",
-                    linewidth=2.0,
-                    capsize=3.0,
-                    capthick=1.0,
-                    color=colors[3],
-                    )
-
-
-    ################## SHADING        
-    # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
-    # i=0
-    # shade_alph_closer = 0.2
-    # shade_alph_further = 0.1
-    # for i, (i_rnge, adj_dips) in enumerate(zip(uncert_i, binned_dip_data_rec_adj)):
-    #     mI = binned_mI_list[i]
-    #     print(mI)
-    #     rec_dip = adj_dips[mI]
-    #     needed_adj_dips = [adj_dips[i] for i in i_rnge]
+    # for i, (mI, max_vals) in enumerate(zip(mI_list, N_max_data)):
+    #     Nmax = Nlight_max[i]
     #     if mI==0:
-    #         ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_closer)
-    #         ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[2]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
+    #         err_tuple = ([0], [gev_to_mb*abs(max_vals[mI+1]-Nmax)])
     #     elif mI==4:
-    #         ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i-1], alpha=shade_alph_closer)
-    #         ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[2]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
+    #         err_tuple = ([gev_to_mb*abs(Nmax-max_vals[mI-1])], [0])
     #     else:
-    #         # at least one step on both sides
-    #         ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[3]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_closer)
-    #         ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[1]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_closer)
-    #         if mI==2:
-    #             # 2 steps on either side
-    #             ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[4]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
-    #             ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[0]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
-    #     i+=1
+    #         err_tuple = [[gev_to_mb*abs(Nmax-max_vals[mI-1])], [gev_to_mb*abs(max_vals[mI+1]-Nmax)]]
+    #     ax.errorbar(xvar[i], gev_to_mb*Nmax, yerr=err_tuple,
+    #                 linestyle="", marker="",
+    #                 linewidth=2.0,
+    #                 capsize=3.0,
+    #                 capthick=1.0,
+    #                 color=colors[3],
+    #                 )
 
-
-    # plt.text(0.95, 0.146, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black')
-    # plt.text(0.95, 0.14, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled log log
-    # plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
     
     
     # ax.xaxis.set_major_formatter(ScalarFormatter())
@@ -354,7 +331,7 @@ def main(plotvar="xbj"):
         # plt.xlim(100, 190)
         plt.xlim(0.98*min(W_vals), 1.02*max(W_vals))
         # plt.xlim(3, 110) # for Q^2 = 1 average
-        plt.ylim(bottom=0, top=10)
+        plt.ylim(bottom=0, top=11)
     fig.set_size_inches(7,7)
     
 
@@ -366,8 +343,8 @@ def main(plotvar="xbj"):
         print("Plot number?")
         exit()
 
-    # write2file = False
-    write2file = True
+    write2file = False
+    # write2file = True
     plt.tight_layout()
     if write2file:
         mpl.use('agg') # if writing to PDF
