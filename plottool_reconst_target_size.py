@@ -179,11 +179,6 @@ def main(plotvar="xbj"):
     ##############
     # LABELS
 
-    scalings = [1, 1, 1]
-    if use_real_data:
-        additives = [0, 10, 20]
-    else:
-        additives = [0, 2, 4]
     colors = ["blue", "red", "brown", "orange", "magenta", "green"]
     lw=2.8
     ms=4
