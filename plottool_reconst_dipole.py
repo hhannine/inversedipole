@@ -61,8 +61,8 @@ def main():
     ### SETTINGS ######################
     ###################################
 
-    use_charm = False
-    # use_charm = True
+    # use_charm = False
+    use_charm = True
     # use_real_data = False
     use_real_data = True
     # use_unity_sigma0 = True # ?
@@ -90,10 +90,10 @@ def main():
     if use_noise:
         name_base = 'recon_with_noise_out_'
     
-    # lambda_type = "broad_"
+    lambda_type = "broad_"
     # lambda_type = "semiconstrained_"
     # lambda_type = "semicon2_"
-    lambda_type = "fixed_"
+    # lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
     print(composite_fname)
 
@@ -163,10 +163,15 @@ def main():
     ####################
     ### PLOT TYPE DIPOLE
     ####################
+    alt_bins = True
+
     if not use_real_data:
         plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
     else:
-        plt1_xbj_bins = [xbj_bins.index(1.3e-2), xbj_bins.index(1.3e-3), xbj_bins.index(1.3e-4)]
+        if alt_bins:
+            plt1_xbj_bins = [xbj_bins.index(8e-2), xbj_bins.index(5e-2), xbj_bins.index(8e-3)]
+        else:
+            plt1_xbj_bins = [xbj_bins.index(1.3e-2), xbj_bins.index(1.3e-3), xbj_bins.index(1.3e-4)]
     # print("plt1_xbj_bins", plt1_xbj_bins)
     for xbj, dat in zip(xbj_bins, data_list):
         # print(dat.keys())
@@ -369,6 +374,9 @@ def main():
         elif use_charm:
             n_plot = "plot7-"
     
+    if alt_bins:
+        n_plot += "alt_bins-"
+
     if not n_plot:
         print("Plot number?")
         exit()
