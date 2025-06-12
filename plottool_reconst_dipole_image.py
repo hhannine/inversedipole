@@ -159,12 +159,20 @@ def main(plotvar="xbj"):
     ### PLOT TYPE DIPOLE IMAGE
     ####################
     
-    fig = plt.figure(figsize = (1, 4))
-    plt.axis("off")
-    fig.set_size_inches(15, 7)
+    #### GRID SPEC IDK
+    # fig = plt.figure(figsize = (1, 3))
+    # plt.axis("off")
+    # fig.set_size_inches(15, 7)
 
-    gs1 = gridspec.GridSpec(1, 4)
-    gs1.update(wspace=0.025, hspace=0.05) # set the spacing between axes. 
+    # # gs1 = gridspec.GridSpec(1, 3, width_ratios=[1,1,1], height_ratios=[1])
+    # gs1 = gridspec.GridSpec(1, 4, width_ratios=[1,1,1,1], height_ratios=[1])
+    # gs1.update(wspace=0.025, hspace=0.05) # set the spacing between axes. 
+
+    # fig, axs = plt.subplots(1,3) #works but shrinks the 3rd image
+    fig, axs = plt.subplots(nrows=1, ncols=3)
+    fig.set_size_inches(20, 7)
+    plt.tight_layout()
+    plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 1.1, left = 0.03, hspace = 0, wspace = 0)
 
 
     plt.xticks(fontsize=20, rotation=0)
@@ -173,17 +181,16 @@ def main(plotvar="xbj"):
     titles = [r"$\mathrm{Fit ~ dipole}$",
               r"$\mathrm{Reconstructed ~ dipole, ~ light ~ only}$",
               r"$\mathrm{Reconstructed ~ dipole, ~ light + charm}$",
+              "",
               ]
     if plotvar == "r":
         # plt.xlabel(r'$r ~ (FM OR WHAT)$', fontsize=22)
         # plt.ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
         xvar = xbj_bins
-        for i in range(3):
-            ax1 = plt.subplot(gs1[i])
-            ax1.set_xticklabels([])
-            ax1.set_yticklabels([])
-            ax1.set_aspect('equal')
-            ax1.yaxis.minorticks_off()
+        # for i in range(3):
+            # ax1 = plt.subplot(gs1[i])
+            # ax1.set_aspect('equal')
+        for i, ax1 in enumerate(axs):
             ax1.set_xscale('log')
             ax1.set_yscale('log')
             ax1.tick_params(which='major',width=1,length=6)
@@ -192,40 +199,11 @@ def main(plotvar="xbj"):
             ax1.tick_params(axis='both', which='both', direction="in")
             ax1.set_xlim([1e-1, max(R)])
             ax1.set_ylim([min(XBJ), max(XBJ)])
-            ax1.set_title(titles[i], fontsize=20, pad=10)
-    # elif plotvar == "Q":
-    #     plt.xlabel(r'$Q ~ \left(\mathrm{GeV}\right)$', fontsize=22)
-    #     plt.ylabel(r'$\frac{\sigma_0}{2} ~ \left(\mathrm{mb}\right)$', fontsize=22)
+            # ax1.set_title(titles[i], fontsize=20, pad=10)
+            ax1.set_title(titles[i], fontsize=10, pad=1)
+            if i!=0:
+                ax1.set_yticks([])
 
-
-    ##############
-    # LABELS
-
-    colors = ["blue", "red", "brown", "orange", "magenta", "green"]
-    lw=2.8
-    ms=4
-    mstyle = "o"
-    color_alph = 1
-
-    line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
-
-    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, markersize=10, color="black")
-    data_lit_point1 = Line2D([0,1],[0,1],linestyle='', marker="s", markersize=10, color="black")
-    data_lit_point2 = Line2D([0,1],[0,1],linestyle='', marker="^", markersize=10, color="black")
-    data_lit_point3 = Line2D([0,1],[0,1],linestyle='', marker="v", markersize=10, color="black")
-    data_rec_point_c = Line2D([0,1],[0,1],linestyle='', marker="s", color=colors[1])
-    line_h1_bd = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[4])
-
-    if plotvar=="r" or plotvar=="Q":
-        manual_handles = [line_fit0,
-                          data_rec_point,
-                          data_rec_point_c,
-                          ]
-        manual_labels = [
-            r'${\mathrm{Fit} ~ \frac{\sigma_0}{2}}$',
-            r'${\mathrm{Reconstruction ~ (light)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
-            r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
-        ]
 
 
     ####################
@@ -268,20 +246,51 @@ def main(plotvar="xbj"):
     # plt.subplots_adjust(bottom=0.025, left=0.035)
     # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
     # ax.pcolormesh(rr, xx, reshape_dip, shading='auto')
-    mapname = 'plasma'
+    # mapname = 'plasma'
+    mapname = 'magma'
     cmap = plt.colormaps[mapname]
-    cfit = plt.subplot(gs1[0]).pcolormesh(rr, xx, real_sigma*reshape_fit, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
-    c = plt.subplot(gs1[1]).pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
-    cc = plt.subplot(gs1[2]).pcolormesh(rr, xx, reshape_dip_c, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
-    # plt.colorbar(cc)
+    # cfit = plt.subplot(gs1[0]).pcolormesh(rr, xx, real_sigma*reshape_fit, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    # c = plt.subplot(gs1[1]).pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    # cc = plt.subplot(gs1[2]).pcolormesh(rr, xx, reshape_dip_c, vmin=0, vmax=max(Ncharm_max), cmap = cmap)
+    
+    norm = plt.Normalize(np.min(Ncharm_max), np.max(Ncharm_max))
+    # norm = mpl.colors.LogNorm(np.min(Ncharm_max), np.max(Ncharm_max))
+    # norm = mpl.colors.LogNorm(np.min(Ncharm_max), np.max(Ncharm_max))
+    smap = plt.cm.ScalarMappable(cmap='plasma', norm=norm)
+
+    print(np.min(Ncharm_max)/10, np.max(Ncharm_max))
+
+    ax = axs[0] 
+    cfit = ax.pcolormesh(rr, xx, real_sigma*reshape_fit, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    # cfit = ax.pcolormesh(rr, xx, real_sigma*reshape_fit, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max))) 
+    ax = axs[1] 
+    c = ax.pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    # c = ax.pcolormesh(rr, xx, reshape_dip+0.6, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max)))  
+    ax = axs[2] 
+    cc = ax.pcolormesh(rr, xx, reshape_dip_c, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    # cc = ax.pcolormesh(rr, xx, reshape_dip_c+0.9, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max))) 
+    
+    # fig.subplots_adjust(right=1)
+    # cbar_ax = fig.add_axes([0.95, 0.15, 0.05, 0.7])
+    # fig.colorbar(cc, ax=axs[3], shrink=0.5)
+    # fig.colorbar(cc, ax=cbar_ax, shrink=1)
+    fig.colorbar(cc, ax=axs.ravel().tolist(), shrink=1)
+
     # ax.plot_surface(xx, rr, reshape_dip, cmap=cm.Blues) 
 
-    cb = plt.colorbar(plt.subplot(gs1[3]), cmap=cmap)
+    # axins = inset_axes(cc, # here using axis of the lowest plot
+    #            width="5%",  # width = 5% of parent_bbox width
+    #            height="100%",  # height : 340% good for a (4x4) Grid
+    #            loc='lower left',
+    #            bbox_to_anchor=(1.05, 0.3, 1, 1),
+    #            bbox_transform=cc.transAxes,
+    #            borderpad=0,
+    #            )
+
     
     # if plotvar=="r":
         # plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
-        # ax.set_xlim([min(R), max(R)])
-    
+
 
     if plotvar=="r":
         n_plot = "plot10-r-dipoleimage-"
@@ -291,7 +300,6 @@ def main(plotvar="xbj"):
 
     write2file = False
     # write2file = True
-    plt.tight_layout()
     if write2file:
         mpl.use('agg') # if writing to PDF
         plt.draw()
@@ -300,6 +308,7 @@ def main(plotvar="xbj"):
         print(os.path.join(plotpath, outfilename))
         plt.savefig(os.path.join(plotpath, outfilename))
     else:
+        plt.margins(0,0)
         plt.show()
     fig.clear()
     plt.close()
