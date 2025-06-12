@@ -171,6 +171,12 @@ def main(plotvar="xbj"):
         plt.xlabel(r'$x_{\mathrm{Bj.}}$', fontsize=22)
         plt.ylabel(r'$\frac{\sigma_0}{2} ~ \left(\mathrm{mb}\right)$', fontsize=22)
         xvar = xbj_bins
+    elif plotvar == "Q":
+        plt.xlabel(r'$Q ~ \left(\mathrm{GeV}\right)$', fontsize=22)
+        plt.ylabel(r'$\frac{\sigma_0}{2} ~ \left(\mathrm{mb}\right)$', fontsize=22)
+    elif plotvar == "xQdisks":
+        plt.xlabel(r'$x_{\mathrm{Bj.}}$', fontsize=22)
+        plt.ylabel(r'$Q ~ \left(\mathrm{GeV}\right)$', fontsize=22)
     elif plotvar == "W":
         plt.xlabel(r'$W ~ \left(\mathrm{GeV}\right)$', fontsize=22)
         plt.ylabel(r'$B_G ~ \left(\mathrm{GeV}^{-2}\right)$', fontsize=22)
@@ -187,11 +193,11 @@ def main(plotvar="xbj"):
 
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
 
-    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, color=colors[0])
+    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, markersize=10, color=colors[0])
     data_rec_point_c = Line2D([0,1],[0,1],linestyle='', marker="s", color=colors[1])
     line_h1_bd = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[4])
 
-    if plotvar=="xbj":
+    if plotvar=="xbj" or plotvar=="Q":
         manual_handles = [line_fit0,
                           data_rec_point,
                           data_rec_point_c,
@@ -199,6 +205,13 @@ def main(plotvar="xbj"):
         manual_labels = [
             r'${\mathrm{Fit} ~ \frac{\sigma_0}{2}}$',
             r'${\mathrm{Reconstruction ~ (light)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+        ]
+    elif plotvar=="xQdisks":
+        manual_handles = [
+                          data_rec_point,
+                          ]
+        manual_labels = [
             r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
         ]
     elif plotvar=="W":
@@ -230,6 +243,12 @@ def main(plotvar="xbj"):
     
     if plotvar=="xbj":
         xvar = np.array(xbj_bins)
+    elif plotvar=="Q":
+        xvar = np.array(q_averages)
+    elif plotvar=="xQdisks":
+        ax.set_yscale('log')
+        xvar = np.array(xbj_bins)
+        yvar = np.array(q_averages)
     elif plotvar=="W":
         xvar = W_vals
         gev_to_mb = 1 # reset back to GeV
@@ -251,51 +270,54 @@ def main(plotvar="xbj"):
     Ncharm_errs = np.array([gev_to_mb*Ncharm_err_lower, gev_to_mb*Ncharm_err_upper])
 
     x_srted = sorted(xvar)
-    # x_srted, b_rec = zip(*sorted(zip(xvar, b_rec)))
+    target_radii = np.sqrt(Ncharm_max/(10*math.pi)) # divide millibarn/10 to get square femtometers
 
-    ax.plot(x_srted, [gev_to_mb*real_sigma]*len(x_srted),
-            # label=labels[i],
-            label="Fit sigma0/2",
-            linestyle=":",
-            linewidth=lw*1,
-            # color=colors[2*i]
-            color="black"
-            )
-    ax.plot(xvar, gev_to_mb*Nlight_max,
-            label="Reconstuction of target transverse area",
-            linestyle="", marker="o", markersize=5,
-            color=colors[0],
-            alpha=1
-            )
-    ax.errorbar(xvar, gev_to_mb*Nlight_max, yerr=Nlight_errs,
-                linestyle="", marker="",
-                linewidth=2.0,
-                capsize=4.,
-                capthick=1.0,
+    if plotvar=="xQdisks":
+        ax.scatter(xvar, yvar, s=150*target_radii, c=Ncharm_max, cmap="plasma",)
+    else:
+        ax.plot(x_srted, [gev_to_mb*real_sigma]*len(x_srted),
+                # label=labels[i],
+                label="Fit sigma0/2",
+                linestyle=":",
+                linewidth=lw*1,
+                # color=colors[2*i]
+                color="black"
+                )
+        ax.plot(xvar, gev_to_mb*Nlight_max,
+                label="Reconstuction of target transverse area",
+                linestyle="", marker="o", markersize=5,
                 color=colors[0],
-                )
-    ax.plot(xvar, gev_to_mb*Ncharm_max,
-            label="Reconstuction of target transverse area",
-            linestyle="", marker="s", markersize=5,
-            color=colors[1],
-            alpha=0.7
-            )
-    ax.errorbar(xvar, gev_to_mb*Ncharm_max, yerr=Ncharm_errs,
-                linestyle="", marker="",
-                linewidth=2.0,
-                capsize=4.,
-                capthick=1.0,
-                alpha=0.7,
-                color=colors[1],
-                )
-    if plotvar=="W":
-        # ax.plot(xvar, 2*math.pi*gev_to_mb*(4.15+4*0.115*np.log(xvar/90)),
-        ax.plot(xvar, (4.63+4*0.164*np.log(xvar/90)),
-                label="H1 log-fit",
-                linestyle="-",
-                color=colors[4],
                 alpha=1
                 )
+        ax.errorbar(xvar, gev_to_mb*Nlight_max, yerr=Nlight_errs,
+                    linestyle="", marker="",
+                    linewidth=2.0,
+                    capsize=4.,
+                    capthick=1.0,
+                    color=colors[0],
+                    )
+        ax.plot(xvar, gev_to_mb*Ncharm_max,
+                label="Reconstuction of target transverse area",
+                linestyle="", marker="s", markersize=5,
+                color=colors[1],
+                alpha=0.7
+                )
+        ax.errorbar(xvar, gev_to_mb*Ncharm_max, yerr=Ncharm_errs,
+                    linestyle="", marker="",
+                    linewidth=2.0,
+                    capsize=4.,
+                    capthick=1.0,
+                    alpha=0.7,
+                    color=colors[1],
+                    )
+        if plotvar=="W":
+            # ax.plot(xvar, 2*math.pi*gev_to_mb*(4.15+4*0.115*np.log(xvar/90)),
+            ax.plot(xvar, (4.63+4*0.164*np.log(xvar/90)),
+                    label="H1 log-fit",
+                    linestyle="-",
+                    color=colors[4],
+                    alpha=1
+                    )
 
     # lambda uncertainty for the maxima: (probably not useful since it's often one sided?)
     # for i, (mI, max_vals) in enumerate(zip(mI_list, N_max_data)):
@@ -321,17 +343,35 @@ def main(plotvar="xbj"):
     if plotvar=="xbj":
         plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
         plt.xlim(1e-4, 1e-1)
+    elif plotvar=="Q":
+        plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
+        plt.xlim(1, 25)
+    elif plotvar=="xQdisks":
+        plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper left") 
+        # map1 = ax.imshow(np.stack([target_radii, target_radii]),cmap='plasma')
+        norm = plt.Normalize(np.min(Ncharm_max), np.max(Ncharm_max))
+        smap = plt.cm.ScalarMappable(cmap='plasma', norm=norm)
+        cbar = fig.colorbar(smap, ax=ax, fraction=0.1, shrink = 0.9, pad=0.1)
+        cbar.set_label(r"$\sigma_0/2 ~ (\mathrm{mb})$", fontsize=18)
+        cbar.ax.tick_params(labelsize=15) 
+        cbar2 = cbar.ax.secondary_yaxis('left',functions=(mb_to_fmrad,fmrad_to_mb))
+        cbar2.set_ylabel('$\mathrm{{Radius ~ (fm)}}$', fontsize=18)
+        cbar2.tick_params(labelsize=15)
     elif plotvar=="W":
         plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
         # plt.xlim(100, 190)
         plt.xlim(0.98*min(W_vals), 1.02*max(W_vals))
         # plt.xlim(3, 110) # for Q^2 = 1 average
         plt.ylim(bottom=0, top=11)
-    fig.set_size_inches(7,7)
+    fig.set_size_inches(9,8)
     
 
     if plotvar=="xbj":
         n_plot = "plot9-xbj-sigma0-"
+    elif plotvar=="Q":
+        n_plot = "plot9-Q-sigma0-"
+    elif plotvar=="xQdisks":
+        n_plot = "plot9-xQdisks-sigma0-"
     elif plotvar=="W":
         n_plot = "plot9_alt-w-B_G-"
     if not n_plot:
@@ -354,6 +394,15 @@ def main(plotvar="xbj"):
     plt.close()
     return 0
 
+def mb_to_fmrad(x):
+    return np.sqrt(x/(10*math.pi))
+
+def fmrad_to_mb(x):
+    return x**2*(10*math.pi)
+
+
 # plotvar xbj / W
-main("xbj")
-main("W")
+# main("xbj")
+# main("Q")
+main("xQdisks")
+# main("W")
