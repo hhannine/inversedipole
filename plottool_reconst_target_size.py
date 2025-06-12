@@ -14,7 +14,7 @@ import hankel
 import matplotlib as mpl
 # mpl.use('agg')
 import matplotlib.pyplot as plt
-from matplotlib.ticker import ScalarFormatter, LogLocator, NullFormatter
+from matplotlib.ticker import StrMethodFormatter, ScalarFormatter
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.legend_handler import HandlerTuple
@@ -193,7 +193,10 @@ def main(plotvar="xbj"):
 
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
 
-    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, markersize=10, color=colors[0])
+    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, markersize=10, color="black")
+    data_lit_point1 = Line2D([0,1],[0,1],linestyle='', marker="s", markersize=10, color="black")
+    data_lit_point2 = Line2D([0,1],[0,1],linestyle='', marker="^", markersize=10, color="black")
+    data_lit_point3 = Line2D([0,1],[0,1],linestyle='', marker="v", markersize=10, color="black")
     data_rec_point_c = Line2D([0,1],[0,1],linestyle='', marker="s", color=colors[1])
     line_h1_bd = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[4])
 
@@ -210,9 +213,17 @@ def main(plotvar="xbj"):
     elif plotvar=="xQdisks":
         manual_handles = [
                           data_rec_point,
+                          data_lit_point1,
+                          data_lit_point2,
+                          data_lit_point3,
                           ]
         manual_labels = [
-            r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} ~ \mathrm{and ~ radius} ~ r_m}$',
+            r'${\mathrm{Mass ~ radius} ~ r_m = 0.55 \, \mathrm{fm} ~ \mathrm{from ~ PhysRevD.104.054015}}$',
+            # r'${\mathrm{Holographic ~ QCD ~ mass ~ radius} ~ r_m = 0.755 \, \mathrm(fm) ~ \mathrm{from ~ Nature 615, 813–816 (2023)}}$',
+            # r'${\mathrm{GPD ~ mass ~ radius} ~ r_m = 0.472 \, \mathrm(fm) ~ \mathrm{from ~ Nature 615, 813–816 (2023)}}$',
+            r'${\mathrm{Holographic ~ QCD ~ mass ~ radius} ~ r_m = 0.755 \, \mathrm{fm}}$',
+            r'${\mathrm{GPD ~ mass ~ radius} ~ r_m = 0.472 \, \mathrm{fm}}$',
         ]
     elif plotvar=="W":
         manual_handles = [line_fit0,
@@ -270,10 +281,18 @@ def main(plotvar="xbj"):
     Ncharm_errs = np.array([gev_to_mb*Ncharm_err_lower, gev_to_mb*Ncharm_err_upper])
 
     x_srted = sorted(xvar)
+    x_range = np.logspace(-2, -0.5, 3)
+    q_range = np.linspace(9.6, 10.6, 1)
+    q_range2 = np.linspace(10.2, 10.6, 1, endpoint=False)
     target_radii = np.sqrt(Ncharm_max/(10*math.pi)) # divide millibarn/10 to get square femtometers
 
     if plotvar=="xQdisks":
         ax.scatter(xvar, yvar, s=150*target_radii, c=Ncharm_max, cmap="plasma",)
+        ax.scatter(x_range, [10.7]*len(x_range), s=[150*0.55]*len(x_range), c=[10*math.pi*0.55**2]*len(x_range), cmap="plasma", marker="s", zorder=2)
+        # ax.plot(x_range, [10.7]*len(x_range), c=[10*math.pi*0.55**2]*len(x_range), cmap="plasma", linestyle="--", linewidth=5)
+        ax.plot(x_range, [10.7]*len(x_range), c="gray", linestyle="--", linewidth=2, zorder=1)
+        ax.scatter([0.414]*len(q_range), q_range, s=[150*0.755]*len(q_range), c=[10*math.pi*0.755**2]*len(q_range), cmap="plasma", marker="^", )
+        ax.scatter([0.414]*len(q_range2), q_range2, s=[150*0.472]*len(q_range2), c=[10*math.pi*0.472**2]*len(q_range2), cmap="plasma", marker="v", )
     else:
         ax.plot(x_srted, [gev_to_mb*real_sigma]*len(x_srted),
                 # label=labels[i],
@@ -343,27 +362,36 @@ def main(plotvar="xbj"):
     if plotvar=="xbj":
         plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
         plt.xlim(1e-4, 1e-1)
+        fig.set_size_inches(8,8)
     elif plotvar=="Q":
         plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
         plt.xlim(1, 25)
+        fig.set_size_inches(8,8)
     elif plotvar=="xQdisks":
-        plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper left") 
+        plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
+        ax.yaxis.minorticks_on()
+        ax.tick_params(which='minor',labelsize=15)
+        # ax.yaxis.set_major_formatter(StrMethodFormatter(r'{x:.1f}'))
+        plt.gca().yaxis.set_major_formatter(StrMethodFormatter(r'${x:,.0f}$')) # No decimal places
+        # plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+        ax.yaxis.set_minor_formatter(ScalarFormatter(useMathText=True))
         # map1 = ax.imshow(np.stack([target_radii, target_radii]),cmap='plasma')
         norm = plt.Normalize(np.min(Ncharm_max), np.max(Ncharm_max))
         smap = plt.cm.ScalarMappable(cmap='plasma', norm=norm)
         cbar = fig.colorbar(smap, ax=ax, fraction=0.1, shrink = 0.9, pad=0.1)
-        cbar.set_label(r"$\sigma_0/2 ~ (\mathrm{mb})$", fontsize=18)
+        cbar.set_label(r"$\mathrm{{Transverse ~ area}} ~ \sigma_0/2 ~ (\mathrm{mb})$", fontsize=18)
         cbar.ax.tick_params(labelsize=15) 
         cbar2 = cbar.ax.secondary_yaxis('left',functions=(mb_to_fmrad,fmrad_to_mb))
-        cbar2.set_ylabel('$\mathrm{{Radius ~ (fm)}}$', fontsize=18)
+        cbar2.set_ylabel('$\mathrm{{Radius}} ~ r_m ~ \mathrm{(fm)}$', fontsize=18)
         cbar2.tick_params(labelsize=15)
+        fig.set_size_inches(11,9)
     elif plotvar=="W":
         plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
         # plt.xlim(100, 190)
         plt.xlim(0.98*min(W_vals), 1.02*max(W_vals))
         # plt.xlim(3, 110) # for Q^2 = 1 average
         plt.ylim(bottom=0, top=11)
-    fig.set_size_inches(9,8)
+        fig.set_size_inches(8,8)
     
 
     if plotvar=="xbj":
