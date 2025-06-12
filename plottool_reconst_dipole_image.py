@@ -13,11 +13,9 @@ import hankel
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 from matplotlib.ticker import StrMethodFormatter, ScalarFormatter, NullFormatter
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
-from matplotlib.legend_handler import HandlerTuple
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 numbers = re.compile(r'(\d+)')
 from matplotlib import rc, cm
@@ -113,9 +111,7 @@ def main(plotvar="xbj"):
     #######################
     # Reading data
     Q2vals_grid = [dat["q2vals"][0] for dat in data_list]
-    # q_averages = [np.average(np.sqrt(qvals)) for qvals in Q2vals_grid]
     q_averages = [np.median(np.sqrt(qvals)) for qvals in Q2vals_grid] # Best?
-    # q_averages = [np.mean(np.sqrt(qvals)) for qvals in Q2vals_grid] # Better!
 
     R = data_list[0]["r_grid"][0]
     XBJ = np.array(xbj_bins)
@@ -158,25 +154,11 @@ def main(plotvar="xbj"):
     ####################
     ### PLOT TYPE DIPOLE IMAGE
     ####################
-    
-    #### GRID SPEC IDK
-    # fig = plt.figure(figsize = (1, 3))
-    # plt.axis("off")
-    # fig.set_size_inches(15, 7)
 
-    # # gs1 = gridspec.GridSpec(1, 3, width_ratios=[1,1,1], height_ratios=[1])
-    # gs1 = gridspec.GridSpec(1, 4, width_ratios=[1,1,1,1], height_ratios=[1])
-    # gs1.update(wspace=0.025, hspace=0.05) # set the spacing between axes. 
-
-    # fig, axs = plt.subplots(1,3) #works but shrinks the 3rd image
     fig, axs = plt.subplots(nrows=1, ncols=3)
     fig.set_size_inches(20, 7)
     plt.tight_layout()
-    plt.subplots_adjust(top = 0.95, bottom = 0.05, right = 1.1, left = 0.03, hspace = 0, wspace = 0)
-
-
-    plt.xticks(fontsize=20, rotation=0)
-    plt.yticks(fontsize=20, rotation=0)
+    plt.subplots_adjust(top = 0.95, bottom = 0.12, right = 1.09, left = 0.06, hspace = 0, wspace = 0)
 
     titles = [r"$\mathrm{Fit ~ dipole}$",
               r"$\mathrm{Reconstructed ~ dipole, ~ light ~ only}$",
@@ -184,24 +166,25 @@ def main(plotvar="xbj"):
               "",
               ]
     if plotvar == "r":
-        # plt.xlabel(r'$r ~ (FM OR WHAT)$', fontsize=22)
-        # plt.ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
         xvar = xbj_bins
-        # for i in range(3):
-            # ax1 = plt.subplot(gs1[i])
-            # ax1.set_aspect('equal')
         for i, ax1 in enumerate(axs):
+            # ax1.xticks(fontsize=20, rotation=0)
+            # ax1.yticks(fontsize=20, rotation=0)
             ax1.set_xscale('log')
             ax1.set_yscale('log')
-            ax1.tick_params(which='major',width=1,length=6)
-            ax1.tick_params(which='minor',width=0.7,length=4)
+            ax1.grid(False)
+            ax1.tick_params(which='major',width=1,length=6,labelsize=20)
+            ax1.tick_params(which='minor',width=0.7,length=4,labelsize=20)
             ax1.tick_params(axis='both', pad=7)
             ax1.tick_params(axis='both', which='both', direction="in")
             ax1.set_xlim([1e-1, max(R)])
             ax1.set_ylim([min(XBJ), max(XBJ)])
             # ax1.set_title(titles[i], fontsize=20, pad=10)
             ax1.set_title(titles[i], fontsize=10, pad=1)
-            if i!=0:
+            ax1.set_xlabel(r'$r ~ \left( \mathrm{GeV}^{-1} \right)$', fontsize=22)
+            if i==0:
+                ax1.set_ylabel(r'$x_{\mathrm{Bj.}}$', fontsize=22)
+            elif i!=0:
                 ax1.set_yticks([])
 
 
@@ -243,15 +226,9 @@ def main(plotvar="xbj"):
     reshape_dip = dip_data_rec.reshape((len(XBJ), len(R)))
     reshape_dip_c = dip_data_rec_c.reshape((len(XBJ), len(R)))
 
-    # plt.subplots_adjust(bottom=0.025, left=0.035)
-    # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-    # ax.pcolormesh(rr, xx, reshape_dip, shading='auto')
     # mapname = 'plasma'
     mapname = 'magma'
     cmap = plt.colormaps[mapname]
-    # cfit = plt.subplot(gs1[0]).pcolormesh(rr, xx, real_sigma*reshape_fit, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
-    # c = plt.subplot(gs1[1]).pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
-    # cc = plt.subplot(gs1[2]).pcolormesh(rr, xx, reshape_dip_c, vmin=0, vmax=max(Ncharm_max), cmap = cmap)
     
     norm = plt.Normalize(np.min(Ncharm_max), np.max(Ncharm_max))
     # norm = mpl.colors.LogNorm(np.min(Ncharm_max), np.max(Ncharm_max))
@@ -260,37 +237,42 @@ def main(plotvar="xbj"):
 
     print(np.min(Ncharm_max)/10, np.max(Ncharm_max))
 
+    target_radii = np.sqrt(Nlight_max/(10*math.pi)) # divide millibarn/10 to get square femtometers
+    target_radii_c = np.sqrt(Ncharm_max/(10*math.pi)) # divide millibarn/10 to get square femtometers
+    fm_to_gev = 5.068
+    radii_in_gev = target_radii*fm_to_gev
+    radii_in_gev_c = target_radii_c*fm_to_gev
+    sigma0_to_rad_fm = np.sqrt(real_sigma*gev_to_mb/(10*math.pi))*fm_to_gev
+
     ax = axs[0] 
     cfit = ax.pcolormesh(rr, xx, real_sigma*reshape_fit, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    ax.plot([sigma0_to_rad_fm]*len(xbj_bins), xbj_bins, marker="s", c="white")
     # cfit = ax.pcolormesh(rr, xx, real_sigma*reshape_fit, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max))) 
     ax = axs[1] 
     c = ax.pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    ax.plot(radii_in_gev, xbj_bins, marker="s", c="white")
     # c = ax.pcolormesh(rr, xx, reshape_dip+0.6, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max)))  
     ax = axs[2] 
     cc = ax.pcolormesh(rr, xx, reshape_dip_c, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    ax.plot(radii_in_gev_c, xbj_bins, marker="s", c="white")
     # cc = ax.pcolormesh(rr, xx, reshape_dip_c+0.9, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max))) 
     
-    # fig.subplots_adjust(right=1)
-    # cbar_ax = fig.add_axes([0.95, 0.15, 0.05, 0.7])
-    # fig.colorbar(cc, ax=axs[3], shrink=0.5)
-    # fig.colorbar(cc, ax=cbar_ax, shrink=1)
-    fig.colorbar(cc, ax=axs.ravel().tolist(), shrink=1)
+    cbar=fig.colorbar(cc, ax=axs.ravel().tolist(), shrink=1, pad=0.02)
+    cbar.set_label(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
+    cbar.ax.tick_params(labelsize=15) 
 
-    # ax.plot_surface(xx, rr, reshape_dip, cmap=cm.Blues) 
+    data_rec_point_c = Line2D([0,1],[0,1],linestyle='-', marker="", color="white")
 
-    # axins = inset_axes(cc, # here using axis of the lowest plot
-    #            width="5%",  # width = 5% of parent_bbox width
-    #            height="100%",  # height : 340% good for a (4x4) Grid
-    #            loc='lower left',
-    #            bbox_to_anchor=(1.05, 0.3, 1, 1),
-    #            bbox_transform=cc.transAxes,
-    #            borderpad=0,
-    #            )
-
-    
-    # if plotvar=="r":
-        # plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
-
+    manual_handles = [
+                        data_rec_point_c,
+                        ]
+    manual_labels = [
+        # r'${\frac{r}{r_g} = 1}$',
+        r'${r = r_g}$',
+    ]
+    leg = axs[0].legend(manual_handles, manual_labels, frameon=False, fontsize=24, ncol=1, loc="upper left") 
+    for txt in leg.get_texts():
+        txt.set_color("white")
 
     if plotvar=="r":
         n_plot = "plot10-r-dipoleimage-"
@@ -298,12 +280,13 @@ def main(plotvar="xbj"):
         print("Plot number?")
         exit()
 
-    write2file = False
-    # write2file = True
+    # write2file = False
+    write2file = True
     if write2file:
         mpl.use('agg') # if writing to PDF
         plt.draw()
         outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
+        # outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.png'
         plotpath = G_PATH+"/inversedipole/plots/"
         print(os.path.join(plotpath, outfilename))
         plt.savefig(os.path.join(plotpath, outfilename))
