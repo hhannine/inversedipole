@@ -338,26 +338,6 @@ def main(plotvar="xbj"):
                     alpha=1
                     )
 
-    # lambda uncertainty for the maxima: (probably not useful since it's often one sided?)
-    # for i, (mI, max_vals) in enumerate(zip(mI_list, N_max_data)):
-    #     Nmax = Nlight_max[i]
-    #     if mI==0:
-    #         err_tuple = ([0], [gev_to_mb*abs(max_vals[mI+1]-Nmax)])
-    #     elif mI==4:
-    #         err_tuple = ([gev_to_mb*abs(Nmax-max_vals[mI-1])], [0])
-    #     else:
-    #         err_tuple = [[gev_to_mb*abs(Nmax-max_vals[mI-1])], [gev_to_mb*abs(max_vals[mI+1]-Nmax)]]
-    #     ax.errorbar(xvar[i], gev_to_mb*Nmax, yerr=err_tuple,
-    #                 linestyle="", marker="",
-    #                 linewidth=2.0,
-    #                 capsize=3.0,
-    #                 capthick=1.0,
-    #                 color=colors[3],
-    #                 )
-
-    
-    
-    # ax.xaxis.set_major_formatter(ScalarFormatter())
     
     if plotvar=="xbj":
         plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
@@ -371,11 +351,8 @@ def main(plotvar="xbj"):
         plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
         ax.yaxis.minorticks_on()
         ax.tick_params(which='minor',labelsize=15)
-        # ax.yaxis.set_major_formatter(StrMethodFormatter(r'{x:.1f}'))
         plt.gca().yaxis.set_major_formatter(StrMethodFormatter(r'${x:,.0f}$')) # No decimal places
-        # plt.gca().yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
         ax.yaxis.set_minor_formatter(ScalarFormatter(useMathText=True))
-        # map1 = ax.imshow(np.stack([target_radii, target_radii]),cmap='plasma')
         norm = plt.Normalize(np.min(Ncharm_max), np.max(Ncharm_max))
         smap = plt.cm.ScalarMappable(cmap='plasma', norm=norm)
         cbar = fig.colorbar(smap, ax=ax, fraction=0.1, shrink = 0.9, pad=0.1)
