@@ -74,7 +74,7 @@ def prob_uniformly_decreasing_v3(s, R):
     """integrate Divide[pi*Power[R,2],pi*Power[R+r,2]] dr from 0 to infinity"""
     return 1/(R) * (R**2 / (R+s)**2)
 
-def main():
+def main(plotvar="k"):
     global G_PATH, PLOT_TYPE, R_GRID
     f_path_list = []
     # PLOT_TYPE = sys.argv[1]
@@ -90,17 +90,17 @@ def main():
     ### SETTINGS ######################
     ###################################
 
-    use_charm = False
-    # use_charm = True
-    use_real_data = False
-    # use_real_data = True
+    # use_charm = False
+    use_charm = True
+    # use_real_data = False
+    use_real_data = True
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[0] + "_"
+    fitname = fits[3] + "_"
 
     ####################
     # Data filename settings
@@ -108,25 +108,25 @@ def main():
     data_path = "./reconstructions_IUSdip/"
     str_data = "sim_"
     str_fit = fitname
-    str_flavor = "lightonly_"
     name_base = 'recon_out_'
-    if use_charm:
-        str_flavor = "lightpluscharm_"
+    str_flavor = "lightonly_"
+    str_flavor_c = "lightpluscharm_"
     if use_real_data:
         str_data = "hera_"
         str_fit = "data_only_"
     if use_noise:
         name_base = 'recon_with_noise_out_'
     lambda_type = ""
-    lambda_type = "broad_"
+    # lambda_type = "broad_"
     # lambda_type = "semiconstrained_"
-    # lambda_type = "fixed_"
+    lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
+    composite_fname_c = name_base+str_data+str_fit+str_flavor_c+lambda_type
     print(composite_fname)
 
     # Reading data files
-    recon_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-                   composite_fname in i]
+    recon_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and composite_fname in i]
+    recon_files_c = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and composite_fname_c in i]
     print(recon_files)
     if not recon_files:
         print("No files found!")
@@ -135,102 +135,94 @@ def main():
     xbj_bins = sorted([float(Path(i).stem.split("xbj")[1]) for i in recon_files])
     print(xbj_bins)
     recon_files = [x for _, x in sorted(zip(xbj_bins, recon_files))]
+    recon_files_c = [x for _, x in sorted(zip(xbj_bins, recon_files_c))]
 
-    data_list = []
-    for fle in recon_files:
-        data_list.append(loadmat(data_path + fle))
-    
-    if True:
-        # plt.style.use('_mpl-gallery')
-        # plt.style.use('_mpl-gallery-nogrid')
-        # plot_2d()
-        R = data_list[0]["r_grid"][0]
-        R_GRID = R
-        # print(R)
-        XBJ = np.array(xbj_bins)
-        rr, xx = np.meshgrid(R,XBJ)
-        dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-        dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-        if lambda_type=="fixed_":
-            N_max_data = [dat["N_maxima"][0] for dat in data_list]
-        else:
-            N_max_data = [dat["N_maxima"][0][2] for dat in data_list]
+    data_list = [loadmat(data_path + fle) for fle in recon_files]
+    data_list_c = [loadmat(data_path + fle) for fle in recon_files_c]
 
-        print("SIZES", R.shape, XBJ.shape, dip_data_rec[0][:,0].shape, dip_data_fit[0][0].T.shape)
-        # print(dip_data_rec[0][0])
-        # reshape_dip = dip_data.reshape((len(XBJ), len(R)))
-        # print(reshape_dip.shape)
-        
-        # i=0
-        # # print(dip_data_fit[i])
-        # # for dipr, dipf in zip(dip_data_rec[i],dip_data_fit[i]):
-        # #     print(dipr/dipf)
-        # # exit()
-        # plt.plot(R_GRID, np.divide(dip_data_rec[i][0],dip_data_fit[i][0]))
-        # plt.show()
-        # exit()
+    real_sigma = data_list[0]["real_sigma"][0]
+    best_lambdas = [dat["best_lambda"][0] for dat in data_list]
+    lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
+    mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
+    best_lambdas_c = [dat["best_lambda"][0] for dat in data_list_c]
+    lambda_list_list_c = [dat["lambda"][0].tolist() for dat in data_list_c]
+    mI_list_c = [lambda_list_c.index(best_lambda_c) for lambda_list_c, best_lambda_c in zip(lambda_list_list_c, best_lambdas_c)]
+    if lambda_type in ["semiconstrained_", "fixed_"]:
+        uncert_i = [range(0, 5) for mI in mI_list]
+    else:
+        ucrt_step = 2
+        uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
 
-        S_interp = np.vectorize(S_interp_scalar)
-        # prob_vectorized = np.vectorize(prob_ball_line_pick)
-        # prob_vectorized = np.vectorize(prob_uniformly_decreasing_v1)
-        prob_vectorized = np.vectorize(prob_uniformly_decreasing_v3)
+    N_max_data = [dat["N_maxima"][0] for dat in data_list]
+    N_bpluseps_max_data = [dat["N_bpluseps_maxima"][0] for dat in data_list]
+    N_bminuseps_max_data = [dat["N_bminuseps_maxima"][0] for dat in data_list]
+    Nc_max_data = [dat["N_maxima"][0] for dat in data_list_c]
+    Nc_bpluseps_max_data = [dat["N_bpluseps_maxima"][0] for dat in data_list_c]
+    Nc_bminuseps_max_data = [dat["N_bminuseps_maxima"][0] for dat in data_list_c]
+    Nlight_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_max_data)])
+    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_max_data)])
 
-        # 2D Fourier of the dipole
-        # S_p(\mathbf{k}) = \int d^2 {\mathbf{r}} e^{i\mathbf{k} \cdot \mathbf{r}} [1 - N(\mathbf{r})]
-        # Assuming angular non-dependence this is the Hankel transform of 1-N
 
-        kays = np.linspace(0.1, 10, 100)
-        hank = 30e-3
-        ht = hankel.HankelTransform(
-            nu= 0,     # The order of the bessel function
-            N = int(3.2/hank),   # Number of steps in the integration
-            h = hank   # Proxy for "size" of steps in integration
-        )
-        ## IF N_FIT : CANNOT USE N_max FROM THE RECONSTRUCTION!!
-        # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r), kays, ret_err=False) for i in dip_data_fit]
+    R = data_list[0]["r_grid"][0]
+    R_GRID = R
+    XBJ = np.array(xbj_bins)
+    dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    dip_data_rec_c = np.array([dat["N_reconst"] for dat in data_list_c]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    if lambda_type=="fixed_":
+        N_max_data = [dat["N_maxima"][0] for dat in data_list]
+    else:
+        N_max_data = [dat["N_maxima"][0][2] for dat in data_list]
 
-        # Hankel from Reconstruction
-        # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max), kays, ret_err=False) for i, N_max in zip(dip_data_rec, N_max_data)]
-        S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max) * prob_vectorized(r, np.sqrt(N_max/(math.pi*2))), kays, ret_err=False) for i, N_max in zip(dip_data_rec, N_max_data)]
-        fig, ax = plt.subplots()
-        fig.set_size_inches(10.5, 10.5)
-        plt.subplots_adjust(bottom=0.025, left=0.035)
-        plt.title(composite_fname)
-        # plt.title(composite_fname + 'disc_area_probability_mod_R3.6')
-        cmap = plt.get_cmap('RdBu_r')
-        colors = [cmap(i) for i in np.linspace(0, 1, len(XBJ))]
-        for S_p, xbj in zip(S_p_array, xbj_bins):
-            plt.plot(kays , S_p, label=xbj, color=colors[xbj_bins.index(xbj)])
-        plt.legend(loc="best", frameon=False)
-        ax = plt.gca()
-        # ax.set_xscale('log')
-        ax.set_yscale('log')
-        # ax.set_ylim([1e-4, 10])
-        plt.show()
-        exit()
-        
 
-        # plot
-        fig, ax = plt.subplots()
-        fig.set_size_inches(10.5, 10.5)
-        plt.subplots_adjust(bottom=0.025, left=0.035)
-        # fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-        # ax.pcolormesh(rr, xx, reshape_dip, shading='auto') 
-        c = ax.pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=30.0, cmap = plt.colormaps['magma']) 
-        plt.colorbar(c)
-        # ax.plot_surface(xx, rr, reshape_dip, cmap=cm.Blues) 
-        ax.set_xscale('log')
-        ax.set_yscale('log')
-        # ax.set_xlim([min(R), max(R)])
-        ax.set_xlim([1e-1, max(R)])
-        ax.set_ylim([min(XBJ), max(XBJ)])
-        plt.show()
-        exit()
+    S_interp = np.vectorize(S_interp_scalar)
+    # prob_vectorized = np.vectorize(prob_ball_line_pick)
+    # prob_vectorized = np.vectorize(prob_uniformly_decreasing_v1)
+    prob_vectorized = np.vectorize(prob_uniformly_decreasing_v3)
 
-    ####
-    # old plotting (needed for below?)
-    plt.figure()
+    # 2D Fourier of the dipole
+    # S_p(\mathbf{k}) = \int d^2 {\mathbf{r}} e^{i\mathbf{k} \cdot \mathbf{r}} [1 - N(\mathbf{r})]
+    # Assuming angular non-dependence this is the Hankel transform of 1-N
+
+    kays = np.linspace(0.1, 25, 100)
+    hank = 30e-3
+    ht = hankel.HankelTransform(
+        nu= 0,     # The order of the bessel function
+        N = int(3.2/hank),   # Number of steps in the integration
+        h = hank   # Proxy for "size" of steps in integration
+    )
+    ## IF N_FIT : CANNOT USE N_max FROM THE RECONSTRUCTION!!
+    # S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r), kays, ret_err=False) for i in dip_data_fit]
+
+    # Hankel from Reconstruction
+    if plotvar=="k":
+        if not use_charm:
+            S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max), kays, ret_err=False) for i, N_max in zip(dip_data_rec, Nlight_max)]
+        elif use_charm:
+            S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max), kays, ret_err=False) for i, N_max in zip(dip_data_rec_c, Ncharm_max)]
+    elif plotvar=="k-probmod":
+        if not use_charm:
+            S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max) * prob_vectorized(r, np.sqrt(N_max/(math.pi*2))), kays, ret_err=False) for i, N_max in zip(dip_data_rec, Nlight_max)]
+        elif use_charm:
+            S_p_array = [ht.transform(lambda r: S_interp(dipole_interp(i),r, N_max=N_max) * prob_vectorized(r, np.sqrt(N_max/(math.pi*2))), kays, ret_err=False) for i, N_max in zip(dip_data_rec_c, Ncharm_max)]
+
+    fig, ax = plt.subplots()
+    plt.tight_layout()
+    # plt.subplots_adjust(top = 0.95, bottom = 0.0, right = 0.95, left = 0., hspace = 0, wspace = 0)
+    fig.set_size_inches(10.5, 10.5)
+
+    plt.subplots_adjust(bottom=0.095, left=0.12)
+    # plt.title(composite_fname + 'disc_area_probability_mod_R3.6')
+    cmap = plt.get_cmap('viridis')
+    colors = [cmap(i) for i in np.linspace(0, 1, len(XBJ))]
+    for S_p, xbj in zip(S_p_array, xbj_bins):
+        plt.plot(kays , S_p, label=xbj, color=colors[xbj_bins.index(xbj)])
+    plt.legend(loc="best", frameon=False)
     ax = plt.gca()
+    # ax.set_xscale('log')
+
+
+
     plt.xticks(fontsize=20, rotation=0)
     plt.yticks(fontsize=20, rotation=0)
     ax.tick_params(which='major',width=1,length=6)
@@ -238,122 +230,48 @@ def main():
     ax.tick_params(axis='both', pad=7)
     ax.tick_params(axis='both', which='both', direction="in")
 
-    # if USE_TITLE:
-    #     plt.title(title)
-    if PLOT_TYPE == "dipole":
-        plt.xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=22)
-        plt.ylabel(r'$N(r)$', fontsize=22)
-        xvar = data_list[0]["r_grid"]
-    elif PLOT_TYPE == "sigmar":
-        plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=22)
-        plt.ylabel(r'$\sigma_r ~ \left(\mathrm{GeV}^{-2} \right)$', fontsize=22)
-        xvar = data_list[0]["q2vals"]
+    ax.set_xlabel(r'$|k| ~ \left( \mathrm{GeV}\right)$', fontsize=22)
+    ax.set_ylabel(r'$S_p(k)$', fontsize=22)
 
     # LOG AXIS
     ax.set_xscale('log')
-    # ax.set_yscale('log')
-    
-    fit_color_set = ["orange", "red", "blue", "green", "magenta", "cyan"]
-    fit_line_style = ['-', '--', '-.', ':']
+    ax.set_yscale('log')
+    ax.set_xlim([1e-1, 25])
+    # ax.set_ylim([1e-4, 50])
+    ax.set_ylim([1e-4, 1000])
 
-    # make labels, line styles and colors
-    labels = []
-    colors = []
-    line_styles = []
-    scalings = []
-    for fname in f_path_list:
-            fname = os.path.splitext(os.path.basename(fname))[0]
-            if "urp" in fname:
-                label = r'$\mathrm{Fit ~ 1}$'
-                col = "red"
-            elif "ukp" in fname:
-                label = r'$\mathrm{Fit ~ 2}$'
-                col = "orange"
-            elif "utp" in fname:
-                label = r'$\mathrm{TBK ~ p.d.}$'
-                col = "black"
-            elif "urs" in fname:
-                label = r'$\mathrm{ResumBK ~ bs.d.}$'
-                col = "magenta"
-            elif "uks" in fname:
-                label = r'$\mathrm{KCBK ~ bs.d.}$'
-                col = "brown"
-            elif "uts" in fname:
-                label = r'$\mathrm{Fit ~ 3}$'
-                col = "blue"
-            if "cc" in fname:
-                # label += r"$~ \mathrm{charm}$"
-                style = "--"
-                scale = 2
-            elif "bb" in fname:
-                # label += r"$~ \mathrm{bottom}$"
-                style = ":"
-                scale = 30
-            elif "lpcb" in fname:
-                # label += r"$~ \mathrm{incl.}$"
-                style = "-"
-                scale = 1
-            labels.append(label)
-            colors.append(col)
-            line_styles.append(style)
-            scalings.append(scale)
+    if plotvar=="k":
+        n_plot = "plot20-k-hankel_unintglue-"
+    elif plotvar=="k-probmod":
+        n_plot = "plot20-k_probmod-hankel_unintglue-"
+    if not n_plot:
+        print("Plot number?")
+        exit()
 
-    # colors = ["red", "orange", "blue"]
+    if use_charm:
+        n_plot+="lightpluscharm_"
+    else:
+        n_plot+="lightonly_"
 
-    # print(labels)
-    # line1 = Line2D([0,1],[0,1],linestyle='-', color='r')
-    # line2 = Line2D([0,1],[0,1],linestyle='-', color='black')
-    # line3 = Line2D([0,1],[0,1],linestyle='-', color='blue')
-    line1 = Patch(facecolor=colors[0])
-    line2 = Patch(facecolor=colors[1])
-    line3 = Patch(facecolor=colors[2])
-    line_incl = Line2D([0,1],[0,1],linestyle='-', color='grey')
-    line_char = Line2D([0,1],[0,1],linestyle='--', color='grey')
-    line_bott = Line2D([0,1],[0,1],linestyle=':', color='grey')
-    manual_handles = [line1, line2, line3, line_incl, line_char, line_bott]
-    manual_labels = [
-        # r'$\mathrm{Fit ~ 1}$',
-        # r'$\mathrm{Fit ~ 2}$',
-        # r'$\mathrm{Fit ~ 3}$',
-        labels[0],
-        labels[1],
-        labels[2],
-        r'$\mathrm{inclusive}$',
-        r'$\mathrm{charm}\times 2$',
-        r'$\mathrm{bottom}\times 30$'
-    ]
-
-    for i, f_nlo in enumerate(f_list_nlo):
-        plt.plot(xvar , scalings[i]*f_nlo,
-                label=labels[i],
-                linestyle=line_styles[i],
-                linewidth=1.2,
-                color=colors[i % 3]
-                )
-
-    # plt.text(0.95, 0.146, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black')
-    # plt.text(0.95, 0.14, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled log log
-    plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
-
-    # if len(f_path_list) < 6:
-    #     plt.legend(loc="best", frameon=False)
-    # else:
-    #     order=[1,0,2,4,3,5,7,6,8]
-    #     handles, labels = plt.gca().get_legend_handles_labels()
-    #     plt.legend([handles[idx] for idx in order],[labels[idx] for idx in order], frameon=False, fontsize=14) 
-    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=2) 
-    # plt.legend(handlelength=1, handleheight=1)
-
-    ax.xaxis.set_major_formatter(ScalarFormatter())
-    plt.xlim(1, 100)
-    plt.ylim(bottom=0, top=0.33)
-    plt.draw()
-    plt.tight_layout()
-    outfilename = 'plot-EIC-' + "{}".format(STRUCT_F_TYPE) + '.pdf'
-    plt.savefig(os.path.join(G_PATH, outfilename))
+    # write2file = False
+    write2file = True
+    if write2file:
+        mpl.use('agg') # if writing to PDF
+        plt.title(n_plot + name_base+str_data+str_fit+lambda_type)
+        plt.draw()
+        outfilename = n_plot + name_base+str_data+str_fit+lambda_type + "{}".format(PLOT_TYPE) + '.pdf'
+        # outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.png'
+        plotpath = G_PATH+"/inversedipole/plots/"
+        print(os.path.join(plotpath, outfilename))
+        plt.savefig(os.path.join(plotpath, outfilename))
+    else:
+        plt.margins(0,0)
+        plt.title(n_plot + name_base+str_data+str_fit+lambda_type)
+        plt.show()
+    plt.close()
     return 0
 
 
 
-
-main()
+main("k")
+main("k-probmod")
