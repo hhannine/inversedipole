@@ -122,6 +122,9 @@ def main():
     best_lambdas = [dat["best_lambda"][0] for dat in data_list]
     lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
     mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
+    best_lambdas_c = [dat["best_lambda"][0] for dat in data_list_c]
+    lambda_list_list_c = [dat["lambda"][0].tolist() for dat in data_list_c]
+    mI_list_c = [lambda_list_c.index(best_lambda_c) for lambda_list_c, best_lambda_c in zip(lambda_list_list_c, best_lambdas_c)]
     if lambda_type in ["semiconstrained_", "fixed_"]:
         uncert_i = [range(0, 5) for mI in mI_list]
     else:
@@ -186,7 +189,7 @@ def main():
     binned_dip_rec_from_bminus = [dip_rec_from_b_minus_err[i] for i in plt1_xbj_bins]
     binned_mI_list = [mI_list[i] for i in plt1_xbj_bins]
     
-    fig = plt.figure()
+    fig = plt.figure(layout='constrained')
     ax = plt.gca()
     plt.xticks(fontsize=20, rotation=0)
     plt.yticks(fontsize=20, rotation=0)
@@ -272,6 +275,14 @@ def main():
     colors = plt.cm.bwr(np.linspace(0, 1, len(xbj_bins)))
 
     # Plot fit dipoles and their reconstructions
+    ax.plot(xvar[0], [1]*len(xvar[0]),
+                # label=labels[i+1],
+                label="N_c/N = 1",
+                linestyle="--",
+                linewidth=lw/3,
+                color="black",
+                alpha=1
+                )
     for i, (dip_rec, dip_rec_c) in enumerate(zip(binned_dip_data_rec, binned_dip_data_rec_c)):
         # ax.plot(xvar[0], dip_rec_c.T[0],
         #         # label=labels[i+1],
@@ -346,11 +357,13 @@ def main():
 
     
     # plt.legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="upper left") 
-    plt.legend(frameon=False, fontsize=12, ncol=1, loc="upper left") 
     
     plt.xlim(0.05, 25)
-    plt.ylim(bottom=0.5, top=1.05)
+    plt.ylim(bottom=0.5, top=1.1)
+    # plt.tight_layout()
     fig.set_size_inches(7,7)
+    fig.legend(frameon=False, fontsize=12, ncol=1, loc="outside right") 
+
     
     n_plot = "plot11-rec_dip_ratios-"
     
@@ -363,11 +376,10 @@ def main():
 
     # write2file = False
     write2file = True
-    plt.tight_layout()
     if write2file:
         mpl.use('agg') # if writing to PDF
         plt.draw()
-        outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
+        outfilename = n_plot + name_base+str_data+str_fit+lambda_type + "{}".format(PLOT_TYPE) + '.pdf'
         plotpath = G_PATH+"/inversedipole/plots/"
         print(os.path.join(plotpath, outfilename))
         plt.savefig(os.path.join(plotpath, outfilename))

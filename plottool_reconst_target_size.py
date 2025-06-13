@@ -123,11 +123,16 @@ def main(plotvar="xbj"):
     best_lambdas = [dat["best_lambda"][0] for dat in data_list]
     lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
     mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
+    best_lambdas_c = [dat["best_lambda"][0] for dat in data_list_c]
+    lambda_list_list_c = [dat["lambda"][0].tolist() for dat in data_list_c]
+    mI_list_c = [lambda_list_c.index(best_lambda_c) for lambda_list_c, best_lambda_c in zip(lambda_list_list_c, best_lambdas_c)]
     if lambda_type in ["semiconstrained_", "fixed_"]:
         uncert_i = [range(0, 5) for mI in mI_list]
+        uncert_i_c = [range(0, 5) for mI in mI_list_c]
     else:
         ucrt_step = 2
         uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
+        uncert_i_c = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list_c]
 
     N_max_data = [dat["N_maxima"][0] for dat in data_list]
     N_bpluseps_max_data = [dat["N_bpluseps_maxima"][0] for dat in data_list]
@@ -193,11 +198,11 @@ def main(plotvar="xbj"):
 
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
 
-    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, markersize=10, color="black")
     data_lit_point1 = Line2D([0,1],[0,1],linestyle='', marker="s", markersize=10, color="black")
     data_lit_point2 = Line2D([0,1],[0,1],linestyle='', marker="^", markersize=10, color="black")
     data_lit_point3 = Line2D([0,1],[0,1],linestyle='', marker="v", markersize=10, color="black")
-    data_rec_point_c = Line2D([0,1],[0,1],linestyle='', marker="s", color=colors[1])
+    data_rec_point = Line2D([0,1],[0,1],linestyle='', marker=mstyle, markersize=10, color=colors[0])
+    data_rec_point_c = Line2D([0,1],[0,1],linestyle='', marker="s",markersize=10, color=colors[1])
     line_h1_bd = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[4])
 
     if plotvar=="xbj" or plotvar=="Q":
@@ -207,8 +212,10 @@ def main(plotvar="xbj"):
                           ]
         manual_labels = [
             r'${\mathrm{Fit} ~ \frac{\sigma_0}{2}}$',
-            r'${\mathrm{Reconstruction ~ (light)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
-            r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            # r'${\mathrm{Reconstruction ~ (light)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            # r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \varepsilon_\lambda}$',
+            r'${\mathrm{Reconstruction ~ (light)} ~ \frac{\sigma_0}{2} \, \pm \, \delta_d}$',
+            r'${\mathrm{Reconstruction ~ (light+charm)} ~ \frac{\sigma_0}{2} \, \pm \, \delta_d}$',
         ]
     elif plotvar=="xQdisks":
         manual_handles = [
@@ -273,15 +280,17 @@ def main(plotvar="xbj"):
     Nlight_err_lower = Nlight_max - Nlight_bminus_max
     Nlight_errs = np.array([gev_to_mb*Nlight_err_lower, gev_to_mb*Nlight_err_upper])
 
-    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_max_data)])
-    Ncharm_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_bpluseps_max_data)])
-    Ncharm_bminus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_bminuseps_max_data)])
+    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list_c, Nc_max_data)])
+    Ncharm_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list_c, Nc_bpluseps_max_data)])
+    Ncharm_bminus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list_c, Nc_bminuseps_max_data)])
     Ncharm_err_upper = Ncharm_bplus_max - Ncharm_max
     Ncharm_err_lower = Ncharm_max - Ncharm_bminus_max
     Ncharm_errs = np.array([gev_to_mb*Ncharm_err_lower, gev_to_mb*Ncharm_err_upper])
 
     x_srted = sorted(xvar)
-    x_range = np.logspace(-2, -0.5, 3)
+    # x_range = np.logspace(-2, -0.5, 1)
+    x_range = [0.06]
+    x_range_line = np.logspace(-2, -0.4, 3)
     q_range = np.linspace(9.6, 10.6, 1)
     q_range2 = np.linspace(10.2, 10.6, 1, endpoint=False)
     target_radii = np.sqrt(Ncharm_max/(10*math.pi)) # divide millibarn/10 to get square femtometers
@@ -290,7 +299,7 @@ def main(plotvar="xbj"):
         ax.scatter(xvar, yvar, s=150*target_radii, c=Ncharm_max, cmap="plasma",)
         ax.scatter(x_range, [10.7]*len(x_range), s=[150*0.55]*len(x_range), c=[10*math.pi*0.55**2]*len(x_range), cmap="plasma", marker="s", zorder=2)
         # ax.plot(x_range, [10.7]*len(x_range), c=[10*math.pi*0.55**2]*len(x_range), cmap="plasma", linestyle="--", linewidth=5)
-        ax.plot(x_range, [10.7]*len(x_range), c="gray", linestyle="--", linewidth=2, zorder=1)
+        ax.plot(x_range_line, [10.7]*len(x_range_line), c="gray", linestyle="--", linewidth=2, zorder=1)
         ax.scatter([0.414]*len(q_range), q_range, s=[150*0.755]*len(q_range), c=[10*math.pi*0.755**2]*len(q_range), cmap="plasma", marker="^", )
         ax.scatter([0.414]*len(q_range2), q_range2, s=[150*0.472]*len(q_range2), c=[10*math.pi*0.472**2]*len(q_range2), cmap="plasma", marker="v", )
     else:
@@ -383,13 +392,13 @@ def main(plotvar="xbj"):
         print("Plot number?")
         exit()
 
-    write2file = False
-    # write2file = True
+    # write2file = False
+    write2file = True
     plt.tight_layout()
     if write2file:
         mpl.use('agg') # if writing to PDF
         plt.draw()
-        outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
+        outfilename = n_plot + name_base+str_data+str_fit+lambda_type + "{}".format(PLOT_TYPE) + '.pdf'
         plotpath = G_PATH+"/inversedipole/plots/"
         print(os.path.join(plotpath, outfilename))
         plt.savefig(os.path.join(plotpath, outfilename))
@@ -409,5 +418,5 @@ def fmrad_to_mb(x):
 # plotvar xbj / W
 # main("xbj")
 # main("Q")
-main("xQdisks")
-# main("W")
+# main("xQdisks")
+main("W")
