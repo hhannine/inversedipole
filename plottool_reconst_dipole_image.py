@@ -115,12 +115,17 @@ def main(plotvar="xbj"):
 
     R = data_list[0]["r_grid"][0]
     XBJ = np.array(xbj_bins)
+    x_fit_out = XBJ[XBJ>1e-2]
     rr, xx = np.meshgrid(R,XBJ)
+    rrfit, xxfitout = np.meshgrid(R,x_fit_out)
 
     real_sigma = data_list[0]["real_sigma"][0]
     best_lambdas = [dat["best_lambda"][0] for dat in data_list]
     lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
     mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
+    best_lambdas_c = [dat["best_lambda"][0] for dat in data_list_c]
+    lambda_list_list_c = [dat["lambda"][0].tolist() for dat in data_list_c]
+    mI_list_c = [lambda_list_c.index(best_lambda_c) for lambda_list_c, best_lambda_c in zip(lambda_list_list_c, best_lambdas_c)]
     if lambda_type in ["semiconstrained_", "fixed_"]:
         uncert_i = [range(0, 5) for mI in mI_list]
     else:
@@ -206,9 +211,9 @@ def main(plotvar="xbj"):
     Nlight_err_lower = Nlight_max - Nlight_bminus_max
     Nlight_errs = np.array([gev_to_mb*Nlight_err_lower, gev_to_mb*Nlight_err_upper])
 
-    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_max_data)])
-    Ncharm_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_bpluseps_max_data)])
-    Ncharm_bminus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, Nc_bminuseps_max_data)])
+    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list_c, Nc_max_data)])
+    Ncharm_bplus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list_c, Nc_bpluseps_max_data)])
+    Ncharm_bminus_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list_c, Nc_bminuseps_max_data)])
     Ncharm_err_upper = Ncharm_bplus_max - Ncharm_max
     Ncharm_err_lower = Ncharm_max - Ncharm_bminus_max
     Ncharm_errs = np.array([gev_to_mb*Ncharm_err_lower, gev_to_mb*Ncharm_err_upper])
@@ -244,22 +249,29 @@ def main(plotvar="xbj"):
     radii_in_gev_c = target_radii_c*fm_to_gev
     sigma0_to_rad_fm = np.sqrt(real_sigma*gev_to_mb/(10*math.pi))*fm_to_gev
 
+    max_adj_mult = 1
+    clim=[0,max(Ncharm_max)]
     ax = axs[0] 
-    cfit = ax.pcolormesh(rr, xx, real_sigma*reshape_fit, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    cfit = ax.pcolormesh(rr, xx, real_sigma*reshape_fit, vmin=0, vmax=max(Ncharm_max)*max_adj_mult, cmap = cmap) 
+    cfitbox = ax.pcolormesh(rrfit, xxfitout, np.zeros((len(x_fit_out), len(R))), vmin=0, vmax=max(Ncharm_max)*max_adj_mult, cmap = cmap) 
+    cfit.norm.autoscale(clim)
     ax.plot([sigma0_to_rad_fm]*len(xbj_bins), xbj_bins, marker="s", c="white")
     # cfit = ax.pcolormesh(rr, xx, real_sigma*reshape_fit, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max))) 
     ax = axs[1] 
-    c = ax.pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    c = ax.pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(Ncharm_max)*max_adj_mult, cmap = cmap) 
+    c.norm.autoscale(clim)
     ax.plot(radii_in_gev, xbj_bins, marker="s", c="white")
     # c = ax.pcolormesh(rr, xx, reshape_dip+0.6, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max)))  
     ax = axs[2] 
-    cc = ax.pcolormesh(rr, xx, reshape_dip_c, vmin=0, vmax=max(Ncharm_max), cmap = cmap) 
+    cc = ax.pcolormesh(rr, xx, reshape_dip_c, vmin=0, vmax=max(Ncharm_max)*max_adj_mult, cmap = cmap) 
+    cc.norm.autoscale(clim)
     ax.plot(radii_in_gev_c, xbj_bins, marker="s", c="white")
     # cc = ax.pcolormesh(rr, xx, reshape_dip_c+0.9, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max))) 
     
     cbar=fig.colorbar(cc, ax=axs.ravel().tolist(), shrink=1, pad=0.02)
     cbar.set_label(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
     cbar.ax.tick_params(labelsize=15) 
+    # cc.clim(0, 50)
 
     data_rec_point_c = Line2D([0,1],[0,1],linestyle='-', marker="", color="white")
 
@@ -285,7 +297,7 @@ def main(plotvar="xbj"):
     if write2file:
         mpl.use('agg') # if writing to PDF
         plt.draw()
-        outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
+        outfilename = n_plot + name_base+str_data+str_fit+lambda_type + "{}".format(PLOT_TYPE) + '.pdf'
         # outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.png'
         plotpath = G_PATH+"/inversedipole/plots/"
         print(os.path.join(plotpath, outfilename))
