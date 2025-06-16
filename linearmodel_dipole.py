@@ -246,7 +246,11 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
     
     qsq_vals = data_sigmar["qsq"]
     sigmar_vals = data_sigmar["sigmar"]
-    sigmar_errs = data_sigmar["sigmarerr"]
+    if not include_dipole:
+        sigmar_errs = data_sigmar["sigmarerr"]
+    else:
+        sigmar_errs = []
+
     # Export
     exp_folder = "./export_fwd_IUSinterp/"
     base_name = exp_folder+"exp_fwdop_v2+data_"
@@ -264,9 +268,8 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             "real_sigma": real_sigma
             }
         savemat(base_name+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
-        # exit()
     else:
-        # Real data without dipole
+        # Real data without dipole // use_real_data !== include_dipole (opposite)
         mat_dict = {
             "forward_op_A": fw_op_datum_r_matrix,
             "r_grid": interpolated_r_grid,
@@ -276,11 +279,12 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
             "real_sigma": real_sigma
             }
         savemat(base_name+parent_data_name+str_id_charm+str_unity_sigma02+"_r_steps"+str(r_steps)+".mat", mat_dict)
+    
+    return 0
 
 
 
-# def main():
-if __name__=="__main__":
+def run_export(use_charm, use_real_data, fitname_i=None):
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
 
     ###################################
@@ -288,14 +292,18 @@ if __name__=="__main__":
     ###################################
 
     # use_charm = False
-    use_charm = True
+    # use_charm = True
     # use_real_data = False
-    use_real_data = True
+    # use_real_data = True
     use_unity_sigma0 = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[3]
+    if not fitname_i:
+        fitname = fits[3]
+    else:
+        fitname = fits[fitname_i]
+    # fitname = fits[3]
 
     ####################
     # Reading data files
@@ -349,9 +357,9 @@ if __name__=="__main__":
             xbj_bin = float(Path(sig_file).stem.split("xbj")[1])
             print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin)
             # export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
-            export_discrete_uniform(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm, use_unity_sigma0=use_unity_sigma0)
-        print("Export done. Exit.")
-        exit()
+            ret = export_discrete_uniform(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm, use_unity_sigma0=use_unity_sigma0)
+        print("Export done with:", use_charm, use_real_data)
+        # exit()
     else:
         # Simulated data
         for dip_file in dipole_files:
@@ -362,6 +370,39 @@ if __name__=="__main__":
                 continue
             print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
             # export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
-            export_discrete_uniform(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm, use_unity_sigma0=use_unity_sigma0)
-        exit()
-   
+            ret = export_discrete_uniform(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm, use_unity_sigma0=use_unity_sigma0)
+        # exit()
+
+    return ret
+
+
+# Run multiple settings:
+if __name__ == '__main__':
+    multiprocessing.freeze_support()
+    i=0
+
+    run_settings=[
+        (False, False, 3),
+        (True, False, 3),
+        (False, False, 4),
+        (True, False, 4),
+    ]
+
+    for setting in run_settings:
+        use_charm, use_real_data, fitname_i = setting
+
+        try:
+            r0 = run_export(use_charm,use_real_data,fitname_i)
+        except Exception as err:
+            print(f"Unexpected {err=}, {type(err)=}")
+            i+=1
+            print("error occured", i)
+            raise
+            exit()
+    
+    if i==0:
+        print("Export runs finished, No errors", i==0)
+    else:
+        print("Error occured during exports.", i, r0)
+    
+    exit()
