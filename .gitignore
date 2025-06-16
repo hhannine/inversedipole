@@ -163,3 +163,4 @@ cython_debug/
 /dependencies
 *.asv
 /plots
+/plots_devel
