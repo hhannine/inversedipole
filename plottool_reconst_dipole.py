@@ -46,7 +46,7 @@ def S_interp(N_interp, r, N_max=None):
     return N_max-N_interp(r)
 
 
-def main():
+def main(use_charm=False, real_data=False, fitname_i=None):
     global G_PATH, PLOT_TYPE, R_GRID
     f_path_list = []
     # PLOT_TYPE = sys.argv[1]
@@ -62,16 +62,21 @@ def main():
     ###################################
 
     # use_charm = False
-    use_charm = True
+    # use_charm = True
+    use_charm = use_charm
     # use_real_data = False
-    use_real_data = True
+    # use_real_data = True
+    use_real_data = real_data
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[3] + "_"
+    if not fitname_i:
+        fitname = fits[3] + "_"
+    else:
+        fitname = fits[fitname_i] + "_"
     # fitname = fits[4] + "_"
 
     ####################
@@ -396,4 +401,10 @@ def main():
     return 0
 
 
-main()
+# Production plotting
+main(use_charm=False,real_data=False,fitname_i=3)
+main(use_charm=True,real_data=False,fitname_i=3)
+main(use_charm=False,real_data=False,fitname_i=4)
+main(use_charm=True,real_data=False,fitname_i=4)
+main(use_charm=False,real_data=True,fitname_i=3)
+main(use_charm=True,real_data=True,fitname_i=3)
