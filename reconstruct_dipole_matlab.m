@@ -4,30 +4,42 @@ addpath(genpath('./dependencies'))
 close all
 clear all
 
-%         1       2        3        4            5
-fits = ["MV_", "MVgamma", "MVe", "bayesMV4", "bayesMV5"];
-fitname = fits(4);
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
-% xbj_bin = "1e-05";
 real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08];
 
 r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
-% use_real_data = false;
-use_real_data = true;
+
+
+%%% Fit options
+%         1       2        3        4            5
+fits = ["MV_", "MVgamma", "MVe", "bayesMV4", "bayesMV5"];
+fitname = fits(4);
+
+%%% simulated data settings
+use_real_data = false;
 % use_charm = false;
 use_charm = true;
-if use_real_data
-    all_xbj_bins = real_xbj_bins;
-end
 
+%%% real data settings
+% use_real_data = true;
+% use_charm = false;
+% use_charm = true;
+
+%%% Lambda options for production
+lambda_type = "fixed";
+% lambda_type = "broad"; % for simulated data
+
+
+%%% All lambda options
 % lambda_type = "broad";
 % lambda_type = "semiconstrained";
 % lambda_type = "semicon2";
-lambda_type = "fixed";
+% lambda_type = "fixed";
 % lambda_type = "semifix";
 % lambda_type = "old";
+
 if lambda_type == "broad"
     lam1 = 1:9;
     lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
@@ -55,6 +67,10 @@ sim_charm_opt = charm_opt;
 data_type = fitname;
 if (use_real_data)
     data_type = "heraII_filtered";
+end
+
+if use_real_data
+    all_xbj_bins = real_xbj_bins;
 end
 
 % load forward operator file
@@ -85,8 +101,9 @@ for xi = 1:length(all_xbj_bins)
         else
             sim_xbj = xbj_bin;
         end
-        fname = data_files(k).name;
-        fnameb = strrep(fname,'-','_');
+        fname = data_files(k).name
+        % fnameb = strrep(fname,'-','_');
+        fnameb = fname;
         if (contains(fnameb, sim_xbj) && contains(fnameb, fitname) && contains(fnameb, sim_type) && contains(fnameb, charm_opt) && contains(fnameb, r_steps_str))
             dip_file = fname;
             break
@@ -115,14 +132,15 @@ for xi = 1:length(all_xbj_bins)
     % todo bfit_errs??? Maybe we can say that they're apples and oranges,
     % not direcly comparable?
 
-    b_hera = sigmar_vals';
-    b_errs = sigmar_errs'; % THIS IS NEEDED TO DO THE DATA \pm error reconstructions!
-    % only do best reconst to b_err_upper and b_err_lower
-    b_err_upper = b_hera + b_errs;
-    b_err_lower = b_hera - b_errs;
-    bfit_plus_err = bfit + b_errs;
-    bfit_minus_err = bfit - b_errs;
-
+    if use_real_data
+        b_hera = sigmar_vals';
+        b_errs = sigmar_errs'; % THIS IS NEEDED TO DO THE DATA \pm error reconstructions!
+        % only do best reconst to b_err_upper and b_err_lower
+        b_err_upper = b_hera + b_errs;
+        b_err_lower = b_hera - b_errs;
+        bfit_plus_err = bfit + b_errs;
+        bfit_minus_err = bfit - b_errs;
+    end
 
     % rng(80,"twister");
     % eta = 0.01;
@@ -151,17 +169,36 @@ for xi = 1:length(all_xbj_bins)
     X_tikh = tikhonov(UU,sm,XX,b,lambda);
     errtik = zeros(size(lambda));
 
-    X_tikh_upper = tikhonov(UU,sm,XX,b_err_upper,lambda);
-    % errtik_upper = zeros(size(lambda));
-    X_tikh_lower = tikhonov(UU,sm,XX,b_err_lower,lambda);
-    % errtik_lower = zeros(size(lambda));
+    if use_real_data
+        X_tikh_upper = tikhonov(UU,sm,XX,b_err_upper,lambda);
+        % errtik_upper = zeros(size(lambda));
+        X_tikh_lower = tikhonov(UU,sm,XX,b_err_lower,lambda);
+        % errtik_lower = zeros(size(lambda));
+    end
     
     for i = 1:length(lambda)
         % errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
         % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % this is wrong, cannot really minimize against b since it has error
-        errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1); 
+        if use_real_data
+            % real data tests the calculated cross section sigma_r_rec
+            % against the real data to constrain lambda
+            errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1); 
+        else
+            % simulated data refers agains the simulated dipole, which we
+            % want to recover for the simulated sigma_r
+            errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
+        end
     end
-    [m,mI]=min(errtik);
+
+    if use_real_data
+        % [m,mI]=min(errtik);
+        % flipped_errtik = flip(errtik)
+        % for i=1:length(errtik)
+        mI = find(errtik < 1, 1, "last") % lambda list is (should be) increasing, so we want the first lambda that hits chi^2/N= 1 taken from the large end
+        m = errtik(mI)
+    else
+        [m,mI]=min(errtik);
+    end
     % if lambda_type == "semifix"
     %     mI = 3;
     % else
@@ -176,14 +213,18 @@ for xi = 1:length(all_xbj_bins)
     if (length(lambda)>5) && (mI>=3) && (mI<=length(lambda)-2)
         for i = 1:5
             N_maxima(i) = max(X_tikh(:,mI-3+i));
-            N_bpluseps_maxima(i) = max(X_tikh_upper(:,mI-3+i));
-            N_bminuseps_maxima(i) = max(X_tikh_lower(:,mI-3+i));
+            if use_real_data
+                N_bpluseps_maxima(i) = max(X_tikh_upper(:,mI-3+i));
+                N_bminuseps_maxima(i) = max(X_tikh_lower(:,mI-3+i));
+            end
         end
     else
         for i = 1:length(lambda)
             N_maxima(i) = max(X_tikh(:,i));
-            N_bpluseps_maxima(i) = max(X_tikh_upper(:,i));
-            N_bminuseps_maxima(i) = max(X_tikh_lower(:,i));
+            if use_real_data
+                N_bpluseps_maxima(i) = max(X_tikh_upper(:,i));
+                N_bminuseps_maxima(i) = max(X_tikh_lower(:,i));
+            end
         end
     end
     % N_maxima
@@ -314,9 +355,7 @@ for xi = 1:length(all_xbj_bins)
     f_exp_reconst = strjoin([recon_path 'recon_out_' name '_xbj' xbj_bin '.mat'],"")
     N_reconst = X_tikh(:,mI);
     N_rec_adjacent = X_tikh;
-    N_reconst_from_b_plus_err = X_tikh_upper(:,mI);
     N_bpluseps_rec_adjacent = [];
-    N_reconst_from_b_minus_err = X_tikh_lower(:,mI);
     N_bminuseps_rec_adjacent = [];
     N_fit = discrete_dipole_N;
     b_cpp_sim = b; % data generated in C++, no discretization error.
@@ -326,8 +365,20 @@ for xi = 1:length(all_xbj_bins)
     for i = 1:length(lambda)
         b_from_reconst_adjacent(:,i) = A*X_tikh(:,i);
     end
-    b_plus_err_from_reconst = A*X_tikh_upper(:,mI); % should we include lambda variation here also? No?
-    b_minus_err_from_reconst = A*X_tikh_lower(:,mI); % should we include lambda variation here also? No?
+    if use_real_data
+        N_reconst_from_b_plus_err = X_tikh_upper(:,mI);
+        N_reconst_from_b_minus_err = X_tikh_lower(:,mI);
+        b_plus_err_from_reconst = A*X_tikh_upper(:,mI); % should we include lambda variation here also? No?
+        b_minus_err_from_reconst = A*X_tikh_lower(:,mI); % should we include lambda variation here also? No?
+    else
+        b_hera = [];
+        b_errs = [];
+        N_reconst_from_b_plus_err = [];
+        N_reconst_from_b_minus_err = [];
+        b_plus_err_from_reconst = [];
+        b_minus_err_from_reconst = [];
+    end
+
     save(f_exp_reconst, ...
         "r_grid", "q2vals", ...
         "N_fit", "real_sigma",...
