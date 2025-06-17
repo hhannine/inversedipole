@@ -95,10 +95,10 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     if use_noise:
         name_base = 'recon_with_noise_out_'
     
-    lambda_type = "broad_"
+    # lambda_type = "broad_"
     # lambda_type = "semiconstrained_"
     # lambda_type = "semicon2_"
-    # lambda_type = "fixed_"
+    lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
     print(composite_fname)
 
@@ -168,7 +168,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     ####################
     ### PLOT TYPE DIPOLE
     ####################
-    alt_bins = True
+    # alt_bins = True
+    alt_bins = False
 
     if not use_real_data:
         plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
@@ -188,9 +189,10 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     binned_dip_data_fit = [dip_data_fit[i] for i in plt1_xbj_bins]
     binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
     binned_dip_data_rec_adj = [dip_data_rec_adj[i].T for i in plt1_xbj_bins]
-    binned_dip_rec_from_bplus = [dip_rec_from_b_plus_err[i] for i in plt1_xbj_bins]
-    binned_dip_rec_from_bminus = [dip_rec_from_b_minus_err[i] for i in plt1_xbj_bins]
     binned_mI_list = [mI_list[i] for i in plt1_xbj_bins]
+    if use_real_data:
+        binned_dip_rec_from_bplus = [dip_rec_from_b_plus_err[i] for i in plt1_xbj_bins]
+        binned_dip_rec_from_bminus = [dip_rec_from_b_minus_err[i] for i in plt1_xbj_bins]
     
     fig = plt.figure()
     ax = plt.gca()
