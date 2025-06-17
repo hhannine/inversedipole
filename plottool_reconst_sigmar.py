@@ -46,7 +46,7 @@ def S_interp(N_interp, r, N_max=None):
     return N_max-N_interp(r)
 
 
-def main():
+def main(use_charm=False, real_data=False, fitname_i=None):
     global G_PATH, PLOT_TYPE, R_GRID
     f_path_list = []
     # PLOT_TYPE = sys.argv[1]
@@ -62,16 +62,19 @@ def main():
     ###################################
 
     # use_charm = False
-    use_charm = True
+    # use_charm = True
     # use_real_data = False
-    use_real_data = True
+    use_real_data = real_data
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    fitname = fits[3] + "_"
+    if not fitname_i:
+        fitname = fits[3] + "_"
+    else:
+        fitname = fits[fitname_i] + "_"
     # fitname = fits[4] + "_"
 
     ####################
@@ -89,10 +92,10 @@ def main():
         str_fit = "data_only_"
     if use_noise:
         name_base = 'recon_with_noise_out_'
-    lambda_type = ""
-    lambda_type = "broad_"
+    
+    # lambda_type = "broad_"
     # lambda_type = "semiconstrained_"
-    # lambda_type = "fixed_"
+    lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
     print(composite_fname)
 
@@ -123,8 +126,11 @@ def main():
     best_lambdas = [dat["best_lambda"][0] for dat in data_list]
     lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
     mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
-    uncert_i = [range(mI-4,mI+5,2) for mI in mI_list]
-    # print(best_lambda, mI, lambda_list[mI-2:mI+3], )
+    if lambda_type in ["semiconstrained_", "fixed_"]:
+        uncert_i = [range(0, 5) for mI in mI_list]
+    else:
+        ucrt_step = 2
+        uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
     print(uncert_i)
 
 
@@ -428,4 +434,10 @@ def main():
         plt.show()
     return 0
 
-main()
+# Production plotting
+main(use_charm=False,real_data=False,fitname_i=3)
+main(use_charm=True,real_data=False,fitname_i=3)
+main(use_charm=False,real_data=False,fitname_i=4)
+main(use_charm=True,real_data=False,fitname_i=4)
+main(use_charm=False,real_data=True,fitname_i=3)
+main(use_charm=True,real_data=True,fitname_i=3)
