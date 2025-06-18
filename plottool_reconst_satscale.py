@@ -49,8 +49,9 @@ def calc_saturation_scale(dipole_N, Nmax):
     # N(x, r^2 = 2/Q_s^2) = 1 - e^{-½}
     # i.e. we look for the zero point of the function: N(x, r^2 = 2/Q_s^2) - 1 + e^{-½} = 0
     dipole_N = dipole_interp(dipole_N)
-    r_s = np.sqrt(root_scalar(lambda r: dipole_N(r)/Nmax-1+0.606530659712, bracket=[0.01, 10],).root)
+    r_s = np.sqrt(root_scalar(lambda r: dipole_N(r)/Nmax-1+0.606530659712, bracket=[0.01, 5],).root)
     Q_s = math.sqrt(2)/r_s
+    # Q_s = 1/(math.sqrt(math.sqrt(2))*r_s)
     return Q_s
 
 def main(use_charm=False, real_data=False, fitname_i=None):
@@ -77,6 +78,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     # use_unity_sigma0 = True # ?
     use_noise = False
     # use_noise = True
+
+    print(use_charm, use_real_data, fitname_i)
 
     #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
@@ -176,11 +179,17 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     #       - lightonly rec vs lightpluscharm rec vs horizontal line from fits (how about average of rec values?)
     # 10. 2D dipole comparison in (r, xbj) or (r, W^2)
     #       - fit vs real rec lightonly vs real rec lightpluscharm (3 plots/figures/images)
-
+    # 11. Ratios
+    # 12. satscale
+    # 13. dipole evolution
 
     ####################
     ### PLOT TYPE Q_sat
     ####################
+
+    # for i, x in enumerate(xbj_bins):
+        # print(x, data_list[i]["xbj_bin"], data_list[i]["run_file"], data_list_c[i]["run_file"],)
+        # print(x, data_list[i]["dip_file"], data_list[i]["run_file"], data_list_c[i]["run_file"],)
 
     print(real_sigma)
     Qs_fit = [calc_saturation_scale(dip, 1) for dip in dip_data_fit]
@@ -199,10 +208,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     # if USE_TITLE:
     #     plt.title(title)
-    if PLOT_TYPE == "satscale":
-        plt.xlabel(r'$x_{\mathrm{Bj.}}\right)$', fontsize=22)
-        plt.ylabel(r'$Q_s ~ \left(\mathrm{GeV}\right)$', fontsize=22)
-        xvar = xbj_bins
+    plt.xlabel(r'$x_{\mathrm{Bj.}}$', fontsize=22)
+    plt.ylabel(r'$Q_s ~ \left(\mathrm{GeV}\right)$', fontsize=22)
+    xvar = xbj_bins
 
     # LOG AXIS
     ax.set_xscale('log')
@@ -257,6 +265,16 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     #################### 
 
     # Plot fit dipoles and their reconstructions
+    # ax.plot(xbj_bins, [0.28]*len(xbj_bins),
+    ax.plot([0.01], [math.sqrt(0.28)]*len([0.01]),
+            # label=labels[i],
+            label="Fit at x0",
+            linestyle="",
+            linewidth=lw*1,
+            marker="o",
+            # color=colors[2*i]
+            color="black"
+            )
     ax.plot(xbj_bins, Qs_fit,
             # label=labels[i],
             label="Fit",
@@ -265,22 +283,25 @@ def main(use_charm=False, real_data=False, fitname_i=None):
             # color=colors[2*i]
             color="black"
             )
-    ax.plot(xbj_bins, Qs_rec,
-            # label=labels[i+1],
-            label="Qs light",
-            linestyle="-",
-            linewidth=lw/2.5,
-            color=colors[0],
-            alpha=1
-            )
-    ax.plot(xbj_bins, Qs_rec_c,
-            # label=labels[i+1],
-            label="Qs charm",
-            linestyle="-",
-            linewidth=lw/2.5,
-            color=colors[1],
-            alpha=1
-            )
+    if True:
+        # ax.plot(xbj_bins, np.ones(len(Qs_rec))/Qs_rec,
+        ax.plot(xbj_bins, Qs_rec*Nlight_max/max(Nlight_max),
+                # label=labels[i+1],
+                label="Qs light * sigma0(x)/max(sigma0)",
+                linestyle="-",
+                linewidth=lw/2.5,
+                color=colors[0],
+                alpha=1
+                )
+        # ax.plot(xbj_bins, np.ones(len(Qs_rec_c))/Qs_rec_c,
+        ax.plot(xbj_bins, Qs_rec_c*Ncharm_max/max(Ncharm_max),
+                # label=labels[i+1],
+                label="Qs charm * sigma0(x)/max(sigma0)",
+                linestyle="-",
+                linewidth=lw/2.5,
+                color=colors[1],
+                alpha=1
+                )
         # if use_real_data:
         #     dip_from_bplus = binned_dip_rec_from_bplus[i].T[0]
         #     dip_from_bminus = binned_dip_rec_from_bminus[i].T[0]
@@ -341,10 +362,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     # plt.ylim(bottom=0, top=40)
     fig.set_size_inches(7,7)
     
-    if not use_real_data:
-        n_plot = "plot11-"
-    elif use_real_data:
-        n_plot = "plot12-"
+    n_plot = "plot12-satscale-"
     
     if not n_plot:
         print("Plot number?")
