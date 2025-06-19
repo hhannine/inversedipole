@@ -4,12 +4,15 @@ addpath(genpath('./dependencies'))
 close all
 clear all
 
+% parpool(8)
+parp = gcp;
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08];
 
 r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
+r_grid(end) = [];
 
 
 %%% Fit options
@@ -19,11 +22,11 @@ fitname = fits(4);
 
 %%% simulated data settings
 use_real_data = false;
-% use_charm = false;
-use_charm = true;
+use_charm = false;
+% use_charm = true;
 
 %%% real data settings
-% use_real_data = true;
+% use_real_data = true; TODO NEED TO REDO THE ERROR STUFF FOR REAL ERRORS
 % use_charm = false;
 % use_charm = true;
 
@@ -44,8 +47,10 @@ if lambda_type == "broad"
     % lam1 = 1:9;
     lam1 = 2:2:10;
     % lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    lambda = [lam1*5e-4, lam1*1e-3, lam1*1e-2];
+    lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
+    % lambda = [lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
+    % lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
+    % lambda = [lam1*4e-3, lam1*1e-2];
 elseif lambda_type == "semiconstrained"
     lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
 elseif lambda_type == "semicon2"
@@ -83,8 +88,10 @@ data_path = './export_fwd_IUSinterp/';
 data_files = dir(fullfile(data_path,'*.mat'));
 sim_type = "simulated";
 
-% for xi = 1:length(all_xbj_bins)
-for xi = 1:1
+dipole_N_ri_rec_distributions = [];
+
+for xi = 1:length(all_xbj_bins)
+% for xi = 10:10
     close all
     xbj_bin = string(all_xbj_bins(xi));
     % [fitname, xbj_bin, r_steps,use_real_data,use_charm]
@@ -92,7 +99,7 @@ for xi = 1:1
     for k = 1:numel(data_files)
         fname = data_files(k).name;
         if (contains(fname, xbj_bin) && contains(fname, data_type) && contains(fname, charm_opt) && contains(fname, r_steps_str))
-            run_file = fname
+            run_file = fname;
         end
     end
     load(strcat(data_path, run_file))
@@ -105,7 +112,7 @@ for xi = 1:1
         else
             sim_xbj = xbj_bin;
         end
-        fname = data_files(k).name
+        fname = data_files(k).name;
         % fnameb = strrep(fname,'-','_');
         fnameb = fname;
         if (contains(fnameb, sim_xbj) && contains(fnameb, fitname) && contains(fnameb, sim_type) && contains(fnameb, charm_opt) && contains(fnameb, r_steps_str))
@@ -117,7 +124,7 @@ for xi = 1:1
             ["failed to match dip_file!", fname, sim_xbj, fitname, sim_type, charm_opt, r_steps_str]
             return
     end
-    dip_file
+    % dip_file;
     dip_data = load(strcat(data_path, dip_file));
     ref_dip = dip_data.discrete_dipole_N;
     if (use_real_data)
@@ -133,15 +140,14 @@ for xi = 1:1
     bfit = A*x'; % bfit has numerical error from discretization
     % b is either the real data sigma_r, or one simulated by fit
     b_data = sigmar_vals'; % b is calculated by the C++ code, no error.
+    q2vals = qsq_vals;
 
+    b_hera = [];
+    b_errs = [];
     if use_real_data
         b_hera = sigmar_vals';
         b_errs = sigmar_errs'; % THIS IS NEEDED TO DO THE DATA \pm error reconstructions!
         % only do best reconst to b_err_upper and b_err_lower
-        b_err_upper = b_hera + b_errs;
-        b_err_lower = b_hera - b_errs;
-        bfit_plus_err = bfit + b_errs;
-        bfit_minus_err = bfit - b_errs;
     end
     
     % Simulating Gaussian 1% errors, and sampling datasets 
@@ -153,17 +159,6 @@ for xi = 1:1
     % b_gen_err_sampled2 = b_data + eta.*b_data.*randn(length(b),1)
     % b_gen_err_sampled./b_gen_err_sampled2 % works! These are different.
 
-    % todo:
-    % reconstruct the dipole from that dataset (rec_dip)
-    % store that rec dipole for analysis in the end (N_N_dipole_recs)
-    % after collecting enough of these rec dipoles for each r calculate the distribution of all the reconstructions N_rec(r_i)
-    % That gives the most likely reconstruction given the original errors, and natural error estimates as the variance of the reconstructions
-
-    % % rng(80,"twister");
-    % % eta = 0.01;
-    % % e = randn(size(bex));
-    % % e = eta*norm(bex)*e/norm(e);
-    % % b = bex + e;
     
     %%
     N=length(x);
@@ -182,8 +177,10 @@ for xi = 1:1
     % [UU,sm,XX] = cgsvd(A,L2);
 
     one_hundred_dipole_recs = [];
-    for j=1:500
-        b = b_data + eta.*b_data.*randn(length(b_data),1);   
+    % for j=1:10000
+    parfor j=1:50000
+        err = eta.*b_data.*randn(length(b_data),1);
+        b = b_data + err;
     
         X_tikh = tikhonov(UU,sm,XX,b,lambda);
         errtik = zeros(size(lambda));
@@ -207,7 +204,10 @@ for xi = 1:1
                 % want to recover for the simulated sigma_r
                 % errtik(i) = norm((x'-X_tikh(:,i)))/norm(x'); % compare
                 % against the fit dipole x'
-                errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % compare against simulated data. Relative error.
+                % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % compare against simulated data. Relative error.
+                errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + all_xbj_bins(xi)*1e-2*exp(-min(X_tikh(:,i))); % add penalty for negative minimum
+                % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + 1e-1*(1-sign(min(X_tikh(:,i)))); % This is perhaps too strong penalty?
+                % errtik(i) = abs(norm((b-A*X_tikh(:,i))/(err))-1); 
             end
         end
     
@@ -219,35 +219,9 @@ for xi = 1:1
             m = errtik(mI)
         else
             [m,mI]=min(errtik);
+            % mI = find(errtik < 1, 1, "last") % lambda list is (should be) increasing, so we want the first lambda that hits chi^2/N= 1 taken from the large end
+            % m = errtik(mI)
         end
-        % if lambda_type == "semifix"
-        %     mI = 3;
-        % else
-        %     [m,mI]=min(errtik);
-        % end
-        % best_lambda = lambda(mI);
-        % [mI, best_lambda, lambda_type]
-        % 
-        % N_maxima = [];
-        % N_bpluseps_maxima = [];
-        % N_bminuseps_maxima = [];
-        % if (length(lambda)>5) && (mI>=3) && (mI<=length(lambda)-2)
-        %     for i = 1:5
-        %         N_maxima(i) = max(X_tikh(:,mI-3+i));
-        %         if use_real_data
-        %             N_bpluseps_maxima(i) = max(X_tikh_upper(:,mI-3+i));
-        %             N_bminuseps_maxima(i) = max(X_tikh_lower(:,mI-3+i));
-        %         end
-        %     end
-        % else
-        %     for i = 1:length(lambda)
-        %         N_maxima(i) = max(X_tikh(:,i));
-        %         if use_real_data
-        %             N_bpluseps_maxima(i) = max(X_tikh_upper(:,i));
-        %             N_bminuseps_maxima(i) = max(X_tikh_lower(:,i));
-        %         end
-        %     end
-        % end
         
         rec_dip = X_tikh(:,mI);
         one_hundred_dipole_recs(:,j) = rec_dip;
@@ -259,116 +233,54 @@ for xi = 1:1
         pd = fitdist(rec_dips_at_rj,"Normal");
         one_hundred_pdfs(j,:) = [mean(pd), std(pd)];
     end
-    r_grid(end) = []; 
-    size(r_grid')
-    size(x')
-    size(one_hundred_pdfs(:,1))
+    
+    % the result for the current xbj_bin is the full one_hundred_pdfs,
+    % which is the mean and std for each N(r_i)
 
-    figure(1) % mean reconstruction vs. ground truth
-    % errorbar(r_grid', one_hundred_pdfs(:,1), one_hundred_pdfs(:,2))
-    semilogx(r_grid',x','-', ...
-             r_grid',one_hundred_pdfs(:,1),'--', ...
-             r_grid',one_hundred_pdfs(:,1)+one_hundred_pdfs(:,2),'.', ...
-             r_grid',one_hundred_pdfs(:,1)-one_hundred_pdfs(:,2),'.', ...
-             'LineWidth',2)
+    % dipole_N_ri_rec_distributions(xi,:,:) = one_hundred_pdfs
+    N_rec_ptw_mean = one_hundred_pdfs(:,1);
+    N_rec_std = one_hundred_pdfs(:,2);
+    N_rec_std_up = one_hundred_pdfs(:,1) + one_hundred_pdfs(:,2);
+    N_rec_std_dn = one_hundred_pdfs(:,1) - one_hundred_pdfs(:,2);
+
+
+    plotting = false;
+    if plotting
+        figure(1) % mean reconstruction vs. ground truth
+        % errorbar(r_grid', one_hundred_pdfs(:,1), one_hundred_pdfs(:,2))
+        fill([r_grid';flipud(r_grid')], ...
+             [one_hundred_pdfs(:,1)-one_hundred_pdfs(:,2);flipud(one_hundred_pdfs(:,1)+one_hundred_pdfs(:,2))], ...
+             [.8 .9 .9],'linestyle','none')
+        % plot(r_grid',x','-', ...
+        %          r_grid',one_hundred_pdfs(:,1),'--', ...
+        %          r_grid',one_hundred_pdfs(:,1)+one_hundred_pdfs(:,2),'.', ...
+        %          r_grid',one_hundred_pdfs(:,1)-one_hundred_pdfs(:,2),'.', ...
+        %          'LineWidth',2)
+        % semilogx(r_grid',x','-', ...
+        loglog(r_grid',x','-', ...
+                 r_grid',one_hundred_pdfs(:,1),'--', ...
+                 r_grid',one_hundred_pdfs(:,1)+one_hundred_pdfs(:,2),'.', ...
+                 r_grid',one_hundred_pdfs(:,1)-one_hundred_pdfs(:,2),'.', ...
+                 'LineWidth',2)
+    end
+
     
 
-    return
-    % figure(1) % best reconstruction vs. ground truth
-    % % plot(ivec3,x','-',ivec3,X_tikh(:,mI),'--','LineWidth',2)
-    % r_grid(end) = []; 
-    % % plot(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
-    % semilogx(r_grid',x','-',r_grid',X_tikh(:,mI),'--','LineWidth',2)
-    % xlim([r_grid(1), r_grid(end)]);
-    % leg=legend('true',['PTik lambda=', num2str(lambda(mI))]);
-    % set(leg,'FontSize',12);
-    % set(leg,'Location',"northwest");
-    % title(['Preconditioned Tikhonov with xbj=',num2str(xbj_bin)],'FontSize',12)
-    % pos1 = get(gcf,'Position'); % get position of Figure(1) 
-    % set(gcf,'Position', pos1 - [pos1(3)/2,0,0,0]) % Shift position of Figure(1) 
-    
-    % %% Comparing lambdas
-    % figure(2)
-    % semilogx(r_grid',x','-','LineWidth',1)
-    % hold on
-    % % for i = 1:length(lambda)
-    % % mI
-    % % length(lambda)
-    % if mI<3 | length(lambda)-mI <3
-    %     for i = 1:length(lambda)
-    %         % plot(1:N,x','-',1:N,X_tikh(:,i),'--','LineWidth',1)
-    %         semilogx(r_grid',X_tikh(:,i),'--','LineWidth',1)
-    %         % ylim([-0.4,1.5]);
-    %         xlim([0.1, r_grid(end)]);
-    %         hold on
-    %     end
-    %     legend_lambdas = cellstr(num2str(lambda', 'lambda=%-f'));
-    %     legend_items = cat(1, 'true', legend_lambdas(1:length(lambda)));
-    % else
-    %     for i = mI-2:mI+2
-    %         % plot(1:N,x','-',1:N,X_tikh(:,i),'--','LineWidth',1)
-    %         semilogx(r_grid',X_tikh(:,i),'--','LineWidth',1)
-    %         % ylim([-0.4,1.5]);
-    %         xlim([0.1, r_grid(end)]);
-    %         hold on
-    %     end
-    %     legend_lambdas = cellstr(num2str(lambda', 'lambda=%-f'));
-    %     legend_items = cat(1, 'true', legend_lambdas(mI-2:mI+2));
-    % end
-    % title(['Reconstruction with various lambda xbj=',num2str(xbj_bin)],'FontSize',12)
-    % 
-    % leg=legend(legend_items);
-    % set(leg,'FontSize',10);
-    % set(leg,'Location',"northwest");
-    % hold off
-    % pos2 = get(gcf,'Position');  % get position of Figure(2) 
-    % set(gcf,'Position', pos2 + [pos1(3)/2,0,0,0]) % Shift position of Figure(2)
-    
-    %% Plot: data b vs fit b vs b from reconstruction
-    
-    % q2vals = qsq_vals;
-    % bend = A*X_tikh(:,mI);
-    
-    % figure(3)
-    % % plot(q2vals,b,'bx-',q2vals,bfit,'ro',q2vals,bend,'go','LineWidth',1)
-    % % semilogx(q2vals,b,'bx',q2vals,bfit,'ro',q2vals,bend,'go','LineWidth',0.4)
-    % loglog(q2vals,b,'bx',q2vals,bfit,'ro',q2vals,bend,'go','LineWidth',0.4)
-    % leg=legend('b - measurements','b - fit','b - reconstruction');
-    % title(['How well does the reconstruction fit the data for xbj=',num2str(xbj_bin)],'FontSize',12)
-    % set(leg,'FontSize',10);
-    % set(leg,'Location',"southeast");
-    % pos3 = get(gcf,'Position');  % get position of Figure(3) 
-    % set(gcf,'Position', pos3 + [2/2*pos2(3),0,0,0]) % Shift position of Figure(2)
-    
+    % delete(gcp("nocreate"));
+    % return
     %%
-    
-    % 
-    % rng(80,"twister");
-    % eta = 0.01;
-    % e = randn(size(bfit));
-    % e = eta*norm(bfit)*e/norm(e);
-    % b1noise = bfit + e;
-    % 
-    % %%
-    % 
-    % figure(8)
-    % plot(q2vals,b,'bo-',q2vals,bfit,'ro-',q2vals,b1noise,'go-','LineWidth',2)
     
     
     % EXPORTING RESULTS
     
-    %% export reconstructed dipole
-    % variables to export: N_reconst, N_true = N_fit, b_data = b_sim, b_from_reconst =
-    % A*N_reconst, r_grid, q2vals
+    %% export reconstructed dipole statistics: pointwise distribution params
+    %% and all relevant settings
     
-    % filename should have all settings / parameters
-    % num2str(a_value,'%.2f') ; formatting
-    save2file = false;
+    save2file = true;
     if save2file
         if use_real_data
             reconst_type = "data_only";
-        end
-        if (use_real_data==false)
+        else
             if (contains(run_file, "_MV_"))
                 reconst_type = "MV";
             elseif (contains(run_file, "_MVe_"))
@@ -397,47 +309,31 @@ for xi = 1:1
         name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
         % recon_path = "./reconstructions_IUSdip/";
         recon_path = "./reconstructions_gausserr/";
-        f_exp_reconst = strjoin([recon_path 'recon_out_' name '_xbj' xbj_bin '.mat'],"")
-        N_reconst = X_tikh(:,mI);
-        N_rec_adjacent = X_tikh;
-        N_bpluseps_rec_adjacent = [];
-        N_bminuseps_rec_adjacent = [];
+        f_exp_reconst = strjoin([recon_path 'recon_gausserr_' name '_xbj' xbj_bin '.mat'],"")
+        % all_xbj_rec_pdf_means_std = dipole_N_ri_rec_distributions; %
+        % maybe dont use this, keep saving to file one xbj at a time
+        N_reconst = N_rec_ptw_mean;
+        N_rec_std;
+        N_rec_one_std_up = N_rec_std_up; % N_rec + std
+        N_rec_one_std_dn = N_rec_std_dn; % N_rec - std
         N_fit = discrete_dipole_N;
-        b_cpp_sim = b; % data generated in C++, no discretization error.
+        b_cpp_sim = b_data; % data generated in C++, no discretization error.
         b_fit = bfit; % = A*Nfit, this has discretization error.
-        b_from_reconst = bend; % prescription of the data by the reconstructred dipole.
-        b_from_reconst_adjacent = [];
-        for i = 1:length(lambda)
-            b_from_reconst_adjacent(:,i) = A*X_tikh(:,i);
-        end
-        if use_real_data
-            N_reconst_from_b_plus_err = X_tikh_upper(:,mI);
-            N_reconst_from_b_minus_err = X_tikh_lower(:,mI);
-            b_plus_err_from_reconst = A*X_tikh_upper(:,mI); % should we include lambda variation here also? No?
-            b_minus_err_from_reconst = A*X_tikh_lower(:,mI); % should we include lambda variation here also? No?
-        else
-            b_hera = [];
-            b_errs = [];
-            N_reconst_from_b_plus_err = [];
-            N_reconst_from_b_minus_err = [];
-            b_plus_err_from_reconst = [];
-            b_minus_err_from_reconst = [];
-        end
+        b_from_reconst = A*N_reconst; % prescription of the data by the reconstructred dipole.
+        b_from_reconst_one_std_up = A*N_rec_one_std_up;
+        b_from_reconst_one_std_dn = A*N_rec_one_std_dn;
+
     
         save(f_exp_reconst, ...
             "r_grid", "q2vals", ...
             "N_fit", "real_sigma",...
-            "N_reconst", "N_maxima", "N_rec_adjacent", ...
-            "N_reconst_from_b_plus_err", "N_bpluseps_maxima", "N_bpluseps_rec_adjacent", ...
-            "N_reconst_from_b_minus_err", "N_bminuseps_maxima", "N_bminuseps_rec_adjacent", ...
-            "b_cpp_sim", "b_fit", "b_from_reconst", "b_from_reconst_adjacent", ...
+            "N_reconst", "N_rec_std", "N_rec_one_std_up", "N_rec_one_std_dn", ...
+            "b_cpp_sim", "b_fit", "b_from_reconst", ...
             "b_hera", "b_errs", ...
-            "b_plus_err_from_reconst", "b_minus_err_from_reconst", ...
-            "best_lambda", "lambda", "lambda_type", ...
+            "b_from_reconst_one_std_up", "b_from_reconst_one_std_dn", ...
+            "lambda", "lambda_type", ...
             "xbj_bin", "use_real_data", "use_charm", ...
             "run_file", "dip_file", ...
             "-nocompression","-v7")
     end
 end
-
-%% with real data, print max / peak and xbj_bin to a file
