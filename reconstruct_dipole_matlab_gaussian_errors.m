@@ -12,7 +12,6 @@ real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032
 
 r_steps = 500;
 r_steps_str = strcat("r_steps",int2str(r_steps));
-r_grid(end) = [];
 
 
 %%% Fit options
@@ -44,12 +43,12 @@ lambda_type = "broad"; % for simulated data
 % lambda_type = "old";
 
 if lambda_type == "broad"
-    % lam1 = 1:9;
-    lam1 = 2:2:10;
+    lam1 = 1:9;
+    % lam1 = 2:2:10;
     % lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
+    % lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
+    lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
     % lambda = [lam1*4e-3, lam1*1e-2];
 elseif lambda_type == "semiconstrained"
     lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
@@ -90,11 +89,10 @@ sim_type = "simulated";
 
 dipole_N_ri_rec_distributions = [];
 
-for xi = 1:length(all_xbj_bins)
-% for xi = 10:10
+% for xi = 1:length(all_xbj_bins)
+for xi = 5:5
     close all
     xbj_bin = string(all_xbj_bins(xi));
-    % [fitname, xbj_bin, r_steps,use_real_data,use_charm]
 
     for k = 1:numel(data_files)
         fname = data_files(k).name;
@@ -133,6 +131,7 @@ for xi = 1:length(all_xbj_bins)
     %%
   
     ivec3= 1:r_steps;
+    r_grid(end) = [];
     x = discrete_dipole_N;
     A = forward_op_A(:,ivec3);
     % bex = A*x';
@@ -141,6 +140,7 @@ for xi = 1:length(all_xbj_bins)
     % b is either the real data sigma_r, or one simulated by fit
     b_data = sigmar_vals'; % b is calculated by the C++ code, no error.
     q2vals = qsq_vals;
+    [fitname, xbj_bin, r_steps,use_real_data,use_charm, length(b_data)]
 
     b_hera = [];
     b_errs = [];
@@ -244,7 +244,8 @@ for xi = 1:length(all_xbj_bins)
     N_rec_std_dn = one_hundred_pdfs(:,1) - one_hundred_pdfs(:,2);
 
 
-    plotting = false;
+    % plotting = false;
+    plotting = true;
     if plotting
         figure(1) % mean reconstruction vs. ground truth
         % errorbar(r_grid', one_hundred_pdfs(:,1), one_hundred_pdfs(:,2))
@@ -276,7 +277,8 @@ for xi = 1:length(all_xbj_bins)
     %% export reconstructed dipole statistics: pointwise distribution params
     %% and all relevant settings
     
-    save2file = true;
+    save2file = false;
+    % save2file = true;
     if save2file
         if use_real_data
             reconst_type = "data_only";
