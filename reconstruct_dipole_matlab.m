@@ -28,14 +28,14 @@ use_charm = true;
 % use_charm = true;
 
 %%% Lambda options for production
-lambda_type = "fixed";
+% lambda_type = "fixed";
 % lambda_type = "broad"; % for simulated data
 
 
 %%% All lambda options
 % lambda_type = "broad";
 % lambda_type = "semiconstrained";
-% lambda_type = "semicon2";
+lambda_type = "semicon2";
 % lambda_type = "fixed";
 % lambda_type = "semifix";
 % lambda_type = "old";
@@ -186,7 +186,9 @@ for xi = 1:length(all_xbj_bins)
         else
             % simulated data refers agains the simulated dipole, which we
             % want to recover for the simulated sigma_r
-            errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
+            % errtik(i) = norm((x'-X_tikh(:,i)))/norm(x'); % compare
+            % against the fit dipole x'
+            errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % compare against simulated data. Relative error.
         end
     end
 
