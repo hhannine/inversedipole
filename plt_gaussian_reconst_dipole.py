@@ -196,7 +196,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     # LOG AXIS
     ax.set_xscale('log')
-    # ax.set_yscale('log')
+    ax.set_yscale('log')
     
     ##############
     # LABELS
@@ -220,7 +220,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     if use_real_data:
         additives = [0, 10, 20]
     else:
-        additives = [0, 2, 4]
+        # additives = [0, 2, 4]
+        additives = [0, 0, 0]
     colors = ["blue", "green", "brown", "orange", "magenta", "red"]
     lw=2.8
     ms=4
@@ -333,9 +334,10 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     plt.legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="upper left") 
     
     # ax.xaxis.set_major_formatter(ScalarFormatter())
-    # plt.xlim(1e-3, 20)
-    plt.xlim(0.05, 25)
+    plt.xlim(1e-3, 25)
+    # plt.xlim(0.05, 25)
     # plt.ylim(bottom=0, top=40)
+    plt.ylim(bottom=1e-5)
     fig.set_size_inches(7,7)
     
     if not use_real_data:
