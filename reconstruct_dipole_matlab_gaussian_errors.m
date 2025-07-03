@@ -176,7 +176,20 @@ for xi = 5:5
     % [UU2,sm2,XX2] = cgsvd(A,L2);
     % [UU,sm,XX] = cgsvd(A,L2);
 
-    one_hundred_dipole_recs = [];
+
+    % principal reconstruction to actual data points
+    X_tikh_principal = tikhonov(UU,sm,XX,b_data,lambda);
+    errtik_p = zeros(size(lambda));
+    for i = 1:length(lambda)
+        errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + all_xbj_bins(xi)*1e-2*exp(-min(X_tikh_principal(:,i))); % add penalty for negative minimum
+    end
+    [mp,mIp]=min(errtik_p);
+    rec_dip_principal = X_tikh_principal(:,mIp);
+    sigmar_principal = A*rec_dip_principal;
+
+    % bootstrapping reconstruction uncertainties
+    array_over_dataset_samples_dipole_recs = [];
+    array_over_dataset_samples_sigmar = [];
     % for j=1:10000
     parfor j=1:50000
         err = eta.*b_data.*randn(length(b_data),1);
@@ -224,44 +237,73 @@ for xi = 5:5
         end
         
         rec_dip = X_tikh(:,mI);
-        one_hundred_dipole_recs(:,j) = rec_dip;
+        array_over_dataset_samples_dipole_recs(:,j) = rec_dip;
+        array_over_dataset_samples_sigmar(:,j) = A*rec_dip;
     end % rec loop over dataset samples ends here
     
-    one_hundred_pdfs = [];
+    dataset_sample_pdfs = [];
+    dataset_sample_pdfs_sigmar = [];
     for j=1:length(x')
-        rec_dips_at_rj = one_hundred_dipole_recs(j,:)';
-        pd = fitdist(rec_dips_at_rj,"Normal");
-        one_hundred_pdfs(j,:) = [mean(pd), std(pd)];
+        rec_dips_at_rj = array_over_dataset_samples_dipole_recs(j,:)';
+        sigmar_at_Qj = array_over_dataset_samples_dipole_recs(j,:)';
+        % pd = fitdist(rec_dips_at_rj,"Normal");
+        pd = fitdist(rec_dips_at_rj,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
+        pd_sig = fitdist(sigmar_at_Qj,'Kernel','Kernel','epanechnikov');
+        dataset_sample_pdfs(j,:) = [mean(pd), std(pd)];
+        dataset_sample_pdfs_sigmar(j,:) = [mean(pd_sig), std(pd_sig)];
     end
+
+    % calculate sigma_r for each of the reconstructions to each data sample
+    % calculate maximum difference to the principal data points (simu/real)
+    % discard reconstructions whose discrepancy to the data points is
+    % larger than the error of the data (there's no guarantee that any of
+    % the reconstructions with random error hit close to the principal data
+    % points after mapping A*rec_dip. Though, if the sampled error is small
+    % and the sample set is close to the principal points on average, the
+    % rec_dip should be close to the principal reconstruction? This would
+    % provide a group of reconstructions, which should map back close to
+    % the principal data points, within the assigned errors.(?)
+    % 1. calc sigma_r = A*rec_dip_wth_err
+    % 2. calc eps = max(sigmar - sigmar_data)
+    % 3. if eps > data error at that point -> discard (perhaps conversely,
+    % save valid reconstructions into a new array) (!)
+    % 4. surviving reconstructions form the distribution of the
+    % reconstructed dipole amplitude at each r_i. (calculated from
+    % surviving dipole array)
+    % SHOULDN'T ALL THE RECONSTRUCTIONS QUALITFY TO SURVIVE? They fit the
+    % dataset with error closely -> eps < error by construction
+    % It just doesn't make any sense to calculate the sigma_r uncertainty
+    % from the upper and lower std bands, no single reconstruction goes to
+    % either everywhere. (TEST THAT THEY DO?)
     
-    % the result for the current xbj_bin is the full one_hundred_pdfs,
+    % the result for the current xbj_bin is the full dataset_sample_pdfs,
     % which is the mean and std for each N(r_i)
 
-    % dipole_N_ri_rec_distributions(xi,:,:) = one_hundred_pdfs
-    N_rec_ptw_mean = one_hundred_pdfs(:,1);
-    N_rec_std = one_hundred_pdfs(:,2);
-    N_rec_std_up = one_hundred_pdfs(:,1) + one_hundred_pdfs(:,2);
-    N_rec_std_dn = one_hundred_pdfs(:,1) - one_hundred_pdfs(:,2);
+    % dipole_N_ri_rec_distributions(xi,:,:) = dataset_sample_pdfs
+    N_rec_ptw_mean = dataset_sample_pdfs(:,1);
+    N_rec_std = dataset_sample_pdfs(:,2);
+    N_rec_std_up = dataset_sample_pdfs(:,1) + dataset_sample_pdfs(:,2);
+    N_rec_std_dn = dataset_sample_pdfs(:,1) - dataset_sample_pdfs(:,2);
 
 
     % plotting = false;
     plotting = true;
     if plotting
         figure(1) % mean reconstruction vs. ground truth
-        % errorbar(r_grid', one_hundred_pdfs(:,1), one_hundred_pdfs(:,2))
+        % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
         fill([r_grid';flipud(r_grid')], ...
-             [one_hundred_pdfs(:,1)-one_hundred_pdfs(:,2);flipud(one_hundred_pdfs(:,1)+one_hundred_pdfs(:,2))], ...
+             [dataset_sample_pdfs(:,1)-dataset_sample_pdfs(:,2);flipud(dataset_sample_pdfs(:,1)+dataset_sample_pdfs(:,2))], ...
              [.8 .9 .9],'linestyle','none')
         % plot(r_grid',x','-', ...
-        %          r_grid',one_hundred_pdfs(:,1),'--', ...
-        %          r_grid',one_hundred_pdfs(:,1)+one_hundred_pdfs(:,2),'.', ...
-        %          r_grid',one_hundred_pdfs(:,1)-one_hundred_pdfs(:,2),'.', ...
+        %          r_grid',dataset_sample_pdfs(:,1),'--', ...
+        %          r_grid',dataset_sample_pdfs(:,1)+dataset_sample_pdfs(:,2),'.', ...
+        %          r_grid',dataset_sample_pdfs(:,1)-dataset_sample_pdfs(:,2),'.', ...
         %          'LineWidth',2)
         % semilogx(r_grid',x','-', ...
         loglog(r_grid',x','-', ...
-                 r_grid',one_hundred_pdfs(:,1),'--', ...
-                 r_grid',one_hundred_pdfs(:,1)+one_hundred_pdfs(:,2),'.', ...
-                 r_grid',one_hundred_pdfs(:,1)-one_hundred_pdfs(:,2),'.', ...
+                 r_grid',dataset_sample_pdfs(:,1),'--', ...
+                 r_grid',dataset_sample_pdfs(:,1)+dataset_sample_pdfs(:,2),'.', ...
+                 r_grid',dataset_sample_pdfs(:,1)-dataset_sample_pdfs(:,2),'.', ...
                  'LineWidth',2)
     end
 
