@@ -48,7 +48,8 @@ if lambda_type == "broad"
     % lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
+    % lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
+    lambda = [lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*4e-3, lam1*1e-2];
 elseif lambda_type == "semiconstrained"
     lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
@@ -140,7 +141,7 @@ for xi = 5:5
     % b is either the real data sigma_r, or one simulated by fit
     b_data = sigmar_vals'; % b is calculated by the C++ code, no error.
     q2vals = qsq_vals;
-    [fitname, xbj_bin, r_steps,use_real_data,use_charm, length(b_data)]
+    [fitname, xbj_bin, r_steps,use_real_data,use_charm, length(b_data), length(q2vals)]
 
     b_hera = [];
     b_errs = [];
@@ -191,7 +192,7 @@ for xi = 5:5
     array_over_dataset_samples_dipole_recs = [];
     array_over_dataset_samples_sigmar = [];
     % for j=1:10000
-    parfor j=1:50000
+    parfor j=1:20000
         err = eta.*b_data.*randn(length(b_data),1);
         b = b_data + err;
     
@@ -249,8 +250,14 @@ for xi = 5:5
         % pd = fitdist(rec_dips_at_rj,"Normal");
         pd = fitdist(rec_dips_at_rj,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
         pd_sig = fitdist(sigmar_at_Qj,'Kernel','Kernel','epanechnikov');
-        dataset_sample_pdfs(j,:) = [mean(pd), std(pd)];
-        dataset_sample_pdfs_sigmar(j,:) = [mean(pd_sig), std(pd_sig)];
+        % figure(1)
+        % plot(pd_sig)
+        % pause(1.5)
+        p_tails = [0.025, 0.975];
+        dip_icdf_vals = icdf(pd, p_tails);
+        sig_icdf_vals = icdf(pd_sig, p_tails);
+        dataset_sample_pdfs(j,:) = [mean(pd), dip_icdf_vals(1), dip_icdf_vals(2)];
+        dataset_sample_pdfs_sigmar(j,:) = [mean(pd_sig), sig_icdf_vals(1), sig_icdf_vals(2)];
     end
 
     % calculate sigma_r for each of the reconstructions to each data sample
@@ -280,19 +287,24 @@ for xi = 5:5
     % which is the mean and std for each N(r_i)
 
     % dipole_N_ri_rec_distributions(xi,:,:) = dataset_sample_pdfs
+    N_rec_principal = rec_dip_principal;
     N_rec_ptw_mean = dataset_sample_pdfs(:,1);
-    N_rec_std = dataset_sample_pdfs(:,2);
-    N_rec_std_up = dataset_sample_pdfs(:,1) + dataset_sample_pdfs(:,2);
-    N_rec_std_dn = dataset_sample_pdfs(:,1) - dataset_sample_pdfs(:,2);
+    N_rec_std_up = dataset_sample_pdfs(:,3); % 95% confidence interval upper limit
+    N_rec_std_dn = dataset_sample_pdfs(:,2); % 95% c.i. lower limit
 
+    sigmar_principal;
+    sigmar_ptw_mean = A*N_rec_ptw_mean;
+    sigmar_mean = dataset_sample_pdfs_sigmar(:,1);
+    sigmar_CI_up = dataset_sample_pdfs_sigmar(:,3);
+    sigmar_CI_dn = dataset_sample_pdfs_sigmar(:,2);
 
     % plotting = false;
     plotting = true;
     if plotting
-        figure(1) % mean reconstruction vs. ground truth
+        figure(1) % rec_princip vs. mean reconstruction vs. ground truth
         % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
         fill([r_grid';flipud(r_grid')], ...
-             [dataset_sample_pdfs(:,1)-dataset_sample_pdfs(:,2);flipud(dataset_sample_pdfs(:,1)+dataset_sample_pdfs(:,2))], ...
+             [N_rec_std_dn;flipud(N_rec_std_up)], ...
              [.8 .9 .9],'linestyle','none')
         % plot(r_grid',x','-', ...
         %          r_grid',dataset_sample_pdfs(:,1),'--', ...
@@ -301,10 +313,22 @@ for xi = 5:5
         %          'LineWidth',2)
         % semilogx(r_grid',x','-', ...
         loglog(r_grid',x','-', ...
-                 r_grid',dataset_sample_pdfs(:,1),'--', ...
-                 r_grid',dataset_sample_pdfs(:,1)+dataset_sample_pdfs(:,2),'.', ...
-                 r_grid',dataset_sample_pdfs(:,1)-dataset_sample_pdfs(:,2),'.', ...
+                 r_grid',N_rec_principal,'--', ...
+                 r_grid',N_rec_ptw_mean,'-.', ...
+                 r_grid',N_rec_std_up,'.', ...
+                 r_grid',N_rec_std_dn,'.', ...
                  'LineWidth',2)
+
+        figure(2)
+        % [size(sigmar_mean)] TODO THE PROBLEM IS THAT THE STATISTICAL
+        % SIGMA_Rs HAVE TOO MANY POINTS? INTERPOLATE DOWN?
+        loglog(q2vals',b_data','-', ...
+                 q2vals',sigmar_principal,'--', ...
+                 'LineWidth',2)
+                 % q2vals',sigmar_ptw_mean,'-.', ...
+                 % q2vals',sigmar_CI_up,'.', ...
+                 % q2vals',sigmar_CI_dn,'.', ...
+                 % 'LineWidth',2)
     end
 
     
