@@ -192,7 +192,7 @@ for xi = 5:5
     array_over_dataset_samples_dipole_recs = [];
     array_over_dataset_samples_sigmar = [];
     % for j=1:10000
-    parfor j=1:20000
+    parfor j=1:10000
         err = eta.*b_data.*randn(length(b_data),1);
         b = b_data + err;
     
@@ -242,51 +242,23 @@ for xi = 5:5
         array_over_dataset_samples_sigmar(:,j) = A*rec_dip;
     end % rec loop over dataset samples ends here
     
+    % Reconstruction statistics / bootstrapping for pointwise distributions
     dataset_sample_pdfs = [];
     dataset_sample_pdfs_sigmar = [];
+    p_tails = [0.025, 0.975];
     for j=1:length(x')
         rec_dips_at_rj = array_over_dataset_samples_dipole_recs(j,:)';
-        sigmar_at_Qj = array_over_dataset_samples_dipole_recs(j,:)';
-        % pd = fitdist(rec_dips_at_rj,"Normal");
         pd = fitdist(rec_dips_at_rj,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
-        pd_sig = fitdist(sigmar_at_Qj,'Kernel','Kernel','epanechnikov');
-        % figure(1)
-        % plot(pd_sig)
-        % pause(1.5)
-        p_tails = [0.025, 0.975];
         dip_icdf_vals = icdf(pd, p_tails);
-        sig_icdf_vals = icdf(pd_sig, p_tails);
         dataset_sample_pdfs(j,:) = [mean(pd), dip_icdf_vals(1), dip_icdf_vals(2)];
+    end
+    for j=1:length(q2vals)
+        sigmar_at_Qj = array_over_dataset_samples_sigmar(j,:)';
+        pd_sig = fitdist(sigmar_at_Qj,'Kernel','Kernel','epanechnikov');
+        sig_icdf_vals = icdf(pd_sig, p_tails);
         dataset_sample_pdfs_sigmar(j,:) = [mean(pd_sig), sig_icdf_vals(1), sig_icdf_vals(2)];
     end
-
-    % calculate sigma_r for each of the reconstructions to each data sample
-    % calculate maximum difference to the principal data points (simu/real)
-    % discard reconstructions whose discrepancy to the data points is
-    % larger than the error of the data (there's no guarantee that any of
-    % the reconstructions with random error hit close to the principal data
-    % points after mapping A*rec_dip. Though, if the sampled error is small
-    % and the sample set is close to the principal points on average, the
-    % rec_dip should be close to the principal reconstruction? This would
-    % provide a group of reconstructions, which should map back close to
-    % the principal data points, within the assigned errors.(?)
-    % 1. calc sigma_r = A*rec_dip_wth_err
-    % 2. calc eps = max(sigmar - sigmar_data)
-    % 3. if eps > data error at that point -> discard (perhaps conversely,
-    % save valid reconstructions into a new array) (!)
-    % 4. surviving reconstructions form the distribution of the
-    % reconstructed dipole amplitude at each r_i. (calculated from
-    % surviving dipole array)
-    % SHOULDN'T ALL THE RECONSTRUCTIONS QUALITFY TO SURVIVE? They fit the
-    % dataset with error closely -> eps < error by construction
-    % It just doesn't make any sense to calculate the sigma_r uncertainty
-    % from the upper and lower std bands, no single reconstruction goes to
-    % either everywhere. (TEST THAT THEY DO?)
     
-    % the result for the current xbj_bin is the full dataset_sample_pdfs,
-    % which is the mean and std for each N(r_i)
-
-    % dipole_N_ri_rec_distributions(xi,:,:) = dataset_sample_pdfs
     N_rec_principal = rec_dip_principal;
     N_rec_ptw_mean = dataset_sample_pdfs(:,1);
     N_rec_std_up = dataset_sample_pdfs(:,3); % 95% confidence interval upper limit
@@ -320,15 +292,15 @@ for xi = 5:5
                  'LineWidth',2)
 
         figure(2)
-        % [size(sigmar_mean)] TODO THE PROBLEM IS THAT THE STATISTICAL
+        [size(q2vals'), size(b_data), size(sigmar_principal), size(sigmar_ptw_mean), size(sigmar_CI_up), size(sigmar_CI_dn),] 
+        % TODO THE PROBLEM IS THAT THE STATISTICAL
         % SIGMA_Rs HAVE TOO MANY POINTS? INTERPOLATE DOWN?
-        loglog(q2vals',b_data','-', ...
-                 q2vals',sigmar_principal,'--', ...
+        loglog(q2vals',b_data,'.', ...
+                 q2vals',sigmar_principal,'.', ...
+                 q2vals',sigmar_ptw_mean,'.', ...
+                 q2vals',sigmar_CI_up,'.', ...
+                 q2vals',sigmar_CI_dn,'.', ...
                  'LineWidth',2)
-                 % q2vals',sigmar_ptw_mean,'-.', ...
-                 % q2vals',sigmar_CI_up,'.', ...
-                 % q2vals',sigmar_CI_dn,'.', ...
-                 % 'LineWidth',2)
     end
 
     
