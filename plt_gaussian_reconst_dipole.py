@@ -162,6 +162,11 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         else:
             plt1_xbj_bins = [xbj_bins.index(1.3e-2), xbj_bins.index(1.3e-3), xbj_bins.index(1.3e-4)]
     # print("plt1_xbj_bins", plt1_xbj_bins)
+    for i in plt1_xbj_bins:
+        xbj = xbj_bins[i]
+        print(xbj, data_list[i]["run_file"], data_list[i]["dip_file"])
+        print(data_list[i]["N_fit"][0][:5])
+        print(data_list[i]["N_reconst"].T[0][:5])
     for xbj, dat in zip(xbj_bins, data_list):
         # print(dat.keys())
         if (str(xbj) not in dat["dip_file"][0]):
@@ -188,7 +193,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     if PLOT_TYPE == "dipole":
         plt.xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=22)
         plt.ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
-        xvar = data_list[0]["r_grid"][0][:-1]
+        # xvar = data_list[0]["r_grid"][0][:-1]
+        xvar = data_list[0]["r_grid"][0]
     elif PLOT_TYPE == "sigmar":
         plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=22)
         plt.ylabel(r'$\sigma_r ~ \left(\mathrm{GeV}^{-2} \right)$', fontsize=22)
@@ -279,7 +285,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         ax.plot(xvar, gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
                 # label=labels[i],
                 label="Fit dipole",
-                linestyle=":",
+                # linestyle=":",
+                linestyle="-",
+                marker="+",
                 linewidth=lw*1,
                 # color=colors[2*i]
                 color="black"
@@ -337,7 +345,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     plt.xlim(1e-3, 25)
     # plt.xlim(0.05, 25)
     # plt.ylim(bottom=0, top=40)
-    plt.ylim(bottom=1e-5)
+    # plt.ylim(bottom=1e-5)
+    plt.ylim(bottom=1e-16)
     fig.set_size_inches(7,7)
     
     if not use_real_data:
@@ -372,7 +381,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         plt.show()
     return 0
 
-main(use_charm=False,real_data=False,fitname_i=3)
+# main(use_charm=False,real_data=False,fitname_i=3)
+# main(use_charm=False,real_data=False,fitname_i=4)
+main(use_charm=True,real_data=False,fitname_i=4)
 
 # Production plotting
 # main(use_charm=False,real_data=False,fitname_i=3)
