@@ -188,7 +188,7 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
 
 def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False, use_unity_sigma0=False):
     interpolated_r_grid = []
-    rmin=10e-4
+    rmin=1e-3
     rmax=25 # tightening rmin and rmax help a little with the discretization precision
     r_steps=500 # 500 by default for simulated!
 
@@ -209,11 +209,17 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
         S_vals = data_dipole["S"]
 
         # S_interp = CubicSpline(r_vals, S_vals)
-        S_interp = InterpolatedUnivariateSpline(r_vals, S_vals, ext=3)
+        S_interp = InterpolatedUnivariateSpline(r_vals, S_vals, k=1, ext=3)
         discrete_N_vals = []
         for r in interpolated_r_grid[:-1]:
-            discrete_N_vals.append(1-S_interp(r))
+            discr_N = 1-S_interp(r)
+            if discr_N < 0:
+                print("DISCRETE N LESS THAN ZERO!:", discr_N, r)
+                exit()
+            discrete_N_vals.append(discr_N)
         vec_discrete_N = np.array(discrete_N_vals)
+
+    # return 0 # use this breakpoint for interpolator testing.
 
     real_sigma = sigma02
     if use_unity_sigma0:
@@ -252,8 +258,8 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
         sigmar_errs = []
 
     # Export
-    exp_folder = "./export_fwd_IUSinterp/"
-    base_name = exp_folder+"exp_fwdop_v2+data_"
+    exp_folder = "./export_fwd_IUSinterp_fix/"
+    base_name = exp_folder+"exp_fwdop_v3+data_"
     if include_dipole:
         # Simulated data and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
@@ -386,6 +392,10 @@ if __name__ == '__main__':
         (True, False, 3),
         (False, False, 4),
         (True, False, 4),
+        (False, True, 3),
+        (True, True, 3),
+        (False, True, 4),
+        (True, True, 4),
     ]
 
     for setting in run_settings:
