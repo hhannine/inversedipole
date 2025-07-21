@@ -18,11 +18,12 @@ r_steps_str = strcat("r_steps",int2str(r_steps));
 %         1       2        3        4            5
 fits = ["MV_", "MVgamma", "MVe", "bayesMV4", "bayesMV5"];
 fitname = fits(4);
+% fitname = fits(5);
 
 %%% simulated data settings
 use_real_data = false;
-use_charm = false;
-% use_charm = true;
+% use_charm = false;
+use_charm = true;
 
 %%% real data settings
 % use_real_data = true; TODO NEED TO REDO THE ERROR STUFF FOR REAL ERRORS
@@ -84,14 +85,14 @@ end
 % load forward operator file
 % data_path = './exports/';
 % data_path = './exports_unitysigma/';
-data_path = './export_fwd_IUSinterp/';
+data_path = './export_fwd_IUSinterp_fix/';
 data_files = dir(fullfile(data_path,'*.mat'));
 sim_type = "simulated";
 
 dipole_N_ri_rec_distributions = [];
 
-% for xi = 1:length(all_xbj_bins)
-for xi = 5:5
+for xi = 1:length(all_xbj_bins)
+% for xi = 5:5
     close all
     xbj_bin = string(all_xbj_bins(xi));
 
@@ -191,8 +192,9 @@ for xi = 5:5
     % bootstrapping reconstruction uncertainties
     array_over_dataset_samples_dipole_recs = [];
     array_over_dataset_samples_sigmar = [];
+    NUM_SAMPLES = 100000;
     % for j=1:10000
-    parfor j=1:10000
+    parfor j=1:NUM_SAMPLES
         err = eta.*b_data.*randn(length(b_data),1);
         b = b_data + err;
     
@@ -270,8 +272,8 @@ for xi = 5:5
     sigmar_CI_up = dataset_sample_pdfs_sigmar(:,3);
     sigmar_CI_dn = dataset_sample_pdfs_sigmar(:,2);
 
-    % plotting = false;
-    plotting = true;
+    plotting = false;
+    % plotting = true;
     if plotting
         figure(1) % rec_princip vs. mean reconstruction vs. ground truth
         % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
@@ -279,10 +281,6 @@ for xi = 5:5
              [N_rec_std_dn;flipud(N_rec_std_up)], ...
              [.8 .9 .9],'linestyle','none')
         % plot(r_grid',x','-', ...
-        %          r_grid',dataset_sample_pdfs(:,1),'--', ...
-        %          r_grid',dataset_sample_pdfs(:,1)+dataset_sample_pdfs(:,2),'.', ...
-        %          r_grid',dataset_sample_pdfs(:,1)-dataset_sample_pdfs(:,2),'.', ...
-        %          'LineWidth',2)
         % semilogx(r_grid',x','-', ...
         loglog(r_grid',x','-', ...
                  r_grid',N_rec_principal,'--', ...
@@ -304,19 +302,10 @@ for xi = 5:5
     end
 
     
-
-    % delete(gcp("nocreate"));
-    % return
-    %%
-    
-    
     % EXPORTING RESULTS
     
-    %% export reconstructed dipole statistics: pointwise distribution params
-    %% and all relevant settings
-    
-    save2file = false;
-    % save2file = true;
+    % save2file = false;
+    save2file = true;
     if save2file
         if use_real_data
             reconst_type = "data_only";
@@ -352,26 +341,30 @@ for xi = 5:5
         f_exp_reconst = strjoin([recon_path 'recon_gausserr_' name '_xbj' xbj_bin '.mat'],"")
         % all_xbj_rec_pdf_means_std = dipole_N_ri_rec_distributions; %
         % maybe dont use this, keep saving to file one xbj at a time
-        N_reconst = N_rec_ptw_mean;
-        N_rec_std;
+        N_reconst = N_rec_principal;
         N_rec_one_std_up = N_rec_std_up; % N_rec + std
         N_rec_one_std_dn = N_rec_std_dn; % N_rec - std
         N_fit = discrete_dipole_N;
         b_cpp_sim = b_data; % data generated in C++, no discretization error.
         b_fit = bfit; % = A*Nfit, this has discretization error.
-        b_from_reconst = A*N_reconst; % prescription of the data by the reconstructred dipole.
-        b_from_reconst_one_std_up = A*N_rec_one_std_up;
-        b_from_reconst_one_std_dn = A*N_rec_one_std_dn;
+        b_from_reconst = sigmar_principal; % prescription of the data by the reconstructred dipole.
 
-    
         save(f_exp_reconst, ...
             "r_grid", "q2vals", ...
             "N_fit", "real_sigma",...
-            "N_reconst", "N_rec_std", "N_rec_one_std_up", "N_rec_one_std_dn", ...
+            "N_reconst", "N_rec_one_std_up", "N_rec_one_std_dn", ...
             "b_cpp_sim", "b_fit", "b_from_reconst", ...
             "b_hera", "b_errs", ...
-            "b_from_reconst_one_std_up", "b_from_reconst_one_std_dn", ...
-            "lambda", "lambda_type", ...
+            "N_rec_principal", ...
+            "N_rec_ptw_mean", ...
+            "N_rec_std_up", ...
+            "N_rec_std_dn", ...
+            "sigmar_principal", ...
+            "sigmar_ptw_mean", ...
+            "sigmar_mean", ...
+            "sigmar_CI_up", ...
+            "sigmar_CI_dn", ...
+            "lambda", "lambda_type", "NUM_SAMPLES", ...
             "xbj_bin", "use_real_data", "use_charm", ...
             "run_file", "dip_file", ...
             "-nocompression","-v7")
