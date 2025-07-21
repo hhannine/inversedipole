@@ -164,3 +164,4 @@ cython_debug/
 *.asv
 /plots
 /plots_devel
+/plots_gaussian
