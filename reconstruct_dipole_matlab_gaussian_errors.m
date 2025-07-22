@@ -23,8 +23,8 @@ fitname = fits(4);
 
 %%% simulated data settings
 use_real_data = false;
-use_charm = false;
-% use_charm = true;
+% use_charm = false;
+use_charm = true;
 
 %%% real data settings
 % use_real_data = true; TODO NEED TO REDO THE ERROR STUFF FOR REAL ERRORS
@@ -208,7 +208,7 @@ for xi = 1:length(all_xbj_bins)
     % bootstrapping reconstruction uncertainties
     array_over_dataset_samples_dipole_recs = [];
     array_over_dataset_samples_sigmar = [];
-    NUM_SAMPLES = 1000;
+    NUM_SAMPLES = 10000;
     % for j=1:10000
     parfor j=1:NUM_SAMPLES
         err = eta.*b_data.*randn(length(b_data),1);
@@ -267,13 +267,15 @@ for xi = 1:length(all_xbj_bins)
     p_tails_682 = [0.159, 0.841];
     for j=1:length(x')
         rec_dips_at_rj = array_over_dataset_samples_dipole_recs(j,:)';
-        pd = fitdist(rec_dips_at_rj,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
+        dip_rm_outliers = rmoutliers(rec_dips_at_rj, "percentiles", [1 99]);
+        pd = fitdist(dip_rm_outliers,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
         dip_icdf_vals_95 = icdf(pd, p_tails_95);
         dip_icdf_vals_682 = icdf(pd, p_tails_682);
         dataset_sample_pdfs(j,:) = [mean(pd), dip_icdf_vals_682(1), dip_icdf_vals_682(2), dip_icdf_vals_95(1), dip_icdf_vals_95(2)];
     end
     for j=1:length(q2vals)
         sigmar_at_Qj = array_over_dataset_samples_sigmar(j,:)';
+        % sig_rm_outliers = rmoutliers(sigmar_at_Qj);
         pd_sig = fitdist(sigmar_at_Qj,'Kernel','Kernel','epanechnikov');
         sig_icdf_vals_95 = icdf(pd_sig, p_tails_95);
         sig_icdf_vals_682 = icdf(pd_sig, p_tails_682);
@@ -369,7 +371,7 @@ for xi = 1:length(all_xbj_bins)
         name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
         % recon_path = "./reconstructions_IUSdip/";
         recon_path = "./reconstructions_gausserr/";
-        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4' name '_xbj' xbj_bin '.mat'],"")
+        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4-2' name '_xbj' xbj_bin '.mat'],"")
         N_reconst = N_rec_principal;
         N_rec_one_std_up = N_rec_CI682_up; % N_rec + std
         N_rec_one_std_dn = N_rec_CI682_dn; % N_rec - std
