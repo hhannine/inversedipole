@@ -10,7 +10,8 @@ parp = gcp;
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08];
 
-r_steps = 500;
+% r_steps = 500;
+r_steps = 256;
 r_steps_str = strcat("r_steps",int2str(r_steps));
 
 
@@ -22,8 +23,8 @@ fitname = fits(4);
 
 %%% simulated data settings
 use_real_data = false;
-% use_charm = false;
-use_charm = true;
+use_charm = false;
+% use_charm = true;
 
 %%% real data settings
 % use_real_data = true; TODO NEED TO REDO THE ERROR STUFF FOR REAL ERRORS
@@ -50,7 +51,8 @@ if lambda_type == "broad"
     % lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
-    lambda = [lam1*1e-3, lam1*1e-2];
+    lambda = [lam1*2e-4, lam1*1e-3, lam1*1e-2];
+    % lambda = [lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*4e-3, lam1*1e-2];
 elseif lambda_type == "semiconstrained"
     lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
@@ -92,7 +94,8 @@ sim_type = "simulated";
 dipole_N_ri_rec_distributions = [];
 
 for xi = 1:length(all_xbj_bins)
-% for xi = 5:5
+% nn=14;
+% for xi = nn:nn
     close all
     xbj_bin = string(all_xbj_bins(xi));
 
@@ -132,6 +135,12 @@ for xi = 1:length(all_xbj_bins)
     end
     %%
   
+    if any(discrete_dipole_N <= 0)
+        ["NON-POSITIVE IMPORT DIPOLE!", xbj_bin, discrete_dipole_N(1)]
+        return
+    end
+
+
     ivec3= 1:r_steps;
     r_grid(end) = [];
     x = discrete_dipole_N;
@@ -182,17 +191,24 @@ for xi = 1:length(all_xbj_bins)
     % principal reconstruction to actual data points
     X_tikh_principal = tikhonov(UU,sm,XX,b_data,lambda);
     errtik_p = zeros(size(lambda));
+    eps_neg_penalty=1e-3;
     for i = 1:length(lambda)
-        errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + all_xbj_bins(xi)*1e-2*exp(-min(X_tikh_principal(:,i))); % add penalty for negative minimum
+        % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + all_xbj_bins(xi)*1e0*exp(-10*min(X_tikh_principal(:,i))); % add penalty for negative minimum
+        % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data);
+        errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + eps_neg_penalty*(1-sign(min(X_tikh_principal(:,i)))); % This is perhaps too strong penalty?
     end
     [mp,mIp]=min(errtik_p);
     rec_dip_principal = X_tikh_principal(:,mIp);
+    % if any(rec_dip_principal <= 0)
+    %     ["NON-POSITIVE RECONSTRUCTION at", xbj_bin, r_grid(1), discrete_dipole_N(1), rec_dip_principal(1)]
+    %     return
+    % end
     sigmar_principal = A*rec_dip_principal;
 
     % bootstrapping reconstruction uncertainties
     array_over_dataset_samples_dipole_recs = [];
     array_over_dataset_samples_sigmar = [];
-    NUM_SAMPLES = 100000;
+    NUM_SAMPLES = 1000;
     % for j=1:10000
     parfor j=1:NUM_SAMPLES
         err = eta.*b_data.*randn(length(b_data),1);
@@ -221,8 +237,8 @@ for xi = 1:length(all_xbj_bins)
                 % errtik(i) = norm((x'-X_tikh(:,i)))/norm(x'); % compare
                 % against the fit dipole x'
                 % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % compare against simulated data. Relative error.
-                errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + all_xbj_bins(xi)*1e-2*exp(-min(X_tikh(:,i))); % add penalty for negative minimum
-                % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + 1e-1*(1-sign(min(X_tikh(:,i)))); % This is perhaps too strong penalty?
+                % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + all_xbj_bins(xi)*1e-2*exp(-min(X_tikh(:,i))); % add penalty for negative minimum
+                errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + eps_neg_penalty*(1-sign(min(X_tikh(:,i)))); % This is perhaps too strong penalty?
                 % errtik(i) = abs(norm((b-A*X_tikh(:,i))/(err))-1); 
             end
         end
@@ -247,57 +263,72 @@ for xi = 1:length(all_xbj_bins)
     % Reconstruction statistics / bootstrapping for pointwise distributions
     dataset_sample_pdfs = [];
     dataset_sample_pdfs_sigmar = [];
-    p_tails = [0.025, 0.975];
+    p_tails_95 = [0.025, 0.975];
+    p_tails_682 = [0.159, 0.841];
     for j=1:length(x')
         rec_dips_at_rj = array_over_dataset_samples_dipole_recs(j,:)';
         pd = fitdist(rec_dips_at_rj,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
-        dip_icdf_vals = icdf(pd, p_tails);
-        dataset_sample_pdfs(j,:) = [mean(pd), dip_icdf_vals(1), dip_icdf_vals(2)];
+        dip_icdf_vals_95 = icdf(pd, p_tails_95);
+        dip_icdf_vals_682 = icdf(pd, p_tails_682);
+        dataset_sample_pdfs(j,:) = [mean(pd), dip_icdf_vals_682(1), dip_icdf_vals_682(2), dip_icdf_vals_95(1), dip_icdf_vals_95(2)];
     end
     for j=1:length(q2vals)
         sigmar_at_Qj = array_over_dataset_samples_sigmar(j,:)';
         pd_sig = fitdist(sigmar_at_Qj,'Kernel','Kernel','epanechnikov');
-        sig_icdf_vals = icdf(pd_sig, p_tails);
-        dataset_sample_pdfs_sigmar(j,:) = [mean(pd_sig), sig_icdf_vals(1), sig_icdf_vals(2)];
+        sig_icdf_vals_95 = icdf(pd_sig, p_tails_95);
+        sig_icdf_vals_682 = icdf(pd_sig, p_tails_682);
+        dataset_sample_pdfs_sigmar(j,:) = [mean(pd_sig), sig_icdf_vals_682(1), sig_icdf_vals_682(2), sig_icdf_vals_95(1), sig_icdf_vals_95(2)];
     end
     
     N_rec_principal = rec_dip_principal;
     N_rec_ptw_mean = dataset_sample_pdfs(:,1);
-    N_rec_std_up = dataset_sample_pdfs(:,3); % 95% confidence interval upper limit
-    N_rec_std_dn = dataset_sample_pdfs(:,2); % 95% c.i. lower limit
+    N_rec_CI682_up = dataset_sample_pdfs(:,3); % 68.2% confidence interval upper limit
+    N_rec_CI682_dn = dataset_sample_pdfs(:,2); % 68.2% c.i. lower limit
+    N_rec_CI95_up = dataset_sample_pdfs(:,5); % 95% confidence interval upper limit
+    N_rec_CI95_dn = dataset_sample_pdfs(:,4); % 95% c.i. lower limit
+    if any(N_rec_ptw_mean <= 0) % TEST IF THE MEAN RECONSTRUCTION IS POSITIVE
+        ["NON-POSITIVE PRINCIPAL reconstruction at", xbj_bin, r_grid(1), discrete_dipole_N(1), rec_dip_principal(1), N_rec_ptw_mean(1)]
+        % return
+    end
 
     sigmar_principal;
     sigmar_ptw_mean = A*N_rec_ptw_mean;
     sigmar_mean = dataset_sample_pdfs_sigmar(:,1);
-    sigmar_CI_up = dataset_sample_pdfs_sigmar(:,3);
-    sigmar_CI_dn = dataset_sample_pdfs_sigmar(:,2);
+    sigmar_CI682_up = dataset_sample_pdfs_sigmar(:,3);
+    sigmar_CI682_dn = dataset_sample_pdfs_sigmar(:,2);
+    sigmar_CI95_up = dataset_sample_pdfs_sigmar(:,5);
+    sigmar_CI95_dn = dataset_sample_pdfs_sigmar(:,4);
 
     plotting = false;
     % plotting = true;
     if plotting
         figure(1) % rec_princip vs. mean reconstruction vs. ground truth
         % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
-        fill([r_grid';flipud(r_grid')], ...
-             [N_rec_std_dn;flipud(N_rec_std_up)], ...
-             [.8 .9 .9],'linestyle','none')
+        % fill([r_grid';flipud(r_grid')], ...
+        %      [N_rec_std_dn;flipud(N_rec_std_up)], ...
+        %      [.8 .9 .9],'linestyle','none')
         % plot(r_grid',x','-', ...
         % semilogx(r_grid',x','-', ...
         loglog(r_grid',x','-', ...
                  r_grid',N_rec_principal,'--', ...
                  r_grid',N_rec_ptw_mean,'-.', ...
-                 r_grid',N_rec_std_up,'.', ...
-                 r_grid',N_rec_std_dn,'.', ...
+                 r_grid',N_rec_CI95_up,'.', ...
+                 r_grid',N_rec_CI95_dn,'.', ...
+                 r_grid',N_rec_CI682_up,'.', ...
+                 r_grid',N_rec_CI682_dn,'.', ...
                  'LineWidth',2)
 
         figure(2)
-        [size(q2vals'), size(b_data), size(sigmar_principal), size(sigmar_ptw_mean), size(sigmar_CI_up), size(sigmar_CI_dn),] 
+        % [size(q2vals'), size(b_data), size(sigmar_principal), size(sigmar_ptw_mean), size(sigmar_CI_up), size(sigmar_CI_dn),] 
         % TODO THE PROBLEM IS THAT THE STATISTICAL
         % SIGMA_Rs HAVE TOO MANY POINTS? INTERPOLATE DOWN?
         loglog(q2vals',b_data,'.', ...
                  q2vals',sigmar_principal,'.', ...
                  q2vals',sigmar_ptw_mean,'.', ...
-                 q2vals',sigmar_CI_up,'.', ...
-                 q2vals',sigmar_CI_dn,'.', ...
+                 q2vals',sigmar_CI95_up,'.', ...
+                 q2vals',sigmar_CI95_dn,'.', ...
+                 q2vals',sigmar_CI682_up,'.', ...
+                 q2vals',sigmar_CI682_dn,'.', ...
                  'LineWidth',2)
     end
 
@@ -338,33 +369,31 @@ for xi = 1:length(all_xbj_bins)
         name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
         % recon_path = "./reconstructions_IUSdip/";
         recon_path = "./reconstructions_gausserr/";
-        f_exp_reconst = strjoin([recon_path 'recon_gausserr_' name '_xbj' xbj_bin '.mat'],"")
-        % all_xbj_rec_pdf_means_std = dipole_N_ri_rec_distributions; %
-        % maybe dont use this, keep saving to file one xbj at a time
+        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4' name '_xbj' xbj_bin '.mat'],"")
         N_reconst = N_rec_principal;
-        N_rec_one_std_up = N_rec_std_up; % N_rec + std
-        N_rec_one_std_dn = N_rec_std_dn; % N_rec - std
+        N_rec_one_std_up = N_rec_CI682_up; % N_rec + std
+        N_rec_one_std_dn = N_rec_CI682_dn; % N_rec - std
         N_fit = discrete_dipole_N;
         b_cpp_sim = b_data; % data generated in C++, no discretization error.
         b_fit = bfit; % = A*Nfit, this has discretization error.
         b_from_reconst = sigmar_principal; % prescription of the data by the reconstructred dipole.
 
         save(f_exp_reconst, ...
-            "r_grid", "q2vals", ...
+            "r_grid", "r_steps", "q2vals", ...
             "N_fit", "real_sigma",...
             "N_reconst", "N_rec_one_std_up", "N_rec_one_std_dn", ...
             "b_cpp_sim", "b_fit", "b_from_reconst", ...
             "b_hera", "b_errs", ...
             "N_rec_principal", ...
             "N_rec_ptw_mean", ...
-            "N_rec_std_up", ...
-            "N_rec_std_dn", ...
+            "N_rec_CI682_up", "N_rec_CI682_dn", ...
+            "N_rec_CI95_up", "N_rec_CI95_dn", ...
             "sigmar_principal", ...
             "sigmar_ptw_mean", ...
             "sigmar_mean", ...
-            "sigmar_CI_up", ...
-            "sigmar_CI_dn", ...
-            "lambda", "lambda_type", "NUM_SAMPLES", ...
+            "sigmar_CI682_up", "sigmar_CI682_dn", ...
+            "sigmar_CI95_up", "sigmar_CI95_dn", ...
+            "lambda", "lambda_type", "NUM_SAMPLES", "eps_neg_penalty", ...
             "xbj_bin", "use_real_data", "use_charm", ...
             "run_file", "dip_file", ...
             "-nocompression","-v7")
