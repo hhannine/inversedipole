@@ -188,9 +188,11 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
 
 def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False, use_unity_sigma0=False):
     interpolated_r_grid = []
-    rmin=1e-3
+    rmin=5e-3
     rmax=25 # tightening rmin and rmax help a little with the discretization precision
-    r_steps=500 # 500 by default for simulated!
+    # r_steps=500 # 500 by default for simulated!
+    r_steps=256 # still good for simulated!
+    # r_steps=128 # this leads to >2%, maybe up to 4-5%, errors at worst. Not good enough.
 
     r=rmin
     while len(interpolated_r_grid)<r_steps+1:
@@ -213,8 +215,8 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
         discrete_N_vals = []
         for r in interpolated_r_grid[:-1]:
             discr_N = 1-S_interp(r)
-            if discr_N < 0:
-                print("DISCRETE N LESS THAN ZERO!:", discr_N, r)
+            if discr_N <= 0:
+                print("DISCRETE N NOT POSITIVE!:", discr_N, r)
                 exit()
             discrete_N_vals.append(discr_N)
         vec_discrete_N = np.array(discrete_N_vals)
@@ -259,7 +261,7 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
 
     # Export
     exp_folder = "./export_fwd_IUSinterp_fix/"
-    base_name = exp_folder+"exp_fwdop_v3+data_"
+    base_name = exp_folder+"exp_fwdop_v3-1+data_"
     if include_dipole:
         # Simulated data and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
@@ -388,7 +390,7 @@ if __name__ == '__main__':
     i=0
 
     run_settings=[
-        (False, False, 3),
+        # (False, False, 3),
         (True, False, 3),
         (False, False, 4),
         (True, False, 4),
