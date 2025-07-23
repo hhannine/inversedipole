@@ -18,6 +18,7 @@ from matplotlib.ticker import ScalarFormatter, LogLocator, NullFormatter
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from matplotlib.legend_handler import HandlerTuple
+import matplotlib.offsetbox as offsetbox
 numbers = re.compile(r'(\d+)')
 from matplotlib import rc, cm
 rc('text', usetex=True)
@@ -86,7 +87,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
-    name_base = 'recon_gausserr_'
+    name_base = 'recon_gausserr_v4-2'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -129,9 +130,11 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-    dip_data_rec_std_up = np.array([dat["N_rec_one_std_up"] for dat in data_list])
-    dip_data_rec_std_dn = np.array([dat["N_rec_one_std_dn"] for dat in data_list])
-    
+    dip_data_rec_CI682_up = np.array([dat["N_rec_CI682_up"] for dat in data_list])
+    dip_data_rec_CI682_dn = np.array([dat["N_rec_CI682_dn"] for dat in data_list])
+    dip_data_rec_CI95_up = np.array([dat["N_rec_CI95_up"] for dat in data_list])
+    dip_data_rec_CI95_dn = np.array([dat["N_rec_CI95_dn"] for dat in data_list])
+
     # PROPER PLOTS
     # 1. reconstruction from simulated data (light only)
     #       - dipole vs reconstruction
@@ -156,6 +159,10 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     if not use_real_data:
         plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
+        # plt1_xbj_bins = [xbj_bins.index(1e-2)]
+        # plt1_xbj_bins = [xbj_bins.index(8e-3)]
+        # plt1_xbj_bins = [xbj_bins.index(1e-4)]
+        # plt1_xbj_bins = [xbj_bins.index(1e-5)]
     else:
         if alt_bins:
             plt1_xbj_bins = [xbj_bins.index(8e-2), xbj_bins.index(5e-2), xbj_bins.index(8e-3)]
@@ -165,7 +172,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     for i in plt1_xbj_bins:
         xbj = xbj_bins[i]
         print(xbj, data_list[i]["run_file"], data_list[i]["dip_file"])
-        print(data_list[i]["N_fit"][0][:5])
+        print(real_sigma*data_list[i]["N_fit"][0][:5])
         print(data_list[i]["N_reconst"].T[0][:5])
     for xbj, dat in zip(xbj_bins, data_list):
         # print(dat.keys())
@@ -176,51 +183,40 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         exit()
     binned_dip_data_fit = [dip_data_fit[i] for i in plt1_xbj_bins]
     binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
-    binned_dip_data_rec_std_up = [dip_data_rec_std_up[i].T for i in plt1_xbj_bins]
-    binned_dip_data_rec_std_dn = [dip_data_rec_std_dn[i].T for i in plt1_xbj_bins]
+    binned_dip_data_rec_std_up = [dip_data_rec_CI682_up[i].T for i in plt1_xbj_bins]
+    binned_dip_data_rec_std_dn = [dip_data_rec_CI682_dn[i].T for i in plt1_xbj_bins]
+    binned_dip_data_rec_CI95_up = [dip_data_rec_CI95_up[i].T for i in plt1_xbj_bins]
+    binned_dip_data_rec_CI95_dn = [dip_data_rec_CI95_dn[i].T for i in plt1_xbj_bins]
 
     fig = plt.figure()
-    ax = plt.gca()
-    plt.xticks(fontsize=20, rotation=0)
-    plt.yticks(fontsize=20, rotation=0)
-    ax.tick_params(which='major',width=1,length=6)
-    ax.tick_params(which='minor',width=0.7,length=4)
-    ax.tick_params(axis='both', pad=7)
-    ax.tick_params(axis='both', which='both', direction="in")
+    gs = fig.add_gridspec(1, 3, hspace=0, wspace=0)
+    axs = gs.subplots(sharex=True, sharey=True)
+    # ax = plt.gca()
+    fs_labels = 18
+    for ax in axs:
+        ax.tick_params(which='major',width=1,length=6,labelsize=18)
+        ax.tick_params(which='minor',width=0.7,length=4,labelsize=18)
+        ax.tick_params(axis='both', pad=7)
+        ax.tick_params(axis='both', which='both', direction="in")
+        # LOG AXIS
+        ax.set_xscale('log')
+        ax.set_yscale('log')
 
-    # if USE_TITLE:
-    #     plt.title(title)
     if PLOT_TYPE == "dipole":
-        plt.xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=22)
-        plt.ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
+        axs[0].set_ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=fs_labels)
+        for ax in axs:
+            ax.set_xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=fs_labels)
         # xvar = data_list[0]["r_grid"][0][:-1]
         xvar = data_list[0]["r_grid"][0]
     elif PLOT_TYPE == "sigmar":
-        plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=22)
-        plt.ylabel(r'$\sigma_r ~ \left(\mathrm{GeV}^{-2} \right)$', fontsize=22)
+        plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=fs_labels)
+        plt.ylabel(r'$\sigma_r ~ \left(\mathrm{GeV}^{-2} \right)$', fontsize=fs_labels)
         xvar = data_list[0]["q2vals"]
 
-    # LOG AXIS
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+
     
     ##############
     # LABELS
-    labels = []
-    colors = []
-    line_styles = []
-    scalings = []
-    for fname in recon_files:
-            # print(fname)
-            if "bayesMV4" in fname:
-                label = r'$\mathrm{bayesMV4}$'
-            elif "bayesMV5" in fname:
-                label = r'$\mathrm{bayesMV5}$'
-            elif "MV_" in fname:
-                label = r'$\mathrm{MV}$'
-            else:
-                continue
-            labels.append(label)
 
     scalings = [1, 1, 1]
     if use_real_data:
@@ -233,14 +229,24 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     ms=4
     mstyle = "o"
     color_alph = 1
+    shade_alph_closer = 0.18
+    shade_alph_further = 0.08
+    mpl.rcParams["font.size"] = 13
+    mpl.rcParams["legend.fontsize"] = 13
 
-    uncert_col0 = Patch(facecolor=colors[1], alpha=color_alph)
-    uncert_col1 = Patch(facecolor=colors[3], alpha=color_alph)
+    if fitname_i==3:
+        col_i = 1
+    elif fitname_i==4:
+        col_i = 3
+
+    uncert_col0 = Patch(facecolor=colors[col_i], alpha=shade_alph_closer)
+    uncert_col0b = Patch(facecolor=colors[col_i], alpha=shade_alph_further)
+    uncert_col1 = Patch(facecolor=colors[4], alpha=color_alph)
     uncert_col2 = Patch(facecolor=colors[5], alpha=color_alph)
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     
-    uncert_col = Patch(facecolor="black", alpha=0.3)
-    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="black")
+    uncert_col = Patch(facecolor=colors[col_i], alpha=0.3)
+    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[col_i])
     line_rec_bplus = Line2D([0,1],[0,1],linestyle='-.',linewidth=lw/3, color="black")
     line_rec_bminus = Line2D([0,1],[0,1],linestyle=':',linewidth=lw/3, color="black")
 
@@ -252,7 +258,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
                         uncert_col2,]
     else:
         manual_handles = [line_fit0, (line_rec, uncert_col),
-                        uncert_col0,
+                        uncert_col0, uncert_col0b,
                         uncert_col1,
                         uncert_col2,]
 
@@ -266,14 +272,10 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     else:
         manual_labels = [
             r'${\mathrm{Fit ~ dipole}}$',
-            r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
+            r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \mathrm{C.I.}}$',
+            r'${68 \% \, \mathrm{C.I.}}$',
+            r'${95 \% \, \mathrm{C.I.}}$',
         ]
-    for ibin in plt1_xbj_bins:
-        xbj_str = str(xbj_bins[ibin])
-        if "e" in xbj_str:
-            # xbj_str = "0.00001" #"10^{{-5}}"
-            xbj_str = "10^{{-5}}"
-        manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str))
 
 
     ####################
@@ -282,22 +284,22 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     # Plot fit dipoles and their reconstructions
     for i, (dip_fit, dip_rec) in enumerate(zip(binned_dip_data_fit, binned_dip_data_rec)):
+        ax = axs[i]
         ax.plot(xvar, gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
-                # label=labels[i],
                 label="Fit dipole",
-                # linestyle=":",
-                linestyle="-",
-                marker="+",
-                linewidth=lw*1,
-                # color=colors[2*i]
+                linestyle=":",
+                # linestyle="-",
+                # marker="+",
+                linewidth=lw/1.5,
                 color="black"
                 )
-        ax.plot(xvar, gev_to_mb*scalings[i%3]*dip_rec.T[0]+additives[i%3],
-                # label=labels[i+1],
+        dip_rec_del = dip_rec.T[0]
+        dip_rec_del[dip_rec_del < 0] = np.nan
+        ax.plot(xvar, gev_to_mb*scalings[i%3]*dip_rec_del+additives[i%3],
                 label="Reconstuction of fit dipole",
                 linestyle="-",
                 linewidth=lw/2.5,
-                color=colors[2*i+1],
+                color=colors[col_i],
                 alpha=1
                 )
         # if use_real_data:
@@ -322,32 +324,46 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     ################## SHADING        
     # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
-    i=0
-    shade_alph_closer = 0.2
-    shade_alph_further = 0.1
     for i, (rec_up, rec_dn) in enumerate(zip(binned_dip_data_rec_std_up, binned_dip_data_rec_std_dn)):
         rec_dip = binned_dip_data_rec[i][:,0]
         rec_up = rec_up[0]
         rec_dn = rec_dn[0]
-        print(xvar.shape, rec_dip.shape, rec_up.shape, rec_dn.shape)
-        ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*rec_up+additives[i%3], color=colors[2*i+1], alpha=shade_alph_closer)
-        ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*rec_dn+additives[i%3], color=colors[2*i+1], alpha=shade_alph_closer)
-        i+=1
+        rec_CI95_up = binned_dip_data_rec_CI95_up[i].T[:,0]
+        rec_CI95_dn = binned_dip_data_rec_CI95_dn[i].T[:,0]
+        print(xvar.shape, rec_dip.shape, rec_up.shape, rec_dn.shape, rec_CI95_up.shape, rec_CI95_dn.shape)
+        ax = axs[i]
+        ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_up+additives[i%3], color=colors[col_i], alpha=shade_alph_closer)
+        ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_CI95_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_CI95_up+additives[i%3], color=colors[col_i], alpha=shade_alph_further)
 
-
-    # plt.text(0.95, 0.146, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black')
-    # plt.text(0.95, 0.14, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled log log
-    # plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
     
-    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="upper left") 
+    leg = axs[0].legend(manual_handles, manual_labels, frameon=False, fontsize=13, ncol=1, loc="upper left") 
+    # leg._legend_box.align = "left"
+    # box = leg._legend_box
+    # box.get_children().append(xbj_label)
+    # box.set_figure(box.figure)
+
+    for i, ibin in enumerate(plt1_xbj_bins):
+        xbj_str = str(xbj_bins[ibin])
+        if "e" in xbj_str:
+            # xbj_str = "0.00001" #"10^{{-5}}"
+            xbj_str = "10^{{-5}}"
+        # manual_labels.append('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str))
+        # xbj_label=offsetbox.TextArea('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str),)
+        x_lbl = '$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str)
+        # print(x_lbl, i)
+        axs[i].text(.98, .98, x_lbl,
+            horizontalalignment='right',
+            verticalalignment='top',
+            fontsize=16,
+            transform=axs[i].transAxes)
     
     # ax.xaxis.set_major_formatter(ScalarFormatter())
-    plt.xlim(1e-3, 25)
+    plt.xlim(5e-3, 25)
     # plt.xlim(0.05, 25)
     # plt.ylim(bottom=0, top=40)
     # plt.ylim(bottom=1e-5)
-    plt.ylim(bottom=1e-16)
-    fig.set_size_inches(7,7)
+    plt.ylim(bottom=1e-4)
+    fig.set_size_inches(15,5.5)
     
     if not use_real_data:
         if not use_charm:
@@ -367,8 +383,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         print("Plot number?")
         exit()
 
-    write2file = False
-    # write2file = True
+    # write2file = False
+    write2file = True
     plt.tight_layout()
     if write2file:
         mpl.use('agg') # if writing to PDF
@@ -381,8 +397,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         plt.show()
     return 0
 
-# main(use_charm=False,real_data=False,fitname_i=3)
-# main(use_charm=False,real_data=False,fitname_i=4)
+main(use_charm=False,real_data=False,fitname_i=3)
+main(use_charm=True,real_data=False,fitname_i=3)
+main(use_charm=False,real_data=False,fitname_i=4)
 main(use_charm=True,real_data=False,fitname_i=4)
 
 # Production plotting
