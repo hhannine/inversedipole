@@ -84,7 +84,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
-    name_base = 'recon_gausserr_v4-2r500_'
+    # name_base = 'recon_gausserr_v4-2r500_'
+    name_base = 'recon_gausserr_v4-3r256_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -129,7 +130,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
 
     # Reading sigma_r (b)
-    b_fit = [np.array(dat["b_fit"]) for dat in data_list]
+    b_cpp_sim = [np.array(dat["b_cpp_sim"]) for dat in data_list]
+    # b_fit = [np.array(dat["b_fit"]) for dat in data_list]
     b_rec = [np.array(dat["b_from_reconst"]) for dat in data_list]
     sigmar_principal = [np.array(dat["sigmar_principal"]) for dat in data_list] # same as b_from_rec
     b_CI682_up = [np.array(dat["sigmar_CI682_up"]) for dat in data_list]
@@ -179,7 +181,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         exit()
     binned_dip_data_fit = [dip_data_fit[i] for i in plt1_xbj_bins]
     binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
-    binned_b_fit = [b_fit[i] for i in plt1_xbj_bins]
+    binned_b_cpp_sim = [b_cpp_sim[i] for i in plt1_xbj_bins]
+    # binned_b_fit = [b_fit[i] for i in plt1_xbj_bins]
     binned_b_rec = [b_rec[i] for i in plt1_xbj_bins]
     binned_b_rec_up = [b_CI682_up[i] for i in plt1_xbj_bins]
     binned_b_rec_dn = [b_CI682_dn[i] for i in plt1_xbj_bins]
@@ -293,12 +296,12 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     #################### 
 
     # Plot fit dipoles and their reconstructions
-    for i, (b_fit, b_rec) in enumerate(zip(binned_b_fit, binned_b_rec)):
-        x_srted, b_fit = zip(*sorted(zip(xvar[i], b_fit)))
+    for i, (b_data, b_rec) in enumerate(zip(binned_b_cpp_sim, binned_b_rec)):
+        x_srted, b_data = zip(*sorted(zip(xvar[i], b_data)))
         x_srted, b_rec = zip(*sorted(zip(xvar[i], b_rec)))
         # x_srted, b_rec_up = zip(*sorted(zip(xvar[i], binned_b_rec_up[i])))
         # x_srted, b_rec_dn = zip(*sorted(zip(xvar[i], binned_b_rec_dn[i])))
-        ax.plot(x_srted, b_fit,
+        ax.plot(x_srted, b_data,
                 label="Fit sigma",
                 linestyle=":",
                 linewidth=lw*1.,
