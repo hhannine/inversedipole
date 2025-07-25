@@ -84,8 +84,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
-    # name_base = 'recon_gausserr_v4-2r500_'
-    name_base = 'recon_gausserr_v4-3r256_'
+    name_base = 'recon_gausserr_v4-2'
+    # name_base = 'recon_gausserr_v4-3r256_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -254,14 +254,14 @@ def main(use_charm=False, real_data=False, fitname_i=None):
             manual_labels = [
                 r'${\mathrm{HERA ~ data ~ } \sigma_r}$',
                 r'${\sigma_r ~ \mathrm{prediction ~ for ~ f \in \{u,d,s,c\} ~ from ~ fit} ~ (\sigma_0 ~ \mathrm{refit})}$',
-                r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
+                r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, 95\% \, \mathrm{C.I.}}$',
             ]
         else:
             manual_labels = [
                 r'${\mathrm{HERA ~ data ~ } \sigma_r}$',
                 # r'${\sigma_r ~ \mathrm{from ~ fit}\, \pm \, 2\sigma}$',
                 r'${\sigma_r ~ \mathrm{from ~ fit}}$',
-                r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
+                r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, 95\% \, \mathrm{C.I.}}$',
             ]
         sigr_marker = "s"
         sigr_linestyle = ""
@@ -278,7 +278,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         ]
         manual_labels = [
             r'${\sigma_r ~ \mathrm{from ~ fit}}$',
-            r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
+            r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, 95\% \, \mathrm{C.I.}}$',
             # r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
         ]
         sigr_marker = ""
@@ -398,7 +398,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         exit()
 
     write2file = False
-    # write2file = True
+    write2file = True
     plt.tight_layout()
     if write2file:
         mpl.use('agg') # if writing to PDF
@@ -411,12 +411,12 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         plt.show()
     return 0
 
-main(use_charm=False,real_data=False,fitname_i=3)
+# main(use_charm=False,real_data=False,fitname_i=3)
 
 # Production plotting
-# main(use_charm=False,real_data=False,fitname_i=3)
-# main(use_charm=True,real_data=False,fitname_i=3)
-# main(use_charm=False,real_data=False,fitname_i=4)
-# main(use_charm=True,real_data=False,fitname_i=4)
+main(use_charm=False,real_data=False,fitname_i=3)
+main(use_charm=True,real_data=False,fitname_i=3)
+main(use_charm=False,real_data=False,fitname_i=4)
+main(use_charm=True,real_data=False,fitname_i=4)
 # main(use_charm=False,real_data=True,fitname_i=3)
 # main(use_charm=True,real_data=True,fitname_i=3)
