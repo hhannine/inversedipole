@@ -88,6 +88,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     str_fit = fitname
     str_flavor = "lightonly_"
     name_base = 'recon_gausserr_v4-2'
+    # name_base = 'recon_gausserr_v4-2r500_'
+    # name_base = 'recon_gausserr_v4-3r256_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -126,7 +128,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     R_GRID = data_list[0]["r_grid"][0]
     XBJ = np.array(xbj_bins)
     real_sigma = data_list[0]["real_sigma"][0]
-
+    # "lambda", "lambda_type", "NUM_SAMPLES", "eps_neg_penalty"
+    print(data_list[0]["lambda"][0], data_list[0]["eps_neg_penalty"][0])
 
     dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
@@ -383,7 +386,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         print("Plot number?")
         exit()
 
-    # write2file = False
+    write2file = False
     write2file = True
     plt.tight_layout()
     if write2file:
@@ -398,9 +401,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     return 0
 
 main(use_charm=False,real_data=False,fitname_i=3)
-main(use_charm=True,real_data=False,fitname_i=3)
-main(use_charm=False,real_data=False,fitname_i=4)
-main(use_charm=True,real_data=False,fitname_i=4)
+# main(use_charm=True,real_data=False,fitname_i=3)
+# main(use_charm=False,real_data=False,fitname_i=4)
+# main(use_charm=True,real_data=False,fitname_i=4)
 
 # Production plotting
 # main(use_charm=False,real_data=False,fitname_i=3)
