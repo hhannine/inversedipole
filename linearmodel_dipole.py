@@ -190,8 +190,8 @@ def export_discrete_uniform(dipfile, xbj_bin, data_sigmar, parent_data_name, sig
     interpolated_r_grid = []
     rmin=5e-3
     rmax=25 # tightening rmin and rmax help a little with the discretization precision
-    # r_steps=500 # 500 by default for simulated!
-    r_steps=256 # still good for simulated!
+    r_steps=500 # 500 by default for simulated!
+    # r_steps=256 # still good for simulated! (maybe, might be a bit too bad at large Q^2)
     # r_steps=128 # this leads to >2%, maybe up to 4-5%, errors at worst. Not good enough.
 
     r=rmin

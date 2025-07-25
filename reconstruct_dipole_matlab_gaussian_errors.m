@@ -11,7 +11,7 @@ all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 
 real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08];
 
 % r_steps = 500;
-r_steps = 256;
+r_steps = 256; % might not be quite good enough for high Q^2?
 r_steps_str = strcat("r_steps",int2str(r_steps));
 
 
@@ -23,8 +23,8 @@ fitname = fits(4);
 
 %%% simulated data settings
 use_real_data = false;
-% use_charm = false;
-use_charm = true;
+use_charm = false;
+% use_charm = true;
 
 %%% real data settings
 % use_real_data = true; TODO NEED TO REDO THE ERROR STUFF FOR REAL ERRORS
@@ -45,15 +45,18 @@ lambda_type = "broad"; % for simulated data
 % lambda_type = "old";
 
 if lambda_type == "broad"
-    lam1 = 1:9;
+    % lam1 = 1:9;
+    lam1 = 1:0.5:9.5;
     % lam1 = 2:2:10;
     % lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
+    % lambda = [9e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
-    lambda = [lam1*2e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [lam1*1e-3, lam1*1e-2];
-    % lambda = [lam1*4e-3, lam1*1e-2];
+    % lambda = [lam1*2e-4, lam1*1e-3, lam1*1e-2]; % THIS WAS VERY GOOD FOR 256 r steps!
+    % lambda = [lam1*4e-4, lam1*1e-3, lam1*1e-2] % This is good with r=500
+    lambda = [lam1*4e-4, lam1*1e-3]
+    % lambda = [lam1*1e-3, lam1*1e-2]; % too coarse for 500 and 256 sim data
+    % lambda = [lam1*1e-5];
 elseif lambda_type == "semiconstrained"
     lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
 elseif lambda_type == "semicon2"
@@ -93,9 +96,10 @@ sim_type = "simulated";
 
 dipole_N_ri_rec_distributions = [];
 
-for xi = 1:length(all_xbj_bins)
-% nn=14;
-% for xi = nn:nn
+% nn=1;
+nn=8;
+for xi = nn:nn
+% for xi = 1:length(all_xbj_bins)
     close all
     xbj_bin = string(all_xbj_bins(xi));
 
@@ -191,7 +195,9 @@ for xi = 1:length(all_xbj_bins)
     % principal reconstruction to actual data points
     X_tikh_principal = tikhonov(UU,sm,XX,b_data,lambda);
     errtik_p = zeros(size(lambda));
-    eps_neg_penalty=1e-3;
+    % % eps_neg_penalty=1e-3; % this or 1e-4 is quite good for the simulated data with rsteps=256
+    eps_neg_penalty=1e-4;
+    % eps_neg_penalty=0;
     for i = 1:length(lambda)
         % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + all_xbj_bins(xi)*1e0*exp(-10*min(X_tikh_principal(:,i))); % add penalty for negative minimum
         % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data);
@@ -302,7 +308,7 @@ for xi = 1:length(all_xbj_bins)
     sigmar_CI95_dn = dataset_sample_pdfs_sigmar(:,4);
 
     plotting = false;
-    % plotting = true;
+    plotting = true;
     if plotting
         figure(1) % rec_princip vs. mean reconstruction vs. ground truth
         % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
@@ -324,7 +330,7 @@ for xi = 1:length(all_xbj_bins)
         % [size(q2vals'), size(b_data), size(sigmar_principal), size(sigmar_ptw_mean), size(sigmar_CI_up), size(sigmar_CI_dn),] 
         % TODO THE PROBLEM IS THAT THE STATISTICAL
         % SIGMA_Rs HAVE TOO MANY POINTS? INTERPOLATE DOWN?
-        loglog(q2vals',b_data,'.', ...
+        semilogx(q2vals',b_data,'.', ...
                  q2vals',sigmar_principal,'.', ...
                  q2vals',sigmar_ptw_mean,'.', ...
                  q2vals',sigmar_CI95_up,'.', ...
@@ -337,8 +343,8 @@ for xi = 1:length(all_xbj_bins)
     
     % EXPORTING RESULTS
     
-    % save2file = false;
-    save2file = true;
+    save2file = false;
+    % save2file = true;
     if save2file
         if use_real_data
             reconst_type = "data_only";
@@ -371,7 +377,7 @@ for xi = 1:length(all_xbj_bins)
         name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
         % recon_path = "./reconstructions_IUSdip/";
         recon_path = "./reconstructions_gausserr/";
-        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4-2' name '_xbj' xbj_bin '.mat'],"")
+        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4-3r' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
         N_reconst = N_rec_principal;
         N_rec_one_std_up = N_rec_CI682_up; % N_rec + std
         N_rec_one_std_dn = N_rec_CI682_dn; % N_rec - std
