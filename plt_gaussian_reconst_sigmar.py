@@ -84,7 +84,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
-    name_base = 'recon_gausserr_'
+    name_base = 'recon_gausserr_v4-2r500_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -131,8 +131,11 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     # Reading sigma_r (b)
     b_fit = [np.array(dat["b_fit"]) for dat in data_list]
     b_rec = [np.array(dat["b_from_reconst"]) for dat in data_list]
-    b_from_reconst_one_std_up = [np.array(dat["b_from_reconst_one_std_up"]) for dat in data_list]
-    b_from_reconst_one_std_dn = [np.array(dat["b_from_reconst_one_std_dn"]) for dat in data_list]
+    sigmar_principal = [np.array(dat["sigmar_principal"]) for dat in data_list] # same as b_from_rec
+    b_CI682_up = [np.array(dat["sigmar_CI682_up"]) for dat in data_list]
+    b_CI682_dn = [np.array(dat["sigmar_CI682_dn"]) for dat in data_list]
+    b_CI95_up = [np.array(dat["sigmar_CI95_up"]) for dat in data_list]
+    b_CI95_dn = [np.array(dat["sigmar_CI95_dn"]) for dat in data_list]
     if use_real_data:
         b_hera = [dat["b_hera"] for dat in data_list]
         b_err = [dat["b_errs"] for dat in data_list]
@@ -163,6 +166,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     ####################
     if not use_real_data:
         plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
+        # plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-4),xbj_bins.index(1e-5),]
     else:
         plt1_xbj_bins = [xbj_bins.index(1.3e-2), xbj_bins.index(1.3e-3), xbj_bins.index(1.3e-4)]
     for xbj, dat in zip(xbj_bins, data_list):
@@ -177,8 +181,10 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
     binned_b_fit = [b_fit[i] for i in plt1_xbj_bins]
     binned_b_rec = [b_rec[i] for i in plt1_xbj_bins]
-    binned_b_rec_up = [b_from_reconst_one_std_up[i] for i in plt1_xbj_bins]
-    binned_b_rec_dn = [b_from_reconst_one_std_dn[i] for i in plt1_xbj_bins]
+    binned_b_rec_up = [b_CI682_up[i] for i in plt1_xbj_bins]
+    binned_b_rec_dn = [b_CI682_dn[i] for i in plt1_xbj_bins]
+    binned_b_rec_95_up = [b_CI95_up[i] for i in plt1_xbj_bins]
+    binned_b_rec_95_dn = [b_CI95_dn[i] for i in plt1_xbj_bins]
     binned_qsq_grids = [Q2vals_grid[i] for i in plt1_xbj_bins]
     if use_real_data:
         binned_b_hera = [b_hera[i].T for i in plt1_xbj_bins]
@@ -222,6 +228,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     uncert_col0 = Patch(facecolor=colors[1], alpha=color_alph)
     uncert_col1 = Patch(facecolor=colors[3], alpha=color_alph)
     uncert_col2 = Patch(facecolor=colors[5], alpha=color_alph)
+    uncert_col3 = Patch(facecolor=colors[2], alpha=color_alph)
+    uncert_col4 = Patch(facecolor=colors[4], alpha=color_alph)
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     
     uncert_col = Patch(facecolor="black", alpha=0.3)
@@ -262,6 +270,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
                     uncert_col0,
                     uncert_col1,
                     uncert_col2,
+                    uncert_col3,
+                    uncert_col4,
         ]
         manual_labels = [
             r'${\sigma_r ~ \mathrm{from ~ fit}}$',
@@ -347,18 +357,19 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         x_srted, rec_sig = zip(*sorted(zip(xvar[i], binned_b_rec[i])))
         x_srted, b_rec_up = zip(*sorted(zip(xvar[i], binned_b_rec_up[i])))
         x_srted, b_rec_dn = zip(*sorted(zip(xvar[i], binned_b_rec_dn[i])))
+        x_srted, b_rec_95_up = zip(*sorted(zip(xvar[i], binned_b_rec_95_up[i])))
+        x_srted, b_rec_95_dn = zip(*sorted(zip(xvar[i], binned_b_rec_95_dn[i])))
         rec_sig = np.array(rec_sig)[:,0]
         b_rec_up = np.array(b_rec_up)[:,0]
         b_rec_dn = np.array(b_rec_dn)[:,0]
-        # ax.fill_between(x_srted, rec_sig, b_rec_up, color=colors[2*i+1], alpha=0.4)
-        # ax.fill_between(x_srted, rec_sig, b_rec_dn, color=colors[2*i+1], alpha=0.4)
-        ax.fill_between(x_srted, 1.01*rec_sig, 0.99*rec_sig, color=colors[2*i], alpha=0.4)
+        b_rec_95_up = np.array(b_rec_95_up)[:,0]
+        b_rec_95_dn = np.array(b_rec_95_dn)[:,0]
+        ax.fill_between(x_srted, b_rec_dn, b_rec_up, color=colors[2*i+1], alpha=0.2)
+        ax.fill_between(x_srted, b_rec_95_dn, b_rec_95_up, color=colors[2*i+1], alpha=0.1)
+        # ax.fill_between(x_srted, 1.01*rec_sig, 0.99*rec_sig, color=colors[2*i], alpha=0.4)
         # i+=1
 
-    # plt.text(0.95, 0.146, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black')
-    # plt.text(0.95, 0.14, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled log log
-    # plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
-    
+
     plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
     
 
