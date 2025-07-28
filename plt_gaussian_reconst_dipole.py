@@ -87,9 +87,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
-    name_base = 'recon_gausserr_v4-2'
+    # name_base = 'recon_gausserr_v4-2'
     # name_base = 'recon_gausserr_v4-2r500_'
-    # name_base = 'recon_gausserr_v4-3r256_'
+    name_base = 'recon_gausserr_v4-4r256_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -159,9 +159,15 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     ####################
     # alt_bins = True
     alt_bins = False
+    # big_bins = True
+    big_bins = False
+
 
     if not use_real_data:
         plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(1e-3),xbj_bins.index(1e-5),]
+        if big_bins:
+            plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(5e-3), xbj_bins.index(1e-3), 
+                             xbj_bins.index(8e-4), xbj_bins.index(1.3e-4),xbj_bins.index(1e-5)]
         # plt1_xbj_bins = [xbj_bins.index(1e-2)]
         # plt1_xbj_bins = [xbj_bins.index(8e-3)]
         # plt1_xbj_bins = [xbj_bins.index(1e-4)]
@@ -192,22 +198,31 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     binned_dip_data_rec_CI95_dn = [dip_data_rec_CI95_dn[i].T for i in plt1_xbj_bins]
 
     fig = plt.figure()
-    gs = fig.add_gridspec(1, 3, hspace=0, wspace=0)
+    if big_bins:
+        gs = fig.add_gridspec(2, 3, hspace=0, wspace=0)
+    else:
+        gs = fig.add_gridspec(1, 3, hspace=0, wspace=0)
     axs = gs.subplots(sharex=True, sharey=True)
     # ax = plt.gca()
     fs_labels = 18
-    for ax in axs:
+    
+    use_log = True
+    use_log = False
+    for ax in axs.flatten():
         ax.tick_params(which='major',width=1,length=6,labelsize=18)
         ax.tick_params(which='minor',width=0.7,length=4,labelsize=18)
         ax.tick_params(axis='both', pad=7)
         ax.tick_params(axis='both', which='both', direction="in")
         # LOG AXIS
         ax.set_xscale('log')
-        ax.set_yscale('log')
+        if use_log:
+            ax.set_yscale('log')
 
     if PLOT_TYPE == "dipole":
-        axs[0].set_ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=fs_labels)
-        for ax in axs:
+        axs.flatten()[0].set_ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=fs_labels)
+        if big_bins:
+            axs.flatten()[3].set_ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=fs_labels)
+        for ax in axs.flatten():
             ax.set_xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=fs_labels)
         # xvar = data_list[0]["r_grid"][0][:-1]
         xvar = data_list[0]["r_grid"][0]
@@ -287,7 +302,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     # Plot fit dipoles and their reconstructions
     for i, (dip_fit, dip_rec) in enumerate(zip(binned_dip_data_fit, binned_dip_data_rec)):
-        ax = axs[i]
+        ax = axs.flatten()[i]
         ax.plot(xvar, gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
                 label="Fit dipole",
                 linestyle=":",
@@ -334,12 +349,15 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         rec_CI95_up = binned_dip_data_rec_CI95_up[i].T[:,0]
         rec_CI95_dn = binned_dip_data_rec_CI95_dn[i].T[:,0]
         print(xvar.shape, rec_dip.shape, rec_up.shape, rec_dn.shape, rec_CI95_up.shape, rec_CI95_dn.shape)
-        ax = axs[i]
+        ax = axs.flatten()[i]
         ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_up+additives[i%3], color=colors[col_i], alpha=shade_alph_closer)
         ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_CI95_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_CI95_up+additives[i%3], color=colors[col_i], alpha=shade_alph_further)
 
+    if big_bins:
+        leg = axs.flatten()[5].legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="lower right") 
+    else:
+        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=13, ncol=1, loc="upper left") 
     
-    leg = axs[0].legend(manual_handles, manual_labels, frameon=False, fontsize=13, ncol=1, loc="upper left") 
     # leg._legend_box.align = "left"
     # box = leg._legend_box
     # box.get_children().append(xbj_label)
@@ -354,19 +372,25 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         # xbj_label=offsetbox.TextArea('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str),)
         x_lbl = '$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str)
         # print(x_lbl, i)
-        axs[i].text(.98, .98, x_lbl,
+        axs.flatten()[i].text(.98, .98, x_lbl,
             horizontalalignment='right',
             verticalalignment='top',
             fontsize=16,
-            transform=axs[i].transAxes)
+            transform=axs.flatten()[i].transAxes)
     
     # ax.xaxis.set_major_formatter(ScalarFormatter())
-    plt.xlim(5e-3, 25)
-    # plt.xlim(0.05, 25)
-    # plt.ylim(bottom=0, top=40)
+    if use_log:
+        # plt.xlim(5e-3, 25)
+        plt.xlim(1e-1, 25)
+        plt.ylim(bottom=1e-4)
+    else:
+        plt.xlim(0.05, 25)
+        plt.ylim(bottom=0, top=30)
     # plt.ylim(bottom=1e-5)
-    plt.ylim(bottom=1e-4)
-    fig.set_size_inches(15,5.5)
+    if big_bins:
+        fig.set_size_inches(12,8)
+    else:
+        fig.set_size_inches(15,5.5)
     
     if not use_real_data:
         if not use_charm:
@@ -379,8 +403,15 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         elif use_charm:
             n_plot = "plotg7-"
     
+    if not use_log:
+        n_plot += "not_log-"
+
     if alt_bins:
         n_plot += "alt_bins-"
+    
+    if big_bins:
+        n_plot += "BIG_BINS-"
+
 
     if not n_plot:
         print("Plot number?")
@@ -401,9 +432,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     return 0
 
 main(use_charm=False,real_data=False,fitname_i=3)
-# main(use_charm=True,real_data=False,fitname_i=3)
-# main(use_charm=False,real_data=False,fitname_i=4)
-# main(use_charm=True,real_data=False,fitname_i=4)
+main(use_charm=True,real_data=False,fitname_i=3)
+main(use_charm=False,real_data=False,fitname_i=4)
+main(use_charm=True,real_data=False,fitname_i=4)
 
 # Production plotting
 # main(use_charm=False,real_data=False,fitname_i=3)
