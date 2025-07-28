@@ -23,8 +23,8 @@ fitname = fits(4);
 
 %%% simulated data settings
 use_real_data = false;
-use_charm = false;
-% use_charm = true;
+% use_charm = false;
+use_charm = true;
 
 %%% real data settings
 % use_real_data = true; TODO NEED TO REDO THE ERROR STUFF FOR REAL ERRORS
@@ -51,10 +51,12 @@ if lambda_type == "broad"
     % lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [9e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
+    % lambda = [lam1*1e-4, lam1*1e-3];
     % lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
     % lambda = [lam1*2e-4, lam1*1e-3, lam1*1e-2]; % THIS WAS VERY GOOD FOR 256 r steps!
-    % lambda = [lam1*4e-4, lam1*1e-3, lam1*1e-2] % This is good with r=500
-    lambda = [lam1*4e-4, lam1*1e-3]
+    lambda = [lam1*5e-4, lam1*1e-3, lam1*1e-2] % min-maxing errors
+    % lambda = [lam1*6e-4, lam1*1e-3, lam1*1e-2] % min-maxing errors
+    % lambda = [lam1*2e-4, lam1*1e-3]
     % lambda = [lam1*1e-3, lam1*1e-2]; % too coarse for 500 and 256 sim data
     % lambda = [lam1*1e-5];
 elseif lambda_type == "semiconstrained"
@@ -97,9 +99,10 @@ sim_type = "simulated";
 dipole_N_ri_rec_distributions = [];
 
 % nn=1;
-nn=8;
-for xi = nn:nn
-% for xi = 1:length(all_xbj_bins)
+% nn=14;
+% nn=13;
+% for xi = nn:nn
+for xi = 1:length(all_xbj_bins)
     close all
     xbj_bin = string(all_xbj_bins(xi));
 
@@ -169,7 +172,7 @@ for xi = nn:nn
     
     % sample a dataset (b_gen_err_sampled) with 1% normal distrib error
     eta = 0.01;
-    rng(80,"twister");
+    rng(69,"twister");
     % b_gen_err_sampled = b_data + eta.*b_data.*randn(length(b),1)
     % b_gen_err_sampled2 = b_data + eta.*b_data.*randn(length(b),1)
     % b_gen_err_sampled./b_gen_err_sampled2 % works! These are different.
@@ -195,8 +198,10 @@ for xi = nn:nn
     % principal reconstruction to actual data points
     X_tikh_principal = tikhonov(UU,sm,XX,b_data,lambda);
     errtik_p = zeros(size(lambda));
-    % % eps_neg_penalty=1e-3; % this or 1e-4 is quite good for the simulated data with rsteps=256
-    eps_neg_penalty=1e-4;
+    % eps_neg_penalty=4e-3;
+    eps_neg_penalty=1e-3; % this or 1e-4 is quite good for the simulated data with rsteps=256
+    % 1e-4 stops x=0.01 getting good reconstruction at large r!
+    % eps_neg_penalty=1e-7; % this doesn't ruin the rec at 0.01, but does it help either?
     % eps_neg_penalty=0;
     for i = 1:length(lambda)
         % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + all_xbj_bins(xi)*1e0*exp(-10*min(X_tikh_principal(:,i))); % add penalty for negative minimum
@@ -276,7 +281,19 @@ for xi = nn:nn
         dip_rm_outliers = rmoutliers(rec_dips_at_rj, "percentiles", [1 99]);
         pd = fitdist(dip_rm_outliers,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
         dip_icdf_vals_95 = icdf(pd, p_tails_95);
+        if abs(dip_icdf_vals_95(1)) > 200
+            dip_icdf_vals_95(1) = nan;
+        end
+        if abs(dip_icdf_vals_95(2)) > 200
+            dip_icdf_vals_95(2) = nan;
+        end
         dip_icdf_vals_682 = icdf(pd, p_tails_682);
+        if abs(dip_icdf_vals_682(1)) > 200
+            dip_icdf_vals_682(1) = nan;
+        end
+        if abs(dip_icdf_vals_682(2)) > 200
+            dip_icdf_vals_682(2) = nan;
+        end
         dataset_sample_pdfs(j,:) = [mean(pd), dip_icdf_vals_682(1), dip_icdf_vals_682(2), dip_icdf_vals_95(1), dip_icdf_vals_95(2)];
     end
     for j=1:length(q2vals)
@@ -298,6 +315,7 @@ for xi = nn:nn
         ["NON-POSITIVE PRINCIPAL reconstruction at", xbj_bin, r_grid(1), discrete_dipole_N(1), rec_dip_principal(1), N_rec_ptw_mean(1)]
         % return
     end
+    ["Rec accuracy", r_grid(10), N_rec_principal(10)/x(10), r_grid(20), N_rec_principal(20)/x(20), r_grid(50), N_rec_principal(50)/x(50), r_grid(60), N_rec_principal(60)/x(60), r_grid(100), N_rec_principal(100)/x(100), r_grid(200), N_rec_principal(200)/x(200)]
 
     sigmar_principal;
     sigmar_ptw_mean = A*N_rec_ptw_mean;
@@ -308,15 +326,15 @@ for xi = nn:nn
     sigmar_CI95_dn = dataset_sample_pdfs_sigmar(:,4);
 
     plotting = false;
-    plotting = true;
+    % plotting = true;
     if plotting
         figure(1) % rec_princip vs. mean reconstruction vs. ground truth
         % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
         % fill([r_grid';flipud(r_grid')], ...
         %      [N_rec_std_dn;flipud(N_rec_std_up)], ...
         %      [.8 .9 .9],'linestyle','none')
-        % plot(r_grid',x','-', ...
         % semilogx(r_grid',x','-', ...
+        % plot(r_grid',x','-', ...
         loglog(r_grid',x','-', ...
                  r_grid',N_rec_principal,'--', ...
                  r_grid',N_rec_ptw_mean,'-.', ...
@@ -328,8 +346,6 @@ for xi = nn:nn
 
         figure(2)
         % [size(q2vals'), size(b_data), size(sigmar_principal), size(sigmar_ptw_mean), size(sigmar_CI_up), size(sigmar_CI_dn),] 
-        % TODO THE PROBLEM IS THAT THE STATISTICAL
-        % SIGMA_Rs HAVE TOO MANY POINTS? INTERPOLATE DOWN?
         semilogx(q2vals',b_data,'.', ...
                  q2vals',sigmar_principal,'.', ...
                  q2vals',sigmar_ptw_mean,'.', ...
@@ -344,7 +360,7 @@ for xi = nn:nn
     % EXPORTING RESULTS
     
     save2file = false;
-    % save2file = true;
+    save2file = true;
     if save2file
         if use_real_data
             reconst_type = "data_only";
@@ -377,7 +393,7 @@ for xi = nn:nn
         name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
         % recon_path = "./reconstructions_IUSdip/";
         recon_path = "./reconstructions_gausserr/";
-        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4-3r' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
+        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4-4r' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
         N_reconst = N_rec_principal;
         N_rec_one_std_up = N_rec_CI682_up; % N_rec + std
         N_rec_one_std_dn = N_rec_CI682_dn; % N_rec - std
