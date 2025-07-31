@@ -84,8 +84,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     str_data = "sim_"
     str_fit = fitname
     str_flavor = "lightonly_"
-    name_base = 'recon_gausserr_v4-2'
-    # name_base = 'recon_gausserr_v4-3r256_'
+    # name_base = 'recon_gausserr_v4-2'
+    name_base = 'recon_gausserr_v4-4r256_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
