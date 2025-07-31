@@ -47,12 +47,15 @@ def S_interp(N_interp, r, N_max=None):
     return N_max-N_interp(r)
 
 
-def main(use_charm=False, real_data=False, fitname_i=None):
+def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bins=False, ratio=False):
     global G_PATH, PLOT_TYPE, R_GRID
     f_path_list = []
     # PLOT_TYPE = sys.argv[1]
     PLOT_TYPE = "dipole"
-    if PLOT_TYPE not in ["dipole", "sigmar", "noise"]:
+    if ratio:
+        PLOT_TYPE = "ratio"
+        use_log=False
+    if PLOT_TYPE not in ["dipole", "sigmar", "ratio"]:
         print(helpstring)
         PLOT_TYPE = "dipole"
         # exit(1)
@@ -138,6 +141,10 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     dip_data_rec_CI95_up = np.array([dat["N_rec_CI95_up"] for dat in data_list])
     dip_data_rec_CI95_dn = np.array([dat["N_rec_CI95_dn"] for dat in data_list])
 
+    # for num of data points in sigmar
+    b_cpp_sim = [np.array(dat["b_cpp_sim"]) for dat in data_list]
+
+
     # PROPER PLOTS
     # 1. reconstruction from simulated data (light only)
     #       - dipole vs reconstruction
@@ -159,8 +166,6 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     ####################
     # alt_bins = True
     alt_bins = False
-    # big_bins = True
-    big_bins = False
 
 
     if not use_real_data:
@@ -196,6 +201,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     binned_dip_data_rec_std_dn = [dip_data_rec_CI682_dn[i].T for i in plt1_xbj_bins]
     binned_dip_data_rec_CI95_up = [dip_data_rec_CI95_up[i].T for i in plt1_xbj_bins]
     binned_dip_data_rec_CI95_dn = [dip_data_rec_CI95_dn[i].T for i in plt1_xbj_bins]
+    binned_b_cpp_sim = [b_cpp_sim[i] for i in plt1_xbj_bins]
+
 
     fig = plt.figure()
     if big_bins:
@@ -206,8 +213,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     # ax = plt.gca()
     fs_labels = 18
     
-    use_log = True
-    use_log = False
+    # use_log = True
+    # use_log = False
     for ax in axs.flatten():
         ax.tick_params(which='major',width=1,length=6,labelsize=18)
         ax.tick_params(which='minor',width=0.7,length=4,labelsize=18)
@@ -230,7 +237,13 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=fs_labels)
         plt.ylabel(r'$\sigma_r ~ \left(\mathrm{GeV}^{-2} \right)$', fontsize=fs_labels)
         xvar = data_list[0]["q2vals"]
-
+    elif PLOT_TYPE == "ratio":
+        axs.flatten()[0].set_ylabel(r'$\frac{N_{\mathrm{rec.}}}{N_{\mathrm{fit}}}$', fontsize=fs_labels+2)
+        if big_bins:
+            axs.flatten()[3].set_ylabel(r'$\frac{N_{\mathrm{rec.}}}{N_{\mathrm{fit}}}$', fontsize=fs_labels)
+        for ax in axs.flatten():
+            ax.set_xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=fs_labels)
+        xvar = data_list[0]["r_grid"][0]
 
     
     ##############
@@ -257,7 +270,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     elif fitname_i==4:
         col_i = 3
 
-    uncert_col0 = Patch(facecolor=colors[col_i], alpha=shade_alph_closer)
+    uncert_col0 = Patch(facecolor=colors[col_i], alpha=shade_alph_closer+shade_alph_further)
     uncert_col0b = Patch(facecolor=colors[col_i], alpha=shade_alph_further)
     uncert_col1 = Patch(facecolor=colors[4], alpha=color_alph)
     uncert_col2 = Patch(facecolor=colors[5], alpha=color_alph)
@@ -275,7 +288,13 @@ def main(use_charm=False, real_data=False, fitname_i=None):
                         uncert_col1,
                         uncert_col2,]
     else:
-        manual_handles = [line_fit0, (line_rec, uncert_col),
+        if PLOT_TYPE == "ratio":
+            manual_handles = [(line_rec, uncert_col),
+                        uncert_col0, uncert_col0b,
+                        uncert_col1,
+                        uncert_col2,]
+        else:
+            manual_handles = [line_fit0, (line_rec, uncert_col),
                         uncert_col0, uncert_col0b,
                         uncert_col1,
                         uncert_col2,]
@@ -288,13 +307,19 @@ def main(use_charm=False, real_data=False, fitname_i=None):
             r'${\mathrm{Reconstruction ~ to} ~ \sigma_r - \mathrm{error}}$',
         ]
     else:
-        manual_labels = [
-            r'${\mathrm{Fit ~ dipole}}$',
-            r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \mathrm{C.I.}}$',
-            r'${68 \% \, \mathrm{C.I.}}$',
-            r'${95 \% \, \mathrm{C.I.}}$',
-        ]
-
+        if PLOT_TYPE == "ratio":
+            manual_labels = [
+                r'${\frac{N_{\mathrm{rec.}}}{N_{\mathrm{fit}}}}$',
+                r'${68 \% \, \mathrm{C.I.}}$',
+                r'${95 \% \, \mathrm{C.I.}}$',
+            ]
+        else:
+            manual_labels = [
+                r'${\mathrm{Fit ~ dipole}}$',
+                r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \mathrm{C.I.}}$',
+                r'${68 \% \, \mathrm{C.I.}}$',
+                r'${95 \% \, \mathrm{C.I.}}$',
+            ]
 
     ####################
     #################### PLOTTING
@@ -303,23 +328,41 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     # Plot fit dipoles and their reconstructions
     for i, (dip_fit, dip_rec) in enumerate(zip(binned_dip_data_fit, binned_dip_data_rec)):
         ax = axs.flatten()[i]
-        ax.plot(xvar, gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
-                label="Fit dipole",
-                linestyle=":",
-                # linestyle="-",
-                # marker="+",
-                linewidth=lw/1.5,
-                color="black"
-                )
-        dip_rec_del = dip_rec.T[0]
-        dip_rec_del[dip_rec_del < 0] = np.nan
-        ax.plot(xvar, gev_to_mb*scalings[i%3]*dip_rec_del+additives[i%3],
-                label="Reconstuction of fit dipole",
-                linestyle="-",
-                linewidth=lw/2.5,
-                color=colors[col_i],
-                alpha=1
-                )
+        if PLOT_TYPE == "ratio":
+            ax.plot(xvar, [1]*len(xvar),
+                    label="ratio",
+                    linestyle="--",
+                    linewidth=lw/4.5,
+                    color="black",
+                    alpha=1
+                    )    
+            dip_rec_del = dip_rec.T[0]
+            dip_rec_del[dip_rec_del < 0] = np.nan
+            ax.plot(xvar, dip_rec_del/(real_sigma*dip_fit[0]),
+                    label="ratio",
+                    linestyle="-",
+                    linewidth=lw/2.5,
+                    color=colors[col_i],
+                    alpha=1
+                    )
+        else:
+            ax.plot(xvar, gev_to_mb*scalings[i%3]*real_sigma*dip_fit[0]+additives[i%3],
+                    label="Fit dipole",
+                    linestyle=":",
+                    # linestyle="-",
+                    # marker="+",
+                    linewidth=lw/1.5,
+                    color="black"
+                    )
+            dip_rec_del = dip_rec.T[0]
+            dip_rec_del[dip_rec_del < 0] = np.nan
+            ax.plot(xvar, gev_to_mb*scalings[i%3]*dip_rec_del+additives[i%3],
+                    label="Reconstuction of fit dipole",
+                    linestyle="-",
+                    linewidth=lw/2.5,
+                    color=colors[col_i],
+                    alpha=1
+                    )
         # if use_real_data:
         #     dip_from_bplus = binned_dip_rec_from_bplus[i].T[0]
         #     dip_from_bminus = binned_dip_rec_from_bminus[i].T[0]
@@ -342,26 +385,47 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     ################## SHADING        
     # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
-    for i, (rec_up, rec_dn) in enumerate(zip(binned_dip_data_rec_std_up, binned_dip_data_rec_std_dn)):
-        rec_dip = binned_dip_data_rec[i][:,0]
-        rec_up = rec_up[0]
-        rec_dn = rec_dn[0]
-        rec_CI95_up = binned_dip_data_rec_CI95_up[i].T[:,0]
-        rec_CI95_dn = binned_dip_data_rec_CI95_dn[i].T[:,0]
-        print(xvar.shape, rec_dip.shape, rec_up.shape, rec_dn.shape, rec_CI95_up.shape, rec_CI95_dn.shape)
-        ax = axs.flatten()[i]
-        ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_up+additives[i%3], color=colors[col_i], alpha=shade_alph_closer)
-        ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_CI95_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_CI95_up+additives[i%3], color=colors[col_i], alpha=shade_alph_further)
+    if PLOT_TYPE=="ratio":
+        for i, (rec_up, rec_dn) in enumerate(zip(binned_dip_data_rec_std_up, binned_dip_data_rec_std_dn)):
+            rec_dip = binned_dip_data_rec[i][:,0]
+            ref_fit = real_sigma*binned_dip_data_fit[i][0]
+            rec_up = rec_up[0]/ref_fit
+            rec_dn = rec_dn[0]/ref_fit
+            rec_CI95_up = binned_dip_data_rec_CI95_up[i].T[:,0]/ref_fit
+            rec_CI95_dn = binned_dip_data_rec_CI95_dn[i].T[:,0]/ref_fit
+            ax = axs.flatten()[i]
+            ax.fill_between(xvar, rec_dn, rec_up, color=colors[col_i], alpha=shade_alph_closer)
+            ax.fill_between(xvar, rec_CI95_dn, rec_CI95_up, color=colors[col_i], alpha=shade_alph_further)
+    else:
+        for i, (rec_up, rec_dn) in enumerate(zip(binned_dip_data_rec_std_up, binned_dip_data_rec_std_dn)):
+            rec_dip = binned_dip_data_rec[i][:,0]
+            rec_up = rec_up[0]
+            rec_dn = rec_dn[0]
+            rec_CI95_up = binned_dip_data_rec_CI95_up[i].T[:,0]
+            rec_CI95_dn = binned_dip_data_rec_CI95_dn[i].T[:,0]
+            print(xvar.shape, rec_dip.shape, rec_up.shape, rec_dn.shape, rec_CI95_up.shape, rec_CI95_dn.shape)
+            ax = axs.flatten()[i]
+            ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_up+additives[i%3], color=colors[col_i], alpha=shade_alph_closer)
+            ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_CI95_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_CI95_up+additives[i%3], color=colors[col_i], alpha=shade_alph_further)
 
     if big_bins:
         leg = axs.flatten()[5].legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="lower right") 
+    elif PLOT_TYPE == "ratio":
+        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper right") 
     else:
         leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=13, ncol=1, loc="upper left") 
     
-    # leg._legend_box.align = "left"
-    # box = leg._legend_box
-    # box.get_children().append(xbj_label)
-    # box.set_figure(box.figure)
+    h_align = 'left'
+    if PLOT_TYPE == "ratio":
+        x_crd = 0.05
+        y_crd = 0.08
+    elif use_log == False:
+        h_align = 'right'
+        x_crd = 0.98
+        y_crd = 0.97
+    else:
+        x_crd = 0.05
+        y_crd = 0.98
 
     for i, ibin in enumerate(plt1_xbj_bins):
         xbj_str = str(xbj_bins[ibin])
@@ -372,20 +436,32 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         # xbj_label=offsetbox.TextArea('$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str),)
         x_lbl = '$x_{{\\mathrm{{Bj.}} }} = {xbj}$'.format(xbj = xbj_str)
         # print(x_lbl, i)
-        axs.flatten()[i].text(.98, .98, x_lbl,
-            horizontalalignment='right',
+        axs.flatten()[i].text(x_crd, y_crd, x_lbl,
+            horizontalalignment=h_align,
             verticalalignment='top',
-            fontsize=16,
+            fontsize=15,
+            transform=axs.flatten()[i].transAxes)
+        n_datapoints = len(b_cpp_sim[ibin])
+        n_lbl = '$N_{{\\mathrm{{datap.}} }}(\\sigma_r) = {num}$'.format(num = n_datapoints)
+
+        axs.flatten()[i].text(x_crd, y_crd-0.06, n_lbl,
+            horizontalalignment=h_align,
+            verticalalignment='top',
+            fontsize=15,
             transform=axs.flatten()[i].transAxes)
     
     # ax.xaxis.set_major_formatter(ScalarFormatter())
     if use_log:
         # plt.xlim(5e-3, 25)
         plt.xlim(1e-1, 25)
-        plt.ylim(bottom=1e-4)
+        plt.ylim(bottom=8e-3)
     else:
-        plt.xlim(0.05, 25)
-        plt.ylim(bottom=0, top=30)
+        if PLOT_TYPE == "ratio":
+            plt.xlim(0.05, 25)
+            plt.ylim(bottom=0.6, top=1.4)
+        else:
+            plt.xlim(0.05, 25)
+            plt.ylim(bottom=0, top=30)
     # plt.ylim(bottom=1e-5)
     if big_bins:
         fig.set_size_inches(12,8)
@@ -412,6 +488,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     if big_bins:
         n_plot += "BIG_BINS-"
 
+    if PLOT_TYPE=="ratio":
+        n_plot += "RATIO-"
+
 
     if not n_plot:
         print("Plot number?")
@@ -431,10 +510,14 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         plt.show()
     return 0
 
-main(use_charm=False,real_data=False,fitname_i=3)
-main(use_charm=True,real_data=False,fitname_i=3)
-main(use_charm=False,real_data=False,fitname_i=4)
-main(use_charm=True,real_data=False,fitname_i=4)
+log=True
+big=True
+ratio=False
+
+main(use_charm=False,real_data=False,fitname_i=3, use_log=log, big_bins=big, ratio=ratio)
+main(use_charm=True,real_data=False,fitname_i=3, use_log=log, big_bins=big, ratio=ratio)
+main(use_charm=False,real_data=False,fitname_i=4, use_log=log, big_bins=big, ratio=ratio)
+main(use_charm=True,real_data=False,fitname_i=4, use_log=log, big_bins=big, ratio=ratio)
 
 # Production plotting
 # main(use_charm=False,real_data=False,fitname_i=3)
