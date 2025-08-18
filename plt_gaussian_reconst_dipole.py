@@ -226,11 +226,12 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
             ax.set_yscale('log')
 
     if PLOT_TYPE == "dipole":
-        axs.flatten()[0].set_ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=fs_labels)
+        axs.flatten()[0].set_ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=fs_labels+2)
         if big_bins:
-            axs.flatten()[3].set_ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=fs_labels)
+            axs.flatten()[3].set_ylabel(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=fs_labels+2)
         for ax in axs.flatten():
             ax.set_xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=fs_labels)
+            ax.xaxis.set_major_formatter(ScalarFormatter())
         # xvar = data_list[0]["r_grid"][0][:-1]
         xvar = data_list[0]["r_grid"][0]
     elif PLOT_TYPE == "sigmar":
@@ -238,11 +239,12 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
         plt.ylabel(r'$\sigma_r ~ \left(\mathrm{GeV}^{-2} \right)$', fontsize=fs_labels)
         xvar = data_list[0]["q2vals"]
     elif PLOT_TYPE == "ratio":
-        axs.flatten()[0].set_ylabel(r'$\frac{N_{\mathrm{rec.}}}{N_{\mathrm{fit}}}$', fontsize=fs_labels+2)
+        axs.flatten()[0].set_ylabel(r'$\frac{N_{\mathrm{rec.}}}{N_{\mathrm{fit}}}$', fontsize=fs_labels+6)
         if big_bins:
             axs.flatten()[3].set_ylabel(r'$\frac{N_{\mathrm{rec.}}}{N_{\mathrm{fit}}}$', fontsize=fs_labels)
         for ax in axs.flatten():
             ax.set_xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=fs_labels)
+            ax.xaxis.set_major_formatter(ScalarFormatter())
         xvar = data_list[0]["r_grid"][0]
 
     
@@ -409,16 +411,16 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
             ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_CI95_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_CI95_up+additives[i%3], color=colors[col_i], alpha=shade_alph_further)
 
     if big_bins:
-        leg = axs.flatten()[5].legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="lower right") 
+        leg = axs.flatten()[5].legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="lower right") 
     elif PLOT_TYPE == "ratio":
-        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper right") 
+        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
     else:
         leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=13, ncol=1, loc="upper left") 
     
     h_align = 'left'
     if PLOT_TYPE == "ratio":
         x_crd = 0.05
-        y_crd = 0.08
+        y_crd = 0.14
     elif use_log == False:
         h_align = 'right'
         x_crd = 0.98
@@ -514,10 +516,11 @@ log=True
 big=True
 ratio=False
 
-main(use_charm=False,real_data=False,fitname_i=3, use_log=log, big_bins=big, ratio=ratio)
-main(use_charm=True,real_data=False,fitname_i=3, use_log=log, big_bins=big, ratio=ratio)
-main(use_charm=False,real_data=False,fitname_i=4, use_log=log, big_bins=big, ratio=ratio)
-main(use_charm=True,real_data=False,fitname_i=4, use_log=log, big_bins=big, ratio=ratio)
+# main(use_charm=False,real_data=False,fitname_i=3, use_log=True, big_bins=True, ratio=False) # fig 3 big
+# main(use_charm=False,real_data=False,fitname_i=3, use_log=False, big_bins=False, ratio=False) # fig 4 log-linear
+# main(use_charm=False,real_data=False,fitname_i=3, use_log=False, big_bins=False, ratio=True) # fig 5 ratio
+# main(use_charm=False,real_data=False,fitname_i=4, use_log=False, big_bins=False, ratio=True) # fig 7 5param ratio
+main(use_charm=True,real_data=False,fitname_i=3, use_log=False, big_bins=False, ratio=True) # fig 9 4param charm ratio
 
 # Production plotting
 # main(use_charm=False,real_data=False,fitname_i=3)

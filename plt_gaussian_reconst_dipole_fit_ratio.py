@@ -237,11 +237,12 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
         plt.ylabel(r'$\sigma_r ~ \left(\mathrm{GeV}^{-2} \right)$', fontsize=fs_labels)
         xvar = data_list[0]["q2vals"]
     elif PLOT_TYPE == "ratio":
-        axs.flatten()[0].set_ylabel(r'$\frac{N^{\mathrm{5-param.}}}{N^{\mathrm{4-param.}}}$', fontsize=fs_labels+2)
+        axs.flatten()[0].set_ylabel(r'$\frac{N^{\mathrm{5-param.}}}{N^{\mathrm{4-param.}}}$', fontsize=fs_labels+6)
         if big_bins:
             axs.flatten()[3].set_ylabel(r'$\frac{N^{\mathrm{5-param.}}}{N^{\mathrm{4-param.}}}$', fontsize=fs_labels)
         for ax in axs.flatten():
             ax.set_xlabel(r'$r ~ \left(\mathrm{GeV}^{-1} \right)$', fontsize=fs_labels)
+            ax.xaxis.set_major_formatter(ScalarFormatter())
         xvar = data_list[0]["r_grid"][0]
 
     
@@ -254,8 +255,8 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     else:
         # additives = [0, 2, 4]
         additives = [0, 0, 0]
-    colors = ["blue", "green", "brown", "orange", "magenta", "red"]
-    lw=2.8
+    colors = ["violet", "green", "brown", "orange", "magenta", "red"]
+    lw=3
     ms=4
     mstyle = "o"
     color_alph = 1
@@ -269,7 +270,8 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     # elif fitname_i==4:
     #     col_i = 3
     col_i = 0
-    col_fit = "red"
+    # col_fit = "red"
+    col_fit = "black"
 
     uncert_col0 = Patch(facecolor=colors[col_i], alpha=shade_alph_closer+shade_alph_further)
     uncert_col0b = Patch(facecolor=colors[col_i], alpha=shade_alph_further)
@@ -378,7 +380,7 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     if big_bins:
         leg = axs.flatten()[5].legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="lower right") 
     elif PLOT_TYPE == "ratio":
-        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=20, ncol=1, loc="upper right") 
+        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=22, ncol=1, loc="upper right") 
     
     h_align = 'left'
     if wide==True:

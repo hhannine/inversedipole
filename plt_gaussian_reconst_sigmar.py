@@ -210,12 +210,14 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         xvar = data_list[0]["r_grid"][0]
     elif PLOT_TYPE == "sigmar":
         plt.xlabel(r'$Q^2 ~ \left(\mathrm{GeV}^{2} \right)$', fontsize=22)
-        plt.ylabel(r'$\sigma_r$', fontsize=22)
+        plt.ylabel(r'$\sigma_r$', fontsize=30)
         xvar = binned_qsq_grids
 
     # LOG AXIS
     ax.set_xscale('log')
     # ax.set_yscale('log')
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+
 
     ##############
     # LABELS
@@ -373,7 +375,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         # i+=1
 
 
-    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="upper left") 
+    plt.legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper left") 
     
 
     # ax.xaxis.set_major_formatter(ScalarFormatter())
@@ -411,12 +413,14 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         plt.show()
     return 0
 
-# main(use_charm=False,real_data=False,fitname_i=3)
 
 # Production plotting
-main(use_charm=False,real_data=False,fitname_i=3)
-main(use_charm=True,real_data=False,fitname_i=3)
-main(use_charm=False,real_data=False,fitname_i=4)
-main(use_charm=True,real_data=False,fitname_i=4)
+main(use_charm=False,real_data=False,fitname_i=3) # fig 6
+main(use_charm=True,real_data=False,fitname_i=3) # fig 10
+
+# main(use_charm=False,real_data=False,fitname_i=3)
+# main(use_charm=True,real_data=False,fitname_i=3)
+# main(use_charm=False,real_data=False,fitname_i=4)
+# main(use_charm=True,real_data=False,fitname_i=4)
 # main(use_charm=False,real_data=True,fitname_i=3)
 # main(use_charm=True,real_data=True,fitname_i=3)
