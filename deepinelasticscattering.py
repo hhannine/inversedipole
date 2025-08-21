@@ -80,6 +80,22 @@ def fwd_op_sigma_reduced_udsc(Qsq,y,z,r):
     fwd_op_sigmar = F2 - fy * FL
     return fwd_op_sigmar
 
+def fwd_op_sigma_reduced_udscb(Qsq,y,z,r,quark_masses):
+    """Calculate reduced cross section, forward operator definition.
+    
+    Proper reduced cross section is calculated as sigma_r = fwd_op * N(r,x)."""
+    fac = structurefunfac * Qsq
+    quarks = quark_masses.values()
+    FL = 0
+    FT = 0
+    for (mq, efq) in quarks:
+        FL += fac * fwd_op_sigma_L(Qsq,z,r,mq,efq)
+        FT += fac * fwd_op_sigma_T(Qsq,z,r,mq,efq)
+    F2 = FL + FT
+    fy = y**2/(1+(1-y)**2)
+    fwd_op_sigmar = F2 - fy * FL
+    return fwd_op_sigmar
+
 def fwd_op_FL_LO(Qsq,z,r):
     qmass=qmass_light
     sumef=6/9
