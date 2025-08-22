@@ -232,7 +232,7 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
         sigma02 = 1
 
     with multiprocessing.Pool(processes=16) as pool:
-        fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udsc_riem_uniftrapez, ((datum, (interpolated_r_grid,), sigma02, quark_masses) for datum in data_sigmar))
+        fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udscb_riem_uniftrapez, ((datum, (interpolated_r_grid,), sigma02, quark_masses) for datum in data_sigmar))
 
 
     fw_op_datum_r_matrix = []
@@ -241,7 +241,7 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
     fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
     # Filename settings
-    str_id_qmass = mass_scheme + "_"
+    str_id_qmass = "_" + mass_scheme + "_"
     if use_unity_sigma0:
         str_unity_sigma02 = "_unitysigma"
     else:
@@ -256,7 +256,8 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
 
     # Export
     exp_folder = "./export_hera_data/"
-    base_name = exp_folder+"exp_fwdop_qms_hera_"
+    # base_name = exp_folder+"exp_fwdop_qms_hera_"
+    base_name = exp_folder+"ALPHA1_exp_fwdop_qms_hera_"
     if include_dipole:
         # Simulated data and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
@@ -278,10 +279,12 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
             "r_grid": interpolated_r_grid,
             "qsq_vals": qsq_vals,
             "sigmar_vals": sigmar_vals,
-            TODO CORRELATED UNCERTAINTIES ALSO!
+            # TODO CORRELATED UNCERTAINTIES ALSO!
+            # TODO NEED TO BOOKKEEP SQRT(s)
             "sigmar_errs": sigmar_errs,
             }
         savemat(base_name+parent_data_name+str_id_qmass+str_unity_sigma02+"_r_steps"+str(r_steps)+".mat", mat_dict)
+        # TODO NEED TO BOOKKEEP SQRT(s)
     
     return 0
 
@@ -387,16 +390,15 @@ if __name__ == '__main__':
     use_real_data = True
 
     for setting in run_settings:
-        qmasses = setting 
+        qm_scheme = setting 
 
         try:
-            r0 = run_export(use_charm,use_real_data,fitname_i)
+            r0 = run_export(qm_scheme, use_real_data)
         except Exception as err:
             print(f"Unexpected {err=}, {type(err)=}")
             i+=1
             print("error occured", i)
             raise
-            exit()
     
     if i==0:
         print("Export runs finished, No errors", i==0)
