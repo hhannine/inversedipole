@@ -1,247 +1,247 @@
 % Include dependencies: AIRToolsII, Regtools
 addpath(genpath('./dependencies'))
+addpath(genpath("G:\My Drive\Postdoc MathPhys\Project 2 - Inverse dipole LO\HenriAnttiPaperv2"))
 
 close all
 clear all
 
-% parpool(8)
 parp = gcp;
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08];
-% TODO these bins probably change in different s bins, how to implement
-% that? Discretized filename needs to include sqrt(s) as well?
+% TODO these bins probably change in different s bins, how to implement that? Discretized filename needs to include sqrt(s) as well?
 
 % r_steps = 500;
 r_steps = 256; % might not be quite good enough for high Q^2?
 r_steps_str = strcat("r_steps",int2str(r_steps));
 
+% forward operator data files
+data_path = './export_hera_data/';
+data_files = dir(fullfile(data_path,'*.mat'));
 
-%%% Fit options
-%         1       2        3        4            5
-fits = ["MV_", "MVgamma", "MVe", "bayesMV4", "bayesMV5"];
-fitname = fits(4);
-% fitname = fits(5);
-
-%%% simulated data settings
-% use_real_data = false;
-% % use_charm = false;
-% use_charm = true;
+rec_methods = [
+    "principal",
+    "pkacz1",
+    "pkacz2",
+    "tikh0",
+    "tikh2",
+    "pcimmino1",
+    "pcimmino2",
+    ];
 
 %%% real data settings
 use_real_data = true;
+
+data_type = "dis_inclusive";
+data_name_key = "heraII_filtered";
+if use_real_data
+    all_xbj_bins = real_xbj_bins;
+end
 
 quark_mass_schemes = [
         "standard",
         "pole",
         "mqMpole",
-        "mqmq"
+        "mqmq",
+        "mqMcharm",
+        "mqMbottom",
+        "mqMW",
     ];
-mscheme = quark_mass_schemes[1];
+% mscheme = quark_mass_schemes(1); % standard scheme for reference
+% mscheme = quark_mass_schemes(5); % charm scale as the standard choice?
+% mscheme = quark_mass_schemes(6); % n=10 prefers this over charm
+mscheme = quark_mass_schemes(7); % W boson mass scale for high Q^2?
+
+lambda_type = "SRN"; % strict+relaxed+noisy
+lam1 = 1:0.5:9.5;
+% lambda_noisy = [lam1*8e-4, lam1*1e-3]; % too noisy / complete over-fit breakdown?
+% lambda_noisy = [lam1*3e-3]; % testing for noisy % very noisy at times, deprecate this, move towards relax
+% lambda_relaxed = [lam1*8e-3, lam1*1e-2]; % OG relaxed, moving towards strict a little
+% lambda_strict = [lam1*2e-2];
+lambda_noisy = [lam1*5e-3];
+lambda_relaxed = [lam1*9e-3, lam1*1e-2]; 
+lambda_strict = [lam1*2e-2]; % this has been very good for the new safer strict, but n=13 has a hint of noise
+% TODO a 'safe' option that works for all? relaxed closer to strict and strict to the 'safe' level?
+% lambda_strict = [lam1*3e-2]; % this was better than 2e-2 for nn=10
+% lambda_strict = [lam1*6e-2]; %
+% lambda = [lam1*2e-2]; % fairly OK for HERA @xbj 0.08? looking for whats too stiff (TOO STIFF AT 0.00032)
+% lambda = [lam1*5e-2]; % at 0.008 (close to the initial condition) Insanely strong preference for a big secondary peak!
+lambda_t2 = [lam1*3e-2]; % This might be close for TIKH2 at 0.02??
+
+% eps_neg_penalty=1e15; % this was working at low xi 1..3?
+% eps_neg_penalty=1e-1; % This was working well for real data above xi=5, where suddenly big breakage
+% eps_neg_penalty=1e-2; % strict default?
+eps_neg_penalty=1e-4; % THIS IS NECESSARY FOR nn=5 !!! Even strict wasn't working with a higher penalty.
 
 
-%%% Lambda options for production
-% lambda_type = "fixed";
-lambda_type = "broad"; % for simulated data
 
 
-%%% All lambda options
-% lambda_type = "broad";
-% lambda_type = "semiconstrained";
-% lambda_type = "semicon2";
-% lambda_type = "fixed";
-% lambda_type = "semifix";
-% lambda_type = "old";
-
-if lambda_type == "broad"
-    % lam1 = 1:9;
-    lam1 = 1:0.5:9.5;
-    % lam1 = 2:2:10;
-    % lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [9e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [lam1*1e-4, lam1*1e-3];
-    % lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
-    % lambda = [lam1*2e-4, lam1*1e-3, lam1*1e-2]; % THIS WAS VERY GOOD FOR 256 r steps!
-    lambda = [lam1*5e-4, lam1*1e-3, lam1*1e-2] % min-maxing errors
-    % lambda = [lam1*6e-4, lam1*1e-3, lam1*1e-2] % min-maxing errors
-    % lambda = [lam1*2e-4, lam1*1e-3]
-    % lambda = [lam1*1e-3, lam1*1e-2]; % too coarse for 500 and 256 sim data
-    % lambda = [lam1*1e-5];
-elseif lambda_type == "semiconstrained"
-    lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
-elseif lambda_type == "semicon2"
-    lambda = [0.007, 0.008, 0.009, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09];
-elseif lambda_type == "semifix"
-    lambda = [0.01, 0.02, 0.03, 0.04, 0.05];
-elseif lambda_type =="fixed"
-    % lambda = [0.01];
-    fac = 1.2;
-    lambda = [0.01*fac^-2, 0.01*fac^-1, 0.01*fac^0, 0.01*fac^1, 0.01*fac^2];
-elseif lambda_type == "old"
-    lambda = [5e-1,4e-1,3e-1,1e-1,9e-2,8e-2,7e-2,5e-2,3e-2,1e-2,9e-3,7e-3,5e-3,3e-3,1e-3,8e-4,4e-4,1e-4,8e-5,4e-5,2e-5,1e-5];
-else
-    "BAD LAMBDA TYPE"
-end
-
-charm_opt = "lightonly"; % new files omitted this unfortunately
-if (use_charm)
-    charm_opt = "lightpluscharm";
-end
-sim_charm_opt = charm_opt;
-data_type = fitname;
-if (use_real_data)
-    data_type = "heraII_filtered";
-end
-
-if use_real_data
-    all_xbj_bins = real_xbj_bins;
-end
-
-% load forward operator files
-data_path = './export_hera_data/';
-data_files = dir(fullfile(data_path,'*.mat'));
-sim_type = "simulated";
-
-dipole_N_ri_rec_distributions = [];
-
+nn=5;
 % nn=1;
-% nn=14;
 % nn=13;
-% for xi = nn:nn
-for xi = 1:length(all_xbj_bins)
+for xi = nn:nn
+% for xi = 1:length(all_xbj_bins)
     close all
     xbj_bin = string(all_xbj_bins(xi));
 
     for k = 1:numel(data_files)
         fname = data_files(k).name;
-        if (contains(fname, xbj_bin) && contains(fname, data_type) && contains(fname, charm_opt) && contains(fname, r_steps_str))
+        if (contains(fname, xbj_bin) && contains(fname, data_name_key) && contains(fname, mscheme) && contains(fname, r_steps_str))
             run_file = fname;
         end
     end
     load(strcat(data_path, run_file))
-    
-    % if using real data, need to load reference fit dipole separately
-    dip_file="";
-    for k = 1:numel(data_files)
-        if str2double(xbj_bin) > 0.01
-            sim_xbj = '0.01';
-        else
-            sim_xbj = xbj_bin;
-        end
-        fname = data_files(k).name;
-        % fnameb = strrep(fname,'-','_');
-        fnameb = fname;
-        if (contains(fnameb, sim_xbj) && contains(fnameb, fitname) && contains(fnameb, sim_type) && contains(fnameb, charm_opt) && contains(fnameb, r_steps_str))
-            dip_file = fname;
-            break
-        end
-    end
-    if dip_file == ""
-            ["failed to match dip_file!", fname, sim_xbj, fitname, sim_type, charm_opt, r_steps_str]
-            return
-    end
-    % dip_file;
-    dip_data = load(strcat(data_path, dip_file));
-    ref_dip = dip_data.discrete_dipole_N;
-    if (use_real_data)
-        discrete_dipole_N = ref_dip;
-    end
-    %%
-  
-    if any(discrete_dipole_N <= 0)
-        ["NON-POSITIVE IMPORT DIPOLE!", xbj_bin, discrete_dipole_N(1)]
-        return
-    end
-
-
+ 
+    rng(69,"twister");
     ivec3= 1:r_steps;
     r_grid(end) = [];
-    x = discrete_dipole_N;
     A = forward_op_A(:,ivec3);
-    x = real_sigma*x(ivec3);
-    bfit = A*x'; % bfit has numerical error from discretization
-    % b is either the real data sigma_r, or one simulated by fit
     b_data = sigmar_vals'; % b is calculated by the C++ code, no error.
     q2vals = qsq_vals;
-    [fitname, xbj_bin, r_steps,use_real_data,use_charm, length(b_data), length(q2vals)]
+    % TODO s-bin
+    % todo data type inclusive, charm, diffractive etc
+    [data_name_key, xbj_bin, r_steps, use_real_data, mscheme, length(b_data), length(q2vals), mean(sqrt(q2vals)), length(all_xbj_bins)]
 
     % real HERA data
     b_hera = sigmar_vals';
     b_errs = sigmar_errs';
     % TODO how to do correlated uncertainties??
 
-    % Simulating Gaussian 1% errors, and sampling datasets 
-    % sample a dataset (b_gen_err_sampled) with 1% normal distrib error
-    eta = 0.01;
-    rng(69,"twister");
 
-    
-    %%
-    N=length(x);
+    N=r_steps;
     [L1,W1]=get_l(N,1);
     [L2,W2]=get_l(N,2);
+
+    % TODOs before starting to save results:
+        % data types: inclusive vs charm (at least)
+        % methods: implement save using different methods
+        % s-bins: saving needs to denote which s-bin
     
-    % classical 0th order tikhonov
-    % [U,s,V] = csvd(A);
-    % [UU,sm,XX] = csvd(A);
-    
+   
     % first order derivative operator
     [UU,sm,XX] = cgsvd(A,L1);
-    
     % second order derivative operator
-    % [UU2,sm2,XX2] = cgsvd(A,L2);
-    % [UU,sm,XX] = cgsvd(A,L2);
+    [UU2,sm2,XX2] = cgsvd(A,L2);
 
 
     % principal reconstruction to actual data points
-    X_tikh_principal = tikhonov(UU,sm,XX,b_data,lambda);
-    errtik_p = zeros(size(lambda));
-    % eps_neg_penalty=4e-3;
-    eps_neg_penalty=1e-3; % this or 1e-4 is quite good for the simulated data with rsteps=256
-    % 1e-4 stops x=0.01 getting good reconstruction at large r!
-    % eps_neg_penalty=1e-7; % this doesn't ruin the rec at 0.01, but does it help either?
-    % eps_neg_penalty=0;
-    for i = 1:length(lambda)
-        % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + all_xbj_bins(xi)*1e0*exp(-10*min(X_tikh_principal(:,i))); % add penalty for negative minimum
-        % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data);
-        errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + eps_neg_penalty*(1-sign(min(X_tikh_principal(:,i)))); % This is perhaps too strong penalty?
+    X_tikh_principal = tikhonov(UU,sm,XX,b_hera,lambda_strict);
+    X_tikh_principal_relax = tikhonov(UU,sm,XX,b_hera,lambda_relaxed);
+    X_tikh_principal_noisy = tikhonov(UU,sm,XX,b_hera,lambda_noisy);
+
+    % runner up methods
+    X_tikh2 = tikhonov(UU2,sm2,XX2,b_hera,lambda_t2);
+
+    errtik_p = zeros(size(lambda_strict));
+    errtik_prel = zeros(size(lambda_relaxed));
+    errtik_pnoisy = zeros(size(lambda_noisy));
+    errtik2 = zeros(size(lambda_t2));
+
+    options.lbound = 0;
+    % kmax = 5000; % Default? Hjørdis was using this.
+    % kmax = 1000; % kacz2 worse than at 5k?
+    % kmax1 = 200000;
+    % kmax1 = 6000; % this has been VERY VERY good for kaczmarz for xi > 8 (0.0032) where it seems to overfit?
+    kmax1 = 800;
+    kmax2 = 5000;
+    kmaxcim2 = kmax2;
+    % xC = cimmino(A,b_hera,1:kmax,[],options);
+    % xK = kaczmarz(A,b_hera,1:kmax,[],options);
+    xC1 = PCimmino2(A,b_hera,kmax1,L1,W1);
+    xK1 = PKaczmarz2(A,b_hera,kmax1,L1,W1);
+    % xC2 = PCimmino2(A,b_hera,kmaxcim2,L2,W2);
+    % xK2 = PKaczmarz2(A,b_hera,kmax2,L2,W2);
+
+    
+    for i = 1:length(lambda_strict)
+        errtik_p(i) = norm((b_hera-A*X_tikh_principal(:,i)))/norm(b_hera) + eps_neg_penalty*(1-sign(min(X_tikh_principal(:,i))));
+    end
+    for i = 1:length(lambda_relaxed)
+        errtik_prel(i) = norm((b_hera-A*X_tikh_principal_relax(:,i)))/norm(b_hera) + eps_neg_penalty*(1-sign(min(X_tikh_principal_relax(:,i))));
+    end
+    for i = 1:length(lambda_noisy)
+        errtik_pnoisy(i) = norm((b_hera-A*X_tikh_principal_noisy(:,i)))/norm(b_hera) + eps_neg_penalty*(1-sign(min(X_tikh_principal_noisy(:,i))));
+    end
+    for i = i:length(lambda_t2)
+        errtik2(i) = norm((b_hera-A*X_tikh2(:,i)))/norm(b_hera) + 10000*eps_neg_penalty*(1-sign(min(X_tikh2(:,i))));
     end
     [mp,mIp]=min(errtik_p);
-    rec_dip_principal = X_tikh_principal(:,mIp);
-    % TODO CALCULATE CHI^2 for the principal rec's agreement with the real data
+    [mpr,mIpr]=min(errtik_prel);
+    [mpn,mIpn]=min(errtik_pnoisy);
+    rec_dip_principal_strict = X_tikh_principal(:,mIp);
+    rec_dip_principal_relax = X_tikh_principal_relax(:,mIpr);
+    rec_dip_principal_noisy = X_tikh_principal_noisy(:,mIpn);
+    sigmar_principal_strict = A*rec_dip_principal_strict;
+    sigmar_principal_relax = A*rec_dip_principal_relax;
+    sigmar_principal_noisy = A*rec_dip_principal_noisy;
 
-    % if any(rec_dip_principal <= 0)
-    %     ["NON-POSITIVE RECONSTRUCTION at", xbj_bin, r_grid(1), discrete_dipole_N(1), rec_dip_principal(1)]
-    %     return
-    % end
-    sigmar_principal = A*rec_dip_principal;
+    % tikh comparison recs
+    [m2,mI2]=min(errtik2);
+    rec_tikh2 = X_tikh2(:,mI2);
 
-    % bootstrapping reconstruction uncertainties
+    % comparison recs
+    rec_cimmino1 = xC1(:,end);
+    rec_kacz1 = xK1(:,end);
+    % rec_kacz2 = xK2(:,end);
+
+    % calculate sigmar for the comparison methods
+    sigmar_tikh2 = A*rec_tikh2;
+    sigmar_cimmino1 = A*rec_cimmino1;
+    sigmar_kacz1 = A*rec_kacz1;
+    % sigmar_kacz2 = A*rec_kacz2;
+
+
+    
+    % CALCULATE CHI^2 for the principal rec's agreement with the real data
+    % (as one quantification of it's quality)
+    % chi^2 = (teoria-mittaus)^2 / virhe^2 summattuna mittaus pisteiden yli
+    % and also for top alternatives: Tikh2, Kacz1
+    chisq_vec_strict = (sigmar_principal_strict - b_hera).^2 ./ b_errs.^2;
+    chisq_vec_relax = (sigmar_principal_relax - b_hera).^2 ./ b_errs.^2;
+    chisq_vec_noisy = (sigmar_principal_noisy - b_hera).^2 ./ b_errs.^2;
+    chisq_vect2 = (sigmar_tikh2 - b_hera).^2 ./ b_errs.^2;
+    chisq_veck1 = (sigmar_kacz1 - b_hera).^2 ./ b_errs.^2;
+    chisq_cimm1 = (sigmar_cimmino1 - b_hera).^2 ./ b_errs.^2;
+    % chisq = sum(chisq_vec);
+    chisqt2 = sum(chisq_vect2);
+    chisqk1 = sum(chisq_veck1);
+    chisq_str_rel_noisy_vals = [sum(chisq_vec_strict), sum(chisq_vec_relax), sum(chisq_vec_noisy)];
+    chisq_over_N_strict = sum(chisq_vec_strict) / length(chisq_vec_strict);
+    chisq_over_N_relax = sum(chisq_vec_relax) / length(chisq_vec_relax);
+    chisq_over_N_noisy = sum(chisq_vec_noisy) / length(chisq_vec_noisy);
+    chisq_over_Nt2 = chisqt2 / length(chisq_vect2);
+    chisq_over_Nk1 = chisqk1 / length(chisq_veck1);
+    chisq_over_Ncim1 = sum(chisq_cimm1) / length(chisq_cimm1);
+    [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1]
+
+
+
+    %%%%%%%
+    %%% BOOTSTRAPPING UNCERTAINTIES
+    %%%%%%%
+
+    % bootstrapping reconstruction uncertainties with Uncorrelated Experiment Uncertainties.
     array_over_dataset_samples_dipole_recs = [];
     array_over_dataset_samples_sigmar = [];
-    NUM_SAMPLES = 10000;
+    NUM_SAMPLES = 1000;
     parfor j=1:NUM_SAMPLES
-        err = eta.*b_data.*randn(length(b_data),1);
-        b = b_data + err;
+        % TODO need to sample error point specific distributions! -> redo err and b.
+        % err = eta.*b_data.*randn(length(b_data),1); %%% relative error for simulated data (paper 1)
+        err = b_errs.*randn(length(b_hera),1);
+        b = b_hera + err;
     
-        X_tikh = tikhonov(UU,sm,XX,b,lambda);
-        errtik = zeros(size(lambda));
+        X_tikh = tikhonov(UU,sm,XX,b,lambda_strict);
+        errtik = zeros(size(lambda_strict));
     
-        if use_real_data
-            X_tikh_upper = tikhonov(UU,sm,XX,b_err_upper,lambda);
-            % errtik_upper = zeros(size(lambda));
-            X_tikh_lower = tikhonov(UU,sm,XX,b_err_lower,lambda);
-            % errtik_lower = zeros(size(lambda));
-        end
         
-        for i = 1:length(lambda)
+        for i = 1:length(lambda_strict)
             % errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
             % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % this is wrong, cannot really minimize against b since it has error
             if use_real_data
                 % real data tests the calculated cross section sigma_r_rec
                 % against the real data to constrain lambda
-                errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1); 
+                % errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1);
+                errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + eps_neg_penalty*(1-sign(min(X_tikh(:,i)))); % This is perhaps too strong penalty?
             else
                 % simulated data refers agains the simulated dipole, which we
                 % want to recover for the simulated sigma_r
@@ -255,15 +255,11 @@ for xi = 1:length(all_xbj_bins)
         end
     
         if use_real_data
-            % [m,mI]=min(errtik);
-            % flipped_errtik = flip(errtik)
-            % for i=1:length(errtik)
-            mI = find(errtik < 1, 1, "last") % lambda list is (should be) increasing, so we want the first lambda that hits chi^2/N= 1 taken from the large end
-            m = errtik(mI)
-        else
-            [m,mI]=min(errtik);
+            [m,mI]=min(errtik); % todo compare with the "last" method of choosing the lambda?
             % mI = find(errtik < 1, 1, "last") % lambda list is (should be) increasing, so we want the first lambda that hits chi^2/N= 1 taken from the large end
             % m = errtik(mI)
+        else
+            [m,mI]=min(errtik);
         end
         
         rec_dip = X_tikh(:,mI);
@@ -276,7 +272,7 @@ for xi = 1:length(all_xbj_bins)
     dataset_sample_pdfs_sigmar = [];
     p_tails_95 = [0.025, 0.975];
     p_tails_682 = [0.159, 0.841];
-    for j=1:length(x')
+    for j=1:r_steps
         rec_dips_at_rj = array_over_dataset_samples_dipole_recs(j,:)';
         dip_rm_outliers = rmoutliers(rec_dips_at_rj, "percentiles", [1 99]);
         pd = fitdist(dip_rm_outliers,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
@@ -305,19 +301,19 @@ for xi = 1:length(all_xbj_bins)
         dataset_sample_pdfs_sigmar(j,:) = [mean(pd_sig), sig_icdf_vals_682(1), sig_icdf_vals_682(2), sig_icdf_vals_95(1), sig_icdf_vals_95(2)];
     end
     
-    N_rec_principal = rec_dip_principal;
+    N_rec_principal = rec_dip_principal_strict;
     N_rec_ptw_mean = dataset_sample_pdfs(:,1);
     N_rec_CI682_up = dataset_sample_pdfs(:,3); % 68.2% confidence interval upper limit
     N_rec_CI682_dn = dataset_sample_pdfs(:,2); % 68.2% c.i. lower limit
     N_rec_CI95_up = dataset_sample_pdfs(:,5); % 95% confidence interval upper limit
     N_rec_CI95_dn = dataset_sample_pdfs(:,4); % 95% c.i. lower limit
-    if any(N_rec_ptw_mean <= 0) % TEST IF THE MEAN RECONSTRUCTION IS POSITIVE
-        ["NON-POSITIVE PRINCIPAL reconstruction at", xbj_bin, r_grid(1), discrete_dipole_N(1), rec_dip_principal(1), N_rec_ptw_mean(1)]
-        % return
-    end
-    ["Rec accuracy", r_grid(10), N_rec_principal(10)/x(10), r_grid(20), N_rec_principal(20)/x(20), r_grid(50), N_rec_principal(50)/x(50), r_grid(60), N_rec_principal(60)/x(60), r_grid(100), N_rec_principal(100)/x(100), r_grid(200), N_rec_principal(200)/x(200)]
+    % if any(N_rec_ptw_mean <= 0) % TEST IF THE MEAN RECONSTRUCTION IS POSITIVE
+    %     ["NON-POSITIVE PRINCIPAL reconstruction at", xbj_bin, r_grid(1), rec_dip_principal(1), N_rec_ptw_mean(1)]
+    %     % return
+    % end
+    % ["Rec accuracy", r_grid(10), N_rec_principal(10)/x(10), r_grid(20), N_rec_principal(20)/x(20), r_grid(50), N_rec_principal(50)/x(50), r_grid(60), N_rec_principal(60)/x(60), r_grid(100), N_rec_principal(100)/x(100), r_grid(200), N_rec_principal(200)/x(200)]
 
-    sigmar_principal;
+    sigmar_principal_strict;
     sigmar_ptw_mean = A*N_rec_ptw_mean;
     sigmar_mean = dataset_sample_pdfs_sigmar(:,1);
     sigmar_CI682_up = dataset_sample_pdfs_sigmar(:,3);
@@ -325,8 +321,8 @@ for xi = 1:length(all_xbj_bins)
     sigmar_CI95_up = dataset_sample_pdfs_sigmar(:,5);
     sigmar_CI95_dn = dataset_sample_pdfs_sigmar(:,4);
 
-    plotting = false;
-    % plotting = true;
+    % plotting = false;
+    plotting = true;
     if plotting
         figure(1) % rec_princip vs. mean reconstruction vs. ground truth
         % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
@@ -335,32 +331,56 @@ for xi = 1:length(all_xbj_bins)
         %      [.8 .9 .9],'linestyle','none')
         % semilogx(r_grid',x','-', ...
         % plot(r_grid',x','-', ...
-        loglog(r_grid',x','-', ...
-                 r_grid',N_rec_principal,'--', ...
-                 r_grid',N_rec_ptw_mean,'-.', ...
-                 r_grid',N_rec_CI95_up,'.', ...
-                 r_grid',N_rec_CI95_dn,'.', ...
-                 r_grid',N_rec_CI682_up,'.', ...
-                 r_grid',N_rec_CI682_dn,'.', ...
-                 'LineWidth',2)
+        semilogx(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
+        hold on
+        loglog(r_grid',abs(N_rec_principal),':', "DisplayName", "ABS principal", "Color","blue")
+        loglog(r_grid',N_rec_ptw_mean,'-.', "DisplayName", "mean", "Color","white")
+        loglog(r_grid',rec_dip_principal_relax,'-.', "DisplayName", "relax", "Color", "#FFA500")
+        loglog(r_grid',rec_dip_principal_noisy,'-.', "DisplayName", "noisy", "Color","#FF69B4")
+        loglog(r_grid',N_rec_CI95_up,':', "DisplayName", "95 up", "Color","Red")
+        loglog(r_grid',N_rec_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
+        loglog(r_grid',N_rec_CI682_up,':', "DisplayName", "68 up", "Color","Green")
+        loglog(r_grid',N_rec_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
+        % loglog(r_grid',rec_tikh0,'-.', "DisplayName", "tikh0")
+        % loglog(r_grid',rec_tikh2,'-.', "DisplayName", "tikh2", "Color","magenta")
+        % loglog(r_grid',abs(rec_tikh2),'-.', "DisplayName", "abs tikh2", "Color","cyan")
+        % % loglog(r_grid',rec_cimmino,'--', "DisplayName", "cimmino")
+        loglog(r_grid',rec_cimmino1,'-.', "DisplayName", "cimmino1")
+        % % loglog(r_grid',rec_cimmino2,'--', "DisplayName", "cimmino2")
+        % % loglog(r_grid',rec_kacz,'--', "DisplayName", "kacz")
+        loglog(r_grid',rec_kacz1,'-.', "DisplayName", "kacz1", "Color","Yellow")
+        % % loglog(r_grid',rec_kacz2,'--', "DisplayName", "kacz2", "Color","white")
+        hold off
+               
 
         figure(2)
         % [size(q2vals'), size(b_data), size(sigmar_principal), size(sigmar_ptw_mean), size(sigmar_CI_up), size(sigmar_CI_dn),] 
-        semilogx(q2vals',b_data,'.', ...
-                 q2vals',sigmar_principal,'.', ...
-                 q2vals',sigmar_ptw_mean,'.', ...
-                 q2vals',sigmar_CI95_up,'.', ...
-                 q2vals',sigmar_CI95_dn,'.', ...
-                 q2vals',sigmar_CI682_up,'.', ...
-                 q2vals',sigmar_CI682_dn,'.', ...
-                 'LineWidth',2)
+        semilogx(q2vals',b_hera,'-', 'DisplayName',"hera")
+        hold on
+        errorbar(q2vals', b_hera, b_errs, '')
+        % hold on
+        semilogx(q2vals',sigmar_principal_strict,'-.', 'DisplayName',"principal_strict")
+        semilogx(q2vals',sigmar_principal_relax,'-.', 'DisplayName',"principal_relax")
+        semilogx(q2vals',sigmar_principal_noisy,'-.', 'DisplayName',"principal_noisy")
+        semilogx(q2vals',sigmar_ptw_mean,':', 'DisplayName',"mean")
+        semilogx(q2vals',sigmar_CI95_up,':', "DisplayName", "95 up", "Color","Red")
+        semilogx(q2vals',sigmar_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
+        semilogx(q2vals',sigmar_CI682_up,':', "DisplayName", "68 up", "Color","Green")
+        semilogx(q2vals',sigmar_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
+        % semilogx(q2vals',sigmar_kacz,'--', "DisplayName", "skacz")
+        semilogx(q2vals',sigmar_tikh2,'--', "DisplayName", "tikh2")
+        semilogx(q2vals',sigmar_cimmino1,'--', "DisplayName", "cimm1")
+        % semilogx(q2vals',sigmar_cimmino2,'--', "DisplayName", "cimm2")
+        semilogx(q2vals',sigmar_kacz1,'--', "DisplayName", "skacz1")
+        % semilogx(q2vals',sigmar_kacz2,'--', "DisplayName", "skacz2")
+        hold off
     end
 
     
     % EXPORTING RESULTS
     
     save2file = false;
-    save2file = true;
+    % save2file = true;
     if save2file
         if use_real_data
             reconst_type = "data_only";
@@ -385,28 +405,24 @@ for xi = 1:length(all_xbj_bins)
         else
             data_name = "sim";
         end
-        if (use_charm)
-            flavor_string = "lightpluscharm";
-        else
-            flavor_string = "lightonly";
-        end
+        flavor_string = mscheme;
         name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
         % recon_path = "./reconstructions_IUSdip/";
         recon_path = "./reconstructions_gausserr/";
-        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4-4r' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
+        f_exp_reconst = strjoin([recon_path 'hera_recon_gausserr_' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
         N_reconst = N_rec_principal;
         N_rec_one_std_up = N_rec_CI682_up; % N_rec + std
         N_rec_one_std_dn = N_rec_CI682_dn; % N_rec - std
-        N_fit = discrete_dipole_N;
-        b_cpp_sim = b_data; % data generated in C++, no discretization error.
-        b_fit = bfit; % = A*Nfit, this has discretization error.
+        % N_fit = discrete_dipole_N;
+        chisq_str_rel_noisy_vals;
+        % b_cpp_sim = b_data; % data generated in C++, no discretization error.
+        % b_fit = bfit; % = A*Nfit, this has discretization error.
         b_from_reconst = sigmar_principal; % prescription of the data by the reconstructred dipole.
 
         save(f_exp_reconst, ...
             "r_grid", "r_steps", "q2vals", ...
-            "N_fit", "real_sigma",...
             "N_reconst", "N_rec_one_std_up", "N_rec_one_std_dn", ...
-            "b_cpp_sim", "b_fit", "b_from_reconst", ...
+            "b_from_reconst", ...
             "b_hera", "b_errs", ...
             "N_rec_principal", ...
             "N_rec_ptw_mean", ...
@@ -418,8 +434,8 @@ for xi = 1:length(all_xbj_bins)
             "sigmar_CI682_up", "sigmar_CI682_dn", ...
             "sigmar_CI95_up", "sigmar_CI95_dn", ...
             "lambda", "lambda_type", "NUM_SAMPLES", "eps_neg_penalty", ...
-            "xbj_bin", "use_real_data", "use_charm", ...
-            "run_file", "dip_file", ...
+            "xbj_bin", "use_real_data", "mscheme", ...
+            "run_file", ...
             "-nocompression","-v7")
     end
 end
