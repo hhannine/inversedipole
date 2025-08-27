@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 from data_manage import load_dipole, get_data, read_sigma02
 from deepinelasticscattering import fwd_op_sigma_reduced, fwd_op_sigma_reduced_udscb
-from quark_mass_schemes import mass_scheme_standard, mass_scheme_pole, mass_scheme_mq_Mpole, mass_scheme_mq_mq
+from quark_mass_schemes import mass_scheme_standard, mass_scheme_pole, mass_scheme_mq_Mpole, mass_scheme_mq_mq, mass_scheme_mcharm, mass_scheme_mbottom, mass_scheme_mW, mass_scheme_heracc_charm_only
 
 
 def z_inted_fw_sigmar(datum, r_grid, sigma02):
@@ -98,6 +98,8 @@ def z_inted_fw_sigmar_udsc(datum, r_grid, sigma02):
 def z_inted_fw_sigmar_udscb_riem_uniftrapez(datum, r_grid, sigma02, quark_masses):
     if len(datum)==6:
         (xbj, qsq, y, sigmar, fl, ft) = datum
+    elif len(datum)==5:
+        (qsq, xbj, y, sigmar, sig_err) = datum
     else:
         (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
     r_grid=r_grid[0]
@@ -196,6 +198,14 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
         quark_masses = mass_scheme_mq_Mpole
     elif mass_scheme == "mqmq":
         quark_masses = mass_scheme_mq_mq
+    elif mass_scheme == "mqMcharm":
+        quark_masses = mass_scheme_mcharm
+    elif mass_scheme == "mqMbottom":
+        quark_masses = mass_scheme_mbottom
+    elif mass_scheme == "mqMW":
+        quark_masses = mass_scheme_mW
+    elif mass_scheme == "mass_scheme_heracc_charm_only":
+        quark_masses = mass_scheme_heracc_charm_only
     else:
         print("BAD MASS SCHEME")
         exit()
@@ -258,6 +268,8 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
     exp_folder = "./export_hera_data/"
     # base_name = exp_folder+"exp_fwdop_qms_hera_"
     base_name = exp_folder+"ALPHA1_exp_fwdop_qms_hera_"
+    if mass_scheme == "mass_scheme_heracc_charm_only":
+        base_name += "CC_charm_only_"
     if include_dipole:
         # Simulated data and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
@@ -298,6 +310,7 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     ###################################
 
     use_unity_sigma0 = True
+    charm_only=False
 
     # #        0        1        2        3           4
     # fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
@@ -309,6 +322,7 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     ####################
     # Reading data files
     data_path = "./data/paper1/"
+    data_path_cc = "./data/paper2/"
     # dipole_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
     #     'dipole_fit_'+fitname+"_" in i]
     # print(dipole_files)
@@ -339,6 +353,13 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     #     print("Using unity sigma02 with real sigma02 = ", sigma02)
 
     hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_filtered" in i]
+
+    if qm_scheme == "mass_scheme_heracc_charm_only":
+        data_path = data_path_cc
+        charm_only=True
+        hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_CC_filtered" in i]
+        print("Discreticing for charm production data.")
+
     
     #############################################
     # Discretizing and exporting forward problems
@@ -349,26 +370,26 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
         print(xbj_bin_vals)
         for sig_file in hera_sigmar_files:
             print("Loading data file: ", sig_file)
-            data_sigmar = get_data(data_path + sig_file, simulated=False)
+            data_sigmar = get_data(data_path + sig_file, simulated=False, charm=charm_only)
             xbj_bin = float(Path(sig_file).stem.split("xbj")[1])
             print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin, mass_scheme)
             # export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
             ret = export_discrete_uniform(None, mass_scheme, xbj_bin, data_sigmar, Path(sig_file).stem, include_dipole=False, use_unity_sigma0=use_unity_sigma0)
         print("Export done with:", mass_scheme, use_real_data)
         # exit()
-    else:
-        # Simulated data
-        print("Simulated data with quark mass schemes not implemented! Exit!")
-        exit()
-        for dip_file in dipole_files:
-            xbj_bin = float(Path(dip_file).stem.split("xbj")[1])
-            data_sigmar_binned = data_sigmar[data_sigmar["xbj"]==xbj_bin]
-            if data_sigmar_binned.size==0:
-                print("NO DATA FOUND IN THIS BIN: ", xbj_bin, " in file: ", sig_file)
-                continue
-            print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
-            # export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
-            ret = export_discrete_uniform(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, use_unity_sigma0=use_unity_sigma0)
+    # else:
+    #     # Simulated data
+    #     print("Simulated data with quark mass schemes not implemented! Exit!")
+    #     exit()
+    #     for dip_file in dipole_files:
+    #         xbj_bin = float(Path(dip_file).stem.split("xbj")[1])
+    #         data_sigmar_binned = data_sigmar[data_sigmar["xbj"]==xbj_bin]
+    #         if data_sigmar_binned.size==0:
+    #             print("NO DATA FOUND IN THIS BIN: ", xbj_bin, " in file: ", sig_file)
+    #             continue
+    #         print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
+    #         # export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
+    #         ret = export_discrete_uniform(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, use_unity_sigma0=use_unity_sigma0)
         # exit()
 
     return ret
@@ -380,10 +401,14 @@ if __name__ == '__main__':
     i=0
 
     run_settings=[
-        "standard",
-        "pole",
-        "mqMpole",
-        "mqmq"
+        # "standard",
+        # "pole",
+        # "mqMpole",
+        # "mqmq",
+        # "mqMcharm",
+        # "mqMbottom",
+        # "mqMW",
+        "mass_scheme_heracc_charm_only"
     ]
 
     fitname_i = None
