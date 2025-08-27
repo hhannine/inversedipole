@@ -1,7 +1,7 @@
 from math import sqrt
 import numpy as np
 
-def get_data(file, simulated=True):
+def get_data(file, simulated=True, charm=False):
     # use for manually cut down file
     skip_to = 1
     # Data parsing
@@ -23,6 +23,14 @@ def get_data(file, simulated=True):
         ('sigmar', float),
         ('FL', float),
         ('FT', float),
+        ]
+    elif not simulated and charm:
+        dtype = [
+        ('qsq', float),
+        ('xbj', float),
+        ('y', float),
+        ('sigmar', float),
+        ('sigmarerr', float),
         ]
     else:
         dtype = [
@@ -89,7 +97,33 @@ def count_bins(arr, min=0):
 
 
 if __name__=="__main__":
-    data_sigmar = get_data("./data/hera_II_combined_sigmar.txt", simulated=False)
+    charm_only = True
+    if not charm_only:
+        data_sigmar = get_data("./data/hera_II_combined_sigmar.txt", simulated=False)
+        dtype = [
+        ('qsq', float),
+        ('xbj', float),
+        ('y', float),
+        ('sigmar', float),
+        ('sigmarerr', float),
+        # ('theory', float),
+        ('StatErrUncor', float),
+        ('tot_noproc', float),
+        ('%', float),
+        ]
+    elif charm_only:
+        data_sigmar = get_data("./data/hera_II_combined_sigmar_cc.txt", simulated=False, charm=charm_only)
+        dtype = [
+        ('qsq', float),
+        ('xbj', float),
+        ('y', float),
+        ('sigmar', float),
+        ('sigmarerr', float),
+        # ('theory', float),
+        # ('StatErrUncor', float),
+        # ('tot_noproc', float),
+        # ('%', float),
+        ]
     qsq_vals = data_sigmar["qsq"]
     y_vals = data_sigmar["y"]
     s_vals = []
@@ -101,28 +135,25 @@ if __name__=="__main__":
     s_bin = 318.1
     binned_data = []
     for datum in data_sigmar:
-        (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+        if charm_only:
+            (qsq, xbj, y, sigmar, sig_err) = datum
+        else:    
+            (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
         s = round(sqrt(qsq/(y*xbj)),1)
+        # print(s) # checking s-bins
         # if (s == s_bin) and (xbj<=1e-2):
-        if (s == s_bin) and (xbj<=1):
+        if charm_only:
+            # charm data is only at sqrt(s)=318
+            binned_data.append(datum)
+        elif (s == s_bin) and (xbj<=1):
             binned_data.append(datum)
         # s_vals.append(round(sqrt(s),1))
         # print(datum, "sqrt(s)= ", sqrt(s))
     
-    dtype = [
-        ('qsq', float),
-        ('xbj', float),
-        ('y', float),
-        ('sigmar', float),
-        ('sigmarerr', float),
-        # ('theory', float),
-        ('StatErrUncor', float),
-        ('tot_noproc', float),
-        ('%', float),
-        ]
+    
     binned_data = np.array(binned_data, dtype=dtype)
     x_vals = binned_data["xbj"].tolist()
-    selected_bins = count_bins(x_vals, 6)
+    selected_bins = count_bins(x_vals, 2)
     print(selected_bins)
     # xbj    N
     # 0.002  21
@@ -179,7 +210,10 @@ if __name__=="__main__":
     for x_bin in selected_bins:
         binned_data2_s_xbj = []
         for datum in binned_data:
-            (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+            if charm_only:
+                (qsq, xbj, y, sigmar, sig_err) = datum
+            else:
+                (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
             if xbj==x_bin:
                 binned_data2_s_xbj.append(datum)
         # print(binned_data2_s_xbj)
@@ -187,9 +221,16 @@ if __name__=="__main__":
     
     # print(binned_data2_s_xbj)
     for darr in binned_data2_s_xbj_arr:
-        outf = "heraII_filtered_s318.1_xbj"+str(darr[0]["xbj"])+".dat"
+        if charm_only:
+            outf = "heraII_CC_filtered_s318.1_xbj"+str(darr[0]["xbj"])+".dat"
+        else:
+            outf = "heraII_filtered_s318.1_xbj"+str(darr[0]["xbj"])+".dat"
         with open(outf, 'w') as f:
             print("# qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err", file=f)
             for d in darr:
-                (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = d
-                print(qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err, file=f)
+                if charm_only:
+                    (qsq, xbj, y, sigmar, sig_err) = d
+                    print(qsq, xbj, y, sigmar, sig_err, file=f)
+                else:
+                    (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = d
+                    print(qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err, file=f)
