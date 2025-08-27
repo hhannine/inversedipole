@@ -267,7 +267,7 @@ for xi = 1:length(all_xbj_bins)
 
     sigmar_principal = A*rec_dip_principal;
 
-    % TODO calculate sigmar for the comparison methods as well
+    % calculate sigmar for the comparison methods
     sigmar_tikh0 = A*rec_tikh0;
     sigmar_tikh1 = A*rec_tikh1;
     sigmar_tikh2 = A*rec_tikh2;
