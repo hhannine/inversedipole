@@ -97,7 +97,8 @@ def count_bins(arr, min=0):
 
 
 if __name__=="__main__":
-    charm_only = True
+    charm_only = False
+    # charm_only = True
     if not charm_only:
         data_sigmar = get_data("./data/hera_II_combined_sigmar.txt", simulated=False)
         dtype = [
@@ -132,105 +133,116 @@ if __name__=="__main__":
     # 300.3     112
     # 251.5     260
     # 224.9     210
-    s_bin = 318.1
-    binned_data = []
-    for datum in data_sigmar:
-        if charm_only:
-            (qsq, xbj, y, sigmar, sig_err) = datum
-        else:    
+    # s_bin = 318.1
+    if not charm_only:
+        for datum in data_sigmar:
             (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
-        s = round(sqrt(qsq/(y*xbj)),1)
-        # print(s) # checking s-bins
-        # if (s == s_bin) and (xbj<=1e-2):
-        if charm_only:
-            # charm data is only at sqrt(s)=318
-            binned_data.append(datum)
-        elif (s == s_bin) and (xbj<=1):
-            binned_data.append(datum)
-        # s_vals.append(round(sqrt(s),1))
-        # print(datum, "sqrt(s)= ", sqrt(s))
-    
-    
-    binned_data = np.array(binned_data, dtype=dtype)
-    x_vals = binned_data["xbj"].tolist()
-    selected_bins = count_bins(x_vals, 2)
-    print(selected_bins)
-    # xbj    N
-    # 0.002  21
-    # 0.0032 24
-    # 0.005  24
-    # 0.008  23
-    # 0.013  30
-    # 0.02   35
-    # 0.032  33
-    # 0.05   30
-    # 0.08   30
-    # 0.13   31
-    # 0.18   33
-    # 0.25   31
-    # 0.4    33
+            sqrt_s = round(sqrt(qsq/(y*xbj)),1)
+            s_vals.append(sqrt_s)
+        s_bins = count_bins(s_vals)
+    else:
+        s_bins = [318] # charm data is rounded
 
-    # xbj    Npoints  -- limiting to xbj <= 1e-2
-    # 0.0008 19
-    # 0.0013 18
-    # 0.002  21
-    # 0.0032 24
-    # 0.005  24
-    # 0.008  23
-    # 0.00013 8
-    # 0.0005 15
-    # 0.0002  9
-    # 0.00032 11
-
-    # no limits, all bins with >= 6 points
-    # 0.0008 19
-    # 0.0013 18
-    # 0.002 21
-    # 0.0032 24
-    # 0.005 24
-    # 0.008 23
-    # 0.013 30
-    # 0.02 35
-    # 0.032 33
-    # 0.05 30
-    # 0.08 30
-    # 0.13 31
-    # 0.18 33
-    # 0.25 31
-    # 0.4 33
-    # 0.65 23
-    # 0.00013 8
-    # 0.0005 15
-    # 0.0002 9
-    # 0.00032 11
-    # [0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25, 0.4, 0.65, 0.00013, 0.0005, 0.0002, 0.00032]
-
-    # x_bin = 0.013
-    binned_data2_s_xbj_arr = []
-    for x_bin in selected_bins:
-        binned_data2_s_xbj = []
-        for datum in binned_data:
+    binned_data_for_all_sqrts = []
+    for s_bin in s_bins:
+        binned_data = []
+        for datum in data_sigmar:
             if charm_only:
                 (qsq, xbj, y, sigmar, sig_err) = datum
-            else:
+            else:    
                 (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
-            if xbj==x_bin:
-                binned_data2_s_xbj.append(datum)
-        # print(binned_data2_s_xbj)
-        binned_data2_s_xbj_arr.append(binned_data2_s_xbj)
-    
-    # print(binned_data2_s_xbj)
-    for darr in binned_data2_s_xbj_arr:
-        if charm_only:
-            outf = "heraII_CC_filtered_s318.1_xbj"+str(darr[0]["xbj"])+".dat"
-        else:
-            outf = "heraII_filtered_s318.1_xbj"+str(darr[0]["xbj"])+".dat"
-        with open(outf, 'w') as f:
-            print("# qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err", file=f)
-            for d in darr:
+            sqrt_s = round(sqrt(qsq/(y*xbj)),1)
+            # print(s) # checking s-bins
+            # if (s == s_bin) and (xbj<=1e-2):
+            # if charm_only:
+            #     # charm data is only at sqrt(s)=318
+            #     binned_data.append(datum)
+            if (sqrt_s == s_bin) and (xbj<=1):
+                binned_data.append(datum)
+        binned_data_for_all_sqrts.append((s_bin, binned_data))
+
+
+    for s_bin, binned_data in binned_data_for_all_sqrts:
+        binned_data = np.array(binned_data, dtype=dtype)
+        x_vals = binned_data["xbj"].tolist()
+        selected_bins = count_bins(x_vals, 5)
+        print(selected_bins)
+        # xbj    N
+        # 0.002  21
+        # 0.0032 24
+        # 0.005  24
+        # 0.008  23
+        # 0.013  30
+        # 0.02   35
+        # 0.032  33
+        # 0.05   30
+        # 0.08   30
+        # 0.13   31
+        # 0.18   33
+        # 0.25   31
+        # 0.4    33
+
+        # xbj    Npoints  -- limiting to xbj <= 1e-2
+        # 0.0008 19
+        # 0.0013 18
+        # 0.002  21
+        # 0.0032 24
+        # 0.005  24
+        # 0.008  23
+        # 0.00013 8
+        # 0.0005 15
+        # 0.0002  9
+        # 0.00032 11
+
+        # no limits, all bins with >= 6 points
+        # 0.0008 19
+        # 0.0013 18
+        # 0.002 21
+        # 0.0032 24
+        # 0.005 24
+        # 0.008 23
+        # 0.013 30
+        # 0.02 35
+        # 0.032 33
+        # 0.05 30
+        # 0.08 30
+        # 0.13 31
+        # 0.18 33
+        # 0.25 31
+        # 0.4 33
+        # 0.65 23
+        # 0.00013 8
+        # 0.0005 15
+        # 0.0002 9
+        # 0.00032 11
+        # [0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25, 0.4, 0.65, 0.00013, 0.0005, 0.0002, 0.00032]
+
+        # x_bin = 0.013
+        binned_data2_s_xbj_arr = []
+        for x_bin in selected_bins:
+            binned_data2_s_xbj = []
+            for datum in binned_data:
                 if charm_only:
-                    (qsq, xbj, y, sigmar, sig_err) = d
-                    print(qsq, xbj, y, sigmar, sig_err, file=f)
+                    (qsq, xbj, y, sigmar, sig_err) = datum
                 else:
-                    (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = d
-                    print(qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err, file=f)
+                    (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+                if xbj==x_bin:
+                    binned_data2_s_xbj.append(datum)
+            # print(binned_data2_s_xbj)
+            binned_data2_s_xbj_arr.append(binned_data2_s_xbj)
+        
+        # print(binned_data2_s_xbj)
+        for darr in binned_data2_s_xbj_arr:
+            if charm_only:
+                outf = "heraII_CC_filtered_s"+str(s_bin)+"_xbj"+str(darr[0]["xbj"])+".dat"
+            else:
+                outf = "heraII_filtered_s"+str(s_bin)+"_xbj"+str(darr[0]["xbj"])+".dat"
+            with open(outf, 'w') as f:
+                print("# qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err", file=f)
+                for d in darr:
+                    if charm_only:
+                        (qsq, xbj, y, sigmar, sig_err) = d
+                        print(qsq, xbj, y, sigmar, sig_err, file=f)
+                    else:
+                        (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = d
+                        print(qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err, file=f)
