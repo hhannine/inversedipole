@@ -85,7 +85,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     str_fit = fitname
     str_flavor = "lightonly_"
     # name_base = 'recon_gausserr_v4-2'
-    name_base = 'recon_gausserr_v4-4r256_'
+    # name_base = 'recon_gausserr_v4-4r256_'
+    name_base = 'recon_gausserr_chifit_v5r256_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -94,8 +95,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     if use_noise:
         name_base = 'recon_with_noise_out_'
     
-    lambda_type = "broad_"
-    # lambda_type = "semiconstrained_"
+    # lambda_type = "broad_"
+    lambda_type = "chifit_"
     # lambda_type = "fixed_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
     print(composite_fname)
@@ -141,11 +142,6 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     if use_real_data:
         b_hera = [dat["b_hera"] for dat in data_list]
         b_err = [dat["b_errs"] for dat in data_list]
-        # dip_rec_from_b_plus_err = [dat["N_reconst_from_b_plus_err"] for dat in data_list]
-        # dip_rec_from_b_minus_err = [dat["N_reconst_from_b_minus_err"] for dat in data_list]
-        # b_plus_err_from_reconst = [dat["b_plus_err_from_reconst"] for dat in data_list]
-        # b_minus_err_from_reconst = [dat["b_minus_err_from_reconst"] for dat in data_list]    
-
 
     # PROPER PLOTS
     # 1. reconstruction from simulated data (light only)
@@ -239,7 +235,9 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     
     uncert_col = Patch(facecolor="black", alpha=0.3)
     line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="black")
-    data_square = Line2D([], [], color='black', marker=mstyle, linestyle='None', markersize=ms)
+    data_square = Line2D([], [], color='black', marker="s", linestyle='None', markersize=6)
+    data_bar = Line2D([], [], color='black', marker='|', linestyle='None', markersize=18)
+
 
     if use_real_data:
         # Now we want to plot the HERA data POINTS, not a fit curve
@@ -270,7 +268,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     else:
         # Plotting sigma_r from fit as a curve
         manual_handles = [
-                    line_fit0, 
+                    # line_fit0,
+                    (data_square, data_bar),
                     (line_rec, uncert_col),
                     uncert_col0,
                     uncert_col1,
@@ -279,7 +278,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
                     uncert_col4,
         ]
         manual_labels = [
-            r'${\sigma_r ~ \mathrm{from ~ fit}}$',
+            r'${\sigma_r ~ \mathrm{from ~ fit}, ~ 1\% ~ \mathrm{rel. ~ error}}$',
             r'${\sigma_r ~ \mathrm{from ~ reconstructed ~ dipole}\, \pm \, 95\% \, \mathrm{C.I.}}$',
             # r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
         ]
@@ -301,16 +300,23 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     for i, (b_data, b_rec) in enumerate(zip(binned_b_cpp_sim, binned_b_rec)):
         x_srted, b_data = zip(*sorted(zip(xvar[i], b_data)))
         x_srted, b_rec = zip(*sorted(zip(xvar[i], b_rec)))
-        # x_srted, b_rec_up = zip(*sorted(zip(xvar[i], binned_b_rec_up[i])))
-        # x_srted, b_rec_dn = zip(*sorted(zip(xvar[i], binned_b_rec_dn[i])))
+        b_data = np.array(b_data)[:,0]
+        print(b_data.shape)
+        errs = 0.01*b_data
         ax.plot(x_srted, b_data,
                 label="Fit sigma",
-                linestyle=":",
-                linewidth=lw*1.,
+                linestyle="",
+                # linewidth=lw*1.,
+                marker="s",
+                markersize=1,
                 # color=colors[2*i]
                 color="black"
                 )
-        # ax.plot(xvar[i], scalings[i%3]*b_rec+additives[i%3],
+        ax.errorbar(x_srted, b_data, yerr=errs,
+                        linestyle="",
+                        errorevery=10,
+                        color="black", 
+                )
         ax.plot(x_srted, b_rec,
                 label="Reconstuction sigma",
                 linestyle="-",
@@ -352,6 +358,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
             ax.errorbar(x_srted, b_hera, yerr=b_err,
                         linestyle="",
                         color=colors[2*i+1],
+                        # errorevery=10
                 )
 
     ################## SHADING
@@ -369,8 +376,8 @@ def main(use_charm=False, real_data=False, fitname_i=None):
         b_rec_dn = np.array(b_rec_dn)[:,0]
         b_rec_95_up = np.array(b_rec_95_up)[:,0]
         b_rec_95_dn = np.array(b_rec_95_dn)[:,0]
-        ax.fill_between(x_srted, b_rec_dn, b_rec_up, color=colors[2*i+1], alpha=0.2)
-        ax.fill_between(x_srted, b_rec_95_dn, b_rec_95_up, color=colors[2*i+1], alpha=0.1)
+        ax.fill_between(x_srted, b_rec_dn, b_rec_up, color=colors[2*i+1], alpha=0.4)
+        ax.fill_between(x_srted, b_rec_95_dn, b_rec_95_up, color=colors[2*i+1], alpha=0.3)
         # ax.fill_between(x_srted, 1.01*rec_sig, 0.99*rec_sig, color=colors[2*i], alpha=0.4)
         # i+=1
 

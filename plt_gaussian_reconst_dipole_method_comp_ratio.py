@@ -444,7 +444,7 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
         exit()
 
     write2file = False
-    write2file = True
+    # write2file = True
     plt.tight_layout()
     if write2file:
         mpl.use('agg') # if writing to PDF

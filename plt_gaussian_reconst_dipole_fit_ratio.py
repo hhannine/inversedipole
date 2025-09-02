@@ -90,7 +90,8 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     str_flavor = "lightonly_"
     # name_base = 'recon_gausserr_v4-2'
     # name_base = 'recon_gausserr_v4-2r500_'
-    name_base = 'recon_gausserr_v4-4r256_'
+    # name_base = 'recon_gausserr_v4-4r256_'
+    name_base = 'recon_gausserr_chifit_v5r256_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -100,6 +101,7 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
         name_base = 'recon_with_noise_out_'
     
     lambda_type = "broad_"
+    lambda_type = "chifit_"
     # lambda_type = "semiconstrained_"
     # lambda_type = "semicon2_"
     # lambda_type = "fixed_"
@@ -138,6 +140,8 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
 
     dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    dip_data_rec_noisless = np.array([dat["N_rec_principal_noiseless"] for dat in data_list])
+    dip_data_rec_ptw_mean = np.array([dat["N_rec_ptw_mean"] for dat in data_list])
     dip_data_rec_CI682_up = np.array([dat["N_rec_CI682_up"] for dat in data_list])
     dip_data_rec_CI682_dn = np.array([dat["N_rec_CI682_dn"] for dat in data_list])
     dip_data_rec_CI95_up = np.array([dat["N_rec_CI95_up"] for dat in data_list])
@@ -145,6 +149,8 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
 
     dip_data_fit2 = np.array([dat["N_fit"] for dat in data_list2]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec2 = np.array([dat["N_reconst"] for dat in data_list2]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    dip_data_rec_noisless2 = np.array([dat["N_rec_principal_noiseless"] for dat in data_list2])
+    dip_data_rec_ptw_mean2 = np.array([dat["N_rec_ptw_mean"] for dat in data_list2])
     dip_data_rec_CI682_up2 = np.array([dat["N_rec_CI682_up"] for dat in data_list2])
     dip_data_rec_CI682_dn2 = np.array([dat["N_rec_CI682_dn"] for dat in data_list2])
     dip_data_rec_CI95_up2 = np.array([dat["N_rec_CI95_up"] for dat in data_list2])
@@ -201,6 +207,10 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     binned_dip_data_rec_CI95_up2 = [dip_data_rec_CI95_up2[i].T for i in plt1_xbj_bins]
     binned_dip_data_rec_CI95_dn2 = [dip_data_rec_CI95_dn2[i].T for i in plt1_xbj_bins]
     binned_b_cpp_sim = [b_cpp_sim[i] for i in plt1_xbj_bins]
+    binned_dip_data_rec_noiseless = [dip_data_rec_noisless[i] for i in plt1_xbj_bins]
+    binned_dip_data_rec_ptw_mean = [dip_data_rec_ptw_mean[i] for i in plt1_xbj_bins]
+    binned_dip_data_rec_noiseless2 = [dip_data_rec_noisless2[i] for i in plt1_xbj_bins]
+    binned_dip_data_rec_ptw_mean2 = [dip_data_rec_ptw_mean2[i] for i in plt1_xbj_bins]
 
 
     fig = plt.figure()
@@ -209,11 +219,8 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     else:
         gs = fig.add_gridspec(1, 3, hspace=0, wspace=0)
     axs = gs.subplots(sharex=True, sharey=True)
-    # ax = plt.gca()
     fs_labels = 18
     
-    # use_log = True
-    # use_log = False
     for ax in axs.flatten():
         ax.tick_params(which='major',width=1,length=6,labelsize=18)
         ax.tick_params(which='minor',width=0.7,length=4,labelsize=18)
@@ -256,19 +263,15 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
         # additives = [0, 2, 4]
         additives = [0, 0, 0]
     colors = ["violet", "green", "brown", "orange", "magenta", "red"]
-    lw=3
+    lw=2.5
     ms=4
     mstyle = "o"
     color_alph = 1
-    shade_alph_closer = 0.18
-    shade_alph_further = 0.08
+    shade_alph_closer = 0.13
+    shade_alph_further = 0.05
     mpl.rcParams["font.size"] = 13
     mpl.rcParams["legend.fontsize"] = 13
 
-    # if fitname_i==3:
-    #     col_i = 1
-    # elif fitname_i==4:
-    #     col_i = 3
     col_i = 0
     # col_fit = "red"
     col_fit = "black"
@@ -280,15 +283,16 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw/1.5, color=col_fit)
     
     uncert_col = Patch(facecolor=colors[col_i], alpha=0.3)
-    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/1.5, color=colors[col_i])
-    line_rec_bplus = Line2D([0,1],[0,1],linestyle='-.',linewidth=lw/3, color="black")
-    line_rec_bminus = Line2D([0,1],[0,1],linestyle=':',linewidth=lw/3, color="black")
-
+    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/1.5, color="blue")
+    line_rec_ptw_mean = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[col_i])
+    line_rec_nless = Line2D([0,1],[0,1],linestyle='--',linewidth=lw/2, color=colors[5])
 
     if wide:
             manual_handles = [
                         line_fit0,
-                        (line_rec, uncert_col),
+                        line_rec,
+                        (line_rec_ptw_mean, uncert_col),
+                        line_rec_nless,
                         uncert_col0, uncert_col0b,
                         uncert_col1,
                         uncert_col2,]
@@ -301,6 +305,8 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
         manual_labels = [
             r'${\frac{N^{\mathrm{5-param.}}_{\mathrm{fit}}}{N^{\mathrm{4-param.}}_{\mathrm{fit}}}}$',
             r'${\frac{N^{\mathrm{5-param.}}_{\mathrm{rec.}}}{N^{\mathrm{4-param.}}_{\mathrm{rec.}}}}$',
+            r'${\frac{N^{\mathrm{5-param.}}_{\mathrm{mean}}}{N^{\mathrm{4-param.}}_{\mathrm{mean}}}}$',
+            r'${\frac{N^{\mathrm{5-param.}}_{\mathrm{noiseless}}}{N^{\mathrm{4-param.}}_{\mathrm{noiseless}}}}$',
             r'${68 \% \, \mathrm{C.I.}}$',
             r'${95 \% \, \mathrm{C.I.}}$',
         ]
@@ -335,7 +341,7 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
                     label="ratio",
                     linestyle="-",
                     linewidth=lw/1.5,
-                    color=colors[col_i],
+                    color="blue",
                     alpha=1
                     )
             ax.plot(xvar, (real_sigma2*dip_fit2[0])/(real_sigma*dip_fit[0]),
@@ -345,14 +351,34 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
                     color=col_fit,
                     alpha=1
                     )
+            rec_dip1_mean = binned_dip_data_rec_ptw_mean[i].T[0]
+            rec_dip2_mean = binned_dip_data_rec_ptw_mean2[i].T[0]
+            rec_dip1_noiseless = binned_dip_data_rec_noiseless[i].T[0]
+            rec_dip2_noiseless = binned_dip_data_rec_noiseless2[i].T[0]
+            ax.plot(xvar, rec_dip2_mean/rec_dip1_mean,
+                    label="ratio",
+                    linestyle="-",
+                    linewidth=lw/1.5,
+                    color=colors[col_i],
+                    alpha=1
+                    )
+            ax.plot(xvar, rec_dip2_noiseless/rec_dip1_noiseless,
+                    label="ratio",
+                    linestyle="--",
+                    linewidth=lw/1.5,
+                    color="red",
+                    alpha=1
+                    )
 
 
     ################## SHADING        
     # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
     if wide==True:
         for i, (rec_up, rec_dn) in enumerate(zip(binned_dip_data_rec_std_up, binned_dip_data_rec_std_dn)):
-            rec_dip1 = binned_dip_data_rec[i][:,0]
-            rec_dip2 = binned_dip_data_rec2[i][:,0]
+            # rec_dip1 = binned_dip_data_rec[i][:,0]
+            # rec_dip2 = binned_dip_data_rec2[i][:,0]
+            rec_dip1 = binned_dip_data_rec_ptw_mean[i][:,0]
+            rec_dip2 = binned_dip_data_rec_ptw_mean2[i][:,0]
             ratio21 = rec_dip2/rec_dip1
             ref_fit = real_sigma*binned_dip_data_fit[i][0]
             ref_fit2 = real_sigma2*binned_dip_data_fit2[i][0]
@@ -380,11 +406,15 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     if big_bins:
         leg = axs.flatten()[5].legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="lower right") 
     elif PLOT_TYPE == "ratio":
-        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=22, ncol=1, loc="upper right") 
+        # n_plot=0
+        n_plot=2
+        # leg = axs.flatten()[n_plot].legend(manual_handles, manual_labels, frameon=True, framealpha=0.4, fontsize=16, handlelength=1.2, ncol=2, columnspacing=1, loc="upper right") 
+        leg = ax.legend(manual_handles, manual_labels, frameon=True, framealpha=0.4, fontsize=20, handlelength=1.2, ncol=1, columnspacing=1, loc="center left", bbox_to_anchor=(1, 0.5)) 
     
     h_align = 'left'
     if wide==True:
-        x_crd = 0.05
+        h_align = 'right'
+        x_crd = 0.98
         y_crd = 0.98
     elif wide==False:
         h_align = 'right'
@@ -424,7 +454,8 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     use_wide_view = wide
     if use_wide_view == True:
         plt.xlim(0.05, 25)
-        plt.ylim(bottom=0.25, top=2)
+        # plt.ylim(bottom=0.25, top=2)
+        plt.ylim(bottom=0.8, top=1.2)
     else:
         plt.xlim(0.05, 25)
         plt.ylim(bottom=0.985, top=1.065)
@@ -485,8 +516,8 @@ log=False
 big=False
 ratio=True
 
-main(use_charm=False,real_data=False, use_log=log, big_bins=big, ratio=ratio, wide=False)
-# main(use_charm=False,real_data=False, use_log=log, big_bins=big, ratio=ratio, wide=True)
+# main(use_charm=False,real_data=False, use_log=log, big_bins=big, ratio=ratio, wide=False)
+main(use_charm=False,real_data=False, use_log=log, big_bins=big, ratio=ratio, wide=True)
 # main(use_charm=True,real_data=False, use_log=log, big_bins=big, ratio=ratio)
 
 # Production plotting

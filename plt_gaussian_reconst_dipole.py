@@ -92,7 +92,8 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
     str_flavor = "lightonly_"
     # name_base = 'recon_gausserr_v4-2'
     # name_base = 'recon_gausserr_v4-2r500_'
-    name_base = 'recon_gausserr_v4-4r256_'
+    # name_base = 'recon_gausserr_v4-4r256_' # pricipal reconstruction
+    name_base = 'recon_gausserr_chifit_v5r256_'
     if use_charm:
         str_flavor = "lightpluscharm_"
     if use_real_data:
@@ -101,10 +102,8 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
     if use_noise:
         name_base = 'recon_with_noise_out_'
     
-    lambda_type = "broad_"
-    # lambda_type = "semiconstrained_"
-    # lambda_type = "semicon2_"
-    # lambda_type = "fixed_"
+    # lambda_type = "broad_"
+    lambda_type = "chifit_"
     composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
     print(composite_fname)
 
@@ -136,6 +135,8 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
 
     dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
     dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    dip_data_rec_noisless = np.array([dat["N_rec_principal_noiseless"] for dat in data_list])
+    dip_data_rec_ptw_mean = np.array([dat["N_rec_ptw_mean"] for dat in data_list])
     dip_data_rec_CI682_up = np.array([dat["N_rec_CI682_up"] for dat in data_list])
     dip_data_rec_CI682_dn = np.array([dat["N_rec_CI682_dn"] for dat in data_list])
     dip_data_rec_CI95_up = np.array([dat["N_rec_CI95_up"] for dat in data_list])
@@ -173,10 +174,6 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
         if big_bins:
             plt1_xbj_bins = [xbj_bins.index(1e-2), xbj_bins.index(5e-3), xbj_bins.index(1e-3), 
                              xbj_bins.index(8e-4), xbj_bins.index(1.3e-4),xbj_bins.index(1e-5)]
-        # plt1_xbj_bins = [xbj_bins.index(1e-2)]
-        # plt1_xbj_bins = [xbj_bins.index(8e-3)]
-        # plt1_xbj_bins = [xbj_bins.index(1e-4)]
-        # plt1_xbj_bins = [xbj_bins.index(1e-5)]
     else:
         if alt_bins:
             plt1_xbj_bins = [xbj_bins.index(8e-2), xbj_bins.index(5e-2), xbj_bins.index(8e-3)]
@@ -197,6 +194,8 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
         exit()
     binned_dip_data_fit = [dip_data_fit[i] for i in plt1_xbj_bins]
     binned_dip_data_rec = [dip_data_rec[i] for i in plt1_xbj_bins]
+    binned_dip_data_rec_noiseless = [dip_data_rec_noisless[i] for i in plt1_xbj_bins]
+    binned_dip_data_rec_ptw_mean = [dip_data_rec_ptw_mean[i] for i in plt1_xbj_bins]
     binned_dip_data_rec_std_up = [dip_data_rec_CI682_up[i].T for i in plt1_xbj_bins]
     binned_dip_data_rec_std_dn = [dip_data_rec_CI682_dn[i].T for i in plt1_xbj_bins]
     binned_dip_data_rec_CI95_up = [dip_data_rec_CI95_up[i].T for i in plt1_xbj_bins]
@@ -279,27 +278,34 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
     line_fit0 = Line2D([0,1],[0,1],linestyle=':',linewidth=lw, color="black")
     
     uncert_col = Patch(facecolor=colors[col_i], alpha=0.3)
-    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[col_i])
-    line_rec_bplus = Line2D([0,1],[0,1],linestyle='-.',linewidth=lw/3, color="black")
-    line_rec_bminus = Line2D([0,1],[0,1],linestyle=':',linewidth=lw/3, color="black")
+    line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[0])
+    line_rec_ptw_mean = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[col_i])
+    line_rec_nless = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color=colors[5])
+
 
     if use_real_data:
         manual_handles = [line_fit0, (line_rec, uncert_col),
-                        line_rec_bplus, line_rec_bminus,
                         uncert_col0,
                         uncert_col1,
                         uncert_col2,]
     else:
         if PLOT_TYPE == "ratio":
-            manual_handles = [(line_rec, uncert_col),
+            manual_handles = [
+                        line_rec,
+                        (line_rec_ptw_mean, uncert_col),
+                        line_rec_nless,
                         uncert_col0, uncert_col0b,
                         uncert_col1,
                         uncert_col2,]
         else:
-            manual_handles = [line_fit0, (line_rec, uncert_col),
-                        uncert_col0, uncert_col0b,
-                        uncert_col1,
-                        uncert_col2,]
+            manual_handles = [
+                            line_fit0,
+                            line_rec,
+                            (line_rec_ptw_mean, uncert_col),
+                            line_rec_nless,
+                            uncert_col0, uncert_col0b,
+                            uncert_col1,
+                            uncert_col2,]
 
     if use_real_data:
         manual_labels = [
@@ -312,13 +318,18 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
         if PLOT_TYPE == "ratio":
             manual_labels = [
                 r'${\frac{N_{\mathrm{rec.}}}{N_{\mathrm{fit}}}}$',
+                r'${\frac{N_{\mathrm{rec.}}^\mathrm{mean}}{N_{\mathrm{fit}}}}$',
+                r'${\frac{N_{\mathrm{rec.}}^\mathrm{noiseless}}{N_{\mathrm{fit}}}}$',
                 r'${68 \% \, \mathrm{C.I.}}$',
                 r'${95 \% \, \mathrm{C.I.}}$',
             ]
         else:
             manual_labels = [
                 r'${\mathrm{Fit ~ dipole}}$',
-                r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \mathrm{C.I.}}$',
+                # r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \mathrm{C.I.}}$',
+                r'${\mathrm{Reconstructed ~ dipole}}$',
+                r'${\mathrm{Reconstruction ~ mean}\, \pm \, \mathrm{C.I.}}$',
+                r'${\mathrm{Noiseless ~ reconstruction}}$',
                 r'${68 \% \, \mathrm{C.I.}}$',
                 r'${95 \% \, \mathrm{C.I.}}$',
             ]
@@ -344,7 +355,24 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
                     label="ratio",
                     linestyle="-",
                     linewidth=lw/2.5,
+                    # color=colors[col_i],
+                    color=colors[0],
+                    alpha=1
+                    )
+            dip_ptw_mean = binned_dip_data_rec_ptw_mean[i].T[0]
+            ax.plot(xvar, dip_ptw_mean/(real_sigma*dip_fit[0]),
+                    label="ratio",
+                    linestyle="-",
+                    linewidth=lw/2.5,
                     color=colors[col_i],
+                    alpha=1
+                    )
+            dip_nless = binned_dip_data_rec_noiseless[i].T[0]
+            ax.plot(xvar, dip_nless/(real_sigma*dip_fit[0]),
+                    label="ratio",
+                    linestyle="-",
+                    linewidth=lw/2.5,
+                    color=colors[5],
                     alpha=1
                     )
         else:
@@ -357,12 +385,30 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
                     color="black"
                     )
             dip_rec_del = dip_rec.T[0]
-            dip_rec_del[dip_rec_del < 0] = np.nan
+            if use_log:
+                dip_rec_del[dip_rec_del < 0] = np.nan
             ax.plot(xvar, gev_to_mb*scalings[i%3]*dip_rec_del+additives[i%3],
                     label="Reconstuction of fit dipole",
                     linestyle="-",
                     linewidth=lw/2.5,
+                    # color=colors[col_i],
+                    color=colors[0],
+                    alpha=1
+                    )
+            dip_ptw_mean = binned_dip_data_rec_ptw_mean[i]
+            ax.plot(xvar, gev_to_mb*scalings[i%3]*dip_ptw_mean+additives[i%3],
+                    label="Reconstuction of fit dipole",
+                    linestyle="-",
+                    linewidth=lw/2.5,
                     color=colors[col_i],
+                    alpha=1
+                    )
+            dip_nless = binned_dip_data_rec_noiseless[i].T[0]
+            ax.plot(xvar, gev_to_mb*scalings[i%3]*dip_nless+additives[i%3],
+                    label="Reconstuction of fit dipole",
+                    linestyle="-",
+                    linewidth=lw/2.5,
+                    color=colors[5],
                     alpha=1
                     )
         # if use_real_data:
@@ -411,15 +457,17 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
             ax.fill_between(xvar, gev_to_mb*scalings[i%3]*rec_CI95_dn+additives[i%3], gev_to_mb*scalings[i%3]*rec_CI95_up+additives[i%3], color=colors[col_i], alpha=shade_alph_further)
 
     if big_bins:
-        leg = axs.flatten()[5].legend(manual_handles, manual_labels, frameon=False, fontsize=14, ncol=1, loc="lower right") 
+        leg = axs.flatten()[5].legend(manual_handles, manual_labels, frameon=False, fontsize=13, handlelength=1.2, ncol=1, loc="lower right") 
     elif PLOT_TYPE == "ratio":
-        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=16, ncol=1, loc="upper right") 
+        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=True, framealpha=0.4, fontsize=16, handlelength=1.2, ncol=2, columnspacing=1, loc="upper right") 
     else:
-        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=13, ncol=1, loc="upper left") 
+        leg = axs.flatten()[0].legend(manual_handles, manual_labels, frameon=False, fontsize=13, handlelength=1.2, ncol=1, loc="upper left") 
     
     h_align = 'left'
     if PLOT_TYPE == "ratio":
-        x_crd = 0.05
+        h_align = 'right'
+        # x_crd = 0.05
+        x_crd = 0.98
         y_crd = 0.14
     elif use_log == False:
         h_align = 'right'
