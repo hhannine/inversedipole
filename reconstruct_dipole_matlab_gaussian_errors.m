@@ -23,42 +23,29 @@ fitname = fits(4);
 
 %%% simulated data settings
 use_real_data = false;
-% use_charm = false;
+use_charm = false;
 use_charm = true;
-
-%%% real data settings
-% use_real_data = true; TODO NEED TO REDO THE ERROR STUFF FOR REAL ERRORS
-% use_charm = false;
-% use_charm = true;
 
 %%% Lambda options for production
 % lambda_type = "fixed";
-lambda_type = "broad"; % for simulated data
-
-
-%%% All lambda options
-% lambda_type = "broad";
-% lambda_type = "semiconstrained";
-% lambda_type = "semicon2";
-% lambda_type = "fixed";
-% lambda_type = "semifix";
-% lambda_type = "old";
+% lambda_type = "broad"; % for simulated data
+lambda_type = "chifit"; % for simulated data
 
 if lambda_type == "broad"
     % lam1 = 1:9;
     lam1 = 1:0.5:9.5;
-    % lam1 = 2:2:10;
-    % lambda = [lam1*1e-7, lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [lam1*1e-6, lam1*1e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
-    % lambda = [9e-5, lam1*1e-4, lam1*1e-3, lam1*1e-2];
     % lambda = [lam1*1e-4, lam1*1e-3];
     % lambda = [lam1*1e-4, lam1*1e-3, lam1*1e-2]; % This is quite good and wide for 1st order Tikh!
     % lambda = [lam1*2e-4, lam1*1e-3, lam1*1e-2]; % THIS WAS VERY GOOD FOR 256 r steps!
-    lambda = [lam1*5e-4, lam1*1e-3, lam1*1e-2] % min-maxing errors
-    % lambda = [lam1*6e-4, lam1*1e-3, lam1*1e-2] % min-maxing errors
-    % lambda = [lam1*2e-4, lam1*1e-3]
+    lambda = [lam1*5e-4, lam1*1e-3, lam1*1e-2]; % min-maxing errors
+    % lambda = [lam1*6e-4, lam1*1e-3, lam1*1e-2]; % min-maxing errors
+    % lambda = [lam1*2e-4, lam1*1e-3];
     % lambda = [lam1*1e-3, lam1*1e-2]; % too coarse for 500 and 256 sim data
     % lambda = [lam1*1e-5];
+elseif lambda_type == "chifit"
+    lam1 = 1:0.1:9.9;
+    % lambda = [lam1*5e-3, lam1*1e-2, lam1*1e-1]; % from real data implem. Not flexible enough?
+    lambda = [lam1*5e-4, lam1*1e-3, lam1*1e-2];
 elseif lambda_type == "semiconstrained"
     lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
 elseif lambda_type == "semicon2"
@@ -90,8 +77,6 @@ if use_real_data
 end
 
 % load forward operator file
-% data_path = './exports/';
-% data_path = './exports_unitysigma/';
 data_path = './export_fwd_IUSinterp_fix/';
 data_files = dir(fullfile(data_path,'*.mat'));
 sim_type = "simulated";
@@ -162,64 +147,57 @@ for xi = 1:length(all_xbj_bins)
 
     b_hera = [];
     b_errs = [];
-    if use_real_data
-        b_hera = sigmar_vals';
-        b_errs = sigmar_errs'; % THIS IS NEEDED TO DO THE DATA \pm error reconstructions!
-        % only do best reconst to b_err_upper and b_err_lower
-    end
     
     % Simulating Gaussian 1% errors, and sampling datasets 
-    
-    % sample a dataset (b_gen_err_sampled) with 1% normal distrib error
     eta = 0.01;
     rng(69,"twister");
-    % b_gen_err_sampled = b_data + eta.*b_data.*randn(length(b),1)
-    % b_gen_err_sampled2 = b_data + eta.*b_data.*randn(length(b),1)
-    % b_gen_err_sampled./b_gen_err_sampled2 % works! These are different.
 
-    
-    %%
     N=length(x);
     [L1,W1]=get_l(N,1);
     [L2,W2]=get_l(N,2);
     
-    % classical 0th order tikhonov
-    % [U,s,V] = csvd(A);
-    % [UU,sm,XX] = csvd(A);
-    
     % first order derivative operator
     [UU,sm,XX] = cgsvd(A,L1);
-    
-    % second order derivative operator
-    % [UU2,sm2,XX2] = cgsvd(A,L2);
-    % [UU,sm,XX] = cgsvd(A,L2);
 
-
-    % principal reconstruction to actual data points
-    X_tikh_principal = tikhonov(UU,sm,XX,b_data,lambda);
-    errtik_p = zeros(size(lambda));
-    % eps_neg_penalty=4e-3;
-    eps_neg_penalty=1e-3; % this or 1e-4 is quite good for the simulated data with rsteps=256
-    % 1e-4 stops x=0.01 getting good reconstruction at large r!
-    % eps_neg_penalty=1e-7; % this doesn't ruin the rec at 0.01, but does it help either?
-    % eps_neg_penalty=0;
-    for i = 1:length(lambda)
-        % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + all_xbj_bins(xi)*1e0*exp(-10*min(X_tikh_principal(:,i))); % add penalty for negative minimum
-        % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data);
-        errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + eps_neg_penalty*(1-sign(min(X_tikh_principal(:,i)))); % This is perhaps too strong penalty?
+    if lambda_type=="chifit"
+        % chifit testing
+        % principal reconstruction to NOISY data points
+        err = eta.*b_data.*randn(length(b_data),1);
+        b = b_data + err;
+        X_tikh_principal_noiseless = tikhonov(UU,sm,XX,b_data,lambda);
+        X_tikh_principal = tikhonov(UU,sm,XX,b,lambda);
+        errtik_p_noiseless = zeros(size(lambda));
+        errtik_p = zeros(size(lambda));
+        eps_neg_penalty=1e-3; % this or 1e-4 is quite good for the simulated data with rsteps=256
+        for i = 1:length(lambda)
+            errtik_p_noiseless(i) = norm((b_data-A*X_tikh_principal_noiseless(:,i)))/norm(b_data) + eps_neg_penalty*(1-sign(min(X_tikh_principal_noiseless(:,i)))); % This is perhaps too strong penalty?
+            chisq_v = (A*X_tikh_principal(:,i) - b).^2 ./ (eta.*b).^2;
+            errtik_p(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - 1.00);
+        end
+        [mp_nless,mIp_nless]=min(errtik_p_noiseless);
+        rec_dip_principal_noiseless = X_tikh_principal_noiseless(:,mIp_nless);
+    else
+        % principal reconstruction to actual data points
+        X_tikh_principal = tikhonov(UU,sm,XX,b_data,lambda);
+        errtik_p = zeros(size(lambda));
+        % eps_neg_penalty=4e-3;
+        eps_neg_penalty=1e-3; % this or 1e-4 is quite good for the simulated data with rsteps=256
+        % 1e-4 stops x=0.01 getting good reconstruction at large r!
+        for i = 1:length(lambda)
+            % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + all_xbj_bins(xi)*1e0*exp(-10*min(X_tikh_principal(:,i))); % add penalty for negative minimum
+            % errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data);
+            errtik_p(i) = norm((b_data-A*X_tikh_principal(:,i)))/norm(b_data) + eps_neg_penalty*(1-sign(min(X_tikh_principal(:,i)))); % This is perhaps too strong penalty?
+        end
     end
     [mp,mIp]=min(errtik_p);
     rec_dip_principal = X_tikh_principal(:,mIp);
-    % if any(rec_dip_principal <= 0)
-    %     ["NON-POSITIVE RECONSTRUCTION at", xbj_bin, r_grid(1), discrete_dipole_N(1), rec_dip_principal(1)]
-    %     return
-    % end
     sigmar_principal = A*rec_dip_principal;
+    sigmar_principal_noiseless = A*rec_dip_principal_noiseless;
 
     % bootstrapping reconstruction uncertainties
     array_over_dataset_samples_dipole_recs = [];
     array_over_dataset_samples_sigmar = [];
-    NUM_SAMPLES = 10000;
+    NUM_SAMPLES = 1000;
     % for j=1:10000
     parfor j=1:NUM_SAMPLES
         err = eta.*b_data.*randn(length(b_data),1);
@@ -227,21 +205,12 @@ for xi = 1:length(all_xbj_bins)
     
         X_tikh = tikhonov(UU,sm,XX,b,lambda);
         errtik = zeros(size(lambda));
-    
-        if use_real_data
-            X_tikh_upper = tikhonov(UU,sm,XX,b_err_upper,lambda);
-            % errtik_upper = zeros(size(lambda));
-            X_tikh_lower = tikhonov(UU,sm,XX,b_err_lower,lambda);
-            % errtik_lower = zeros(size(lambda));
-        end
         
         for i = 1:length(lambda)
             % errtik(i) = norm((x'-X_tikh(:,i)))/norm(x');
             % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % this is wrong, cannot really minimize against b since it has error
-            if use_real_data
-                % real data tests the calculated cross section sigma_r_rec
-                % against the real data to constrain lambda
-                errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1); 
+            if lambda_type == "broad"
+                errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + eps_neg_penalty*(1-sign(min(X_tikh(:,i)))); % This is perhaps too strong penalty?
             else
                 % simulated data refers agains the simulated dipole, which we
                 % want to recover for the simulated sigma_r
@@ -249,23 +218,15 @@ for xi = 1:length(all_xbj_bins)
                 % against the fit dipole x'
                 % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b); % compare against simulated data. Relative error.
                 % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + all_xbj_bins(xi)*1e-2*exp(-min(X_tikh(:,i))); % add penalty for negative minimum
-                errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + eps_neg_penalty*(1-sign(min(X_tikh(:,i)))); % This is perhaps too strong penalty?
-                % errtik(i) = abs(norm((b-A*X_tikh(:,i))/(err))-1); 
+                
+                % current impelementation for the method paper as of 31.8.2025
+                
+                % chifit testing
+                chisq_v = (A*X_tikh(:,i) - b).^2 ./ (eta.*b_data).^2;
+                errtik(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - 1.00);
             end
         end
-    
-        if use_real_data
-            % [m,mI]=min(errtik);
-            % flipped_errtik = flip(errtik)
-            % for i=1:length(errtik)
-            mI = find(errtik < 1, 1, "last") % lambda list is (should be) increasing, so we want the first lambda that hits chi^2/N= 1 taken from the large end
-            m = errtik(mI)
-        else
-            [m,mI]=min(errtik);
-            % mI = find(errtik < 1, 1, "last") % lambda list is (should be) increasing, so we want the first lambda that hits chi^2/N= 1 taken from the large end
-            % m = errtik(mI)
-        end
-        
+        [m,mI]=min(errtik);
         rec_dip = X_tikh(:,mI);
         array_over_dataset_samples_dipole_recs(:,j) = rec_dip;
         array_over_dataset_samples_sigmar(:,j) = A*rec_dip;
@@ -306,6 +267,7 @@ for xi = 1:length(all_xbj_bins)
     end
     
     N_rec_principal = rec_dip_principal;
+    N_rec_principal_noiseless = rec_dip_principal_noiseless;
     N_rec_ptw_mean = dataset_sample_pdfs(:,1);
     N_rec_CI682_up = dataset_sample_pdfs(:,3); % 68.2% confidence interval upper limit
     N_rec_CI682_dn = dataset_sample_pdfs(:,2); % 68.2% c.i. lower limit
@@ -335,14 +297,15 @@ for xi = 1:length(all_xbj_bins)
         %      [.8 .9 .9],'linestyle','none')
         % semilogx(r_grid',x','-', ...
         % plot(r_grid',x','-', ...
-        loglog(r_grid',x','-', ...
-                 r_grid',N_rec_principal,'--', ...
-                 r_grid',N_rec_ptw_mean,'-.', ...
-                 r_grid',N_rec_CI95_up,'.', ...
-                 r_grid',N_rec_CI95_dn,'.', ...
-                 r_grid',N_rec_CI682_up,'.', ...
-                 r_grid',N_rec_CI682_dn,'.', ...
-                 'LineWidth',2)
+        semilogx(r_grid',x','-', "DisplayName", "ground truth", "Color","blue")
+        hold on
+        loglog(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","yellow")
+        loglog(r_grid',N_rec_ptw_mean,'-.', "DisplayName", "mean", "Color","white")
+        loglog(r_grid',N_rec_CI95_up,':', "DisplayName", "95 up", "Color","Red")
+        loglog(r_grid',N_rec_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
+        loglog(r_grid',N_rec_CI682_up,':', "DisplayName", "68 up", "Color","Green")
+        loglog(r_grid',N_rec_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
+        hold off
 
         figure(2)
         % [size(q2vals'), size(b_data), size(sigmar_principal), size(sigmar_ptw_mean), size(sigmar_CI_up), size(sigmar_CI_dn),] 
@@ -393,7 +356,8 @@ for xi = 1:length(all_xbj_bins)
         name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
         % recon_path = "./reconstructions_IUSdip/";
         recon_path = "./reconstructions_gausserr/";
-        f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4-4r' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
+        % f_exp_reconst = strjoin([recon_path 'recon_gausserr_v4-4r' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
+        f_exp_reconst = strjoin([recon_path 'recon_gausserr_chifit_v5r' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
         N_reconst = N_rec_principal;
         N_rec_one_std_up = N_rec_CI682_up; % N_rec + std
         N_rec_one_std_dn = N_rec_CI682_dn; % N_rec - std
@@ -408,7 +372,7 @@ for xi = 1:length(all_xbj_bins)
             "N_reconst", "N_rec_one_std_up", "N_rec_one_std_dn", ...
             "b_cpp_sim", "b_fit", "b_from_reconst", ...
             "b_hera", "b_errs", ...
-            "N_rec_principal", ...
+            "N_rec_principal", "N_rec_principal_noiseless", ...
             "N_rec_ptw_mean", ...
             "N_rec_CI682_up", "N_rec_CI682_dn", ...
             "N_rec_CI95_up", "N_rec_CI95_dn", ...
