@@ -321,7 +321,8 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
 
     ####################
     # Reading data files
-    data_path = "./data/paper1/"
+    # data_path = "./data/paper1/"
+    data_path = "./data/paper2/" # s binned data
     data_path_cc = "./data/paper2/"
     # dipole_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
     #     'dipole_fit_'+fitname+"_" in i]
@@ -352,7 +353,11 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     # if use_unity_sigma0:
     #     print("Using unity sigma02 with real sigma02 = ", sigma02)
 
-    hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_filtered" in i]
+    s_bins = [318.1, 300.3, 251.5, 224.9]
+    s_bin = s_bins[2]
+    s_str = "s" + str(s_bin)
+
+    hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_filtered" in i and s_str in i]
 
     if qm_scheme == "mass_scheme_heracc_charm_only":
         data_path = data_path_cc
@@ -401,14 +406,14 @@ if __name__ == '__main__':
     i=0
 
     run_settings=[
-        # "standard",
+        "standard",
         # "pole",
-        # "mqMpole",
+        "mqMpole", # this is the more accurate alternative to 'standard'
         # "mqmq",
-        # "mqMcharm",
+        "mqMcharm",
         # "mqMbottom",
-        # "mqMW",
-        "mass_scheme_heracc_charm_only"
+        "mqMW",
+        # "mass_scheme_heracc_charm_only"
     ]
 
     fitname_i = None
