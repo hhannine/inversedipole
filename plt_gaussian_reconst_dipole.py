@@ -550,7 +550,7 @@ def main(use_charm=False, real_data=False, fitname_i=None, use_log=True, big_bin
     write2file = True
     plt.tight_layout()
     if write2file:
-        mpl.use('agg') # if writing to PDF
+        # mpl.use('agg') # if writing to PDF
         plt.draw()
         outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
         plotpath = G_PATH+"/inversedipole/plots_gaussian/"
@@ -564,10 +564,10 @@ log=True
 big=True
 ratio=False
 
-# main(use_charm=False,real_data=False,fitname_i=3, use_log=True, big_bins=True, ratio=False) # fig 3 big
-# main(use_charm=False,real_data=False,fitname_i=3, use_log=False, big_bins=False, ratio=False) # fig 4 log-linear
-# main(use_charm=False,real_data=False,fitname_i=3, use_log=False, big_bins=False, ratio=True) # fig 5 ratio
-# main(use_charm=False,real_data=False,fitname_i=4, use_log=False, big_bins=False, ratio=True) # fig 7 5param ratio
+main(use_charm=False,real_data=False,fitname_i=3, use_log=True, big_bins=True, ratio=False) # fig 3 big
+main(use_charm=False,real_data=False,fitname_i=3, use_log=False, big_bins=False, ratio=False) # fig 4 log-linear
+main(use_charm=False,real_data=False,fitname_i=3, use_log=False, big_bins=False, ratio=True) # fig 5 ratio
+main(use_charm=False,real_data=False,fitname_i=4, use_log=False, big_bins=False, ratio=True) # fig 7 5param ratio
 main(use_charm=True,real_data=False,fitname_i=3, use_log=False, big_bins=False, ratio=True) # fig 9 4param charm ratio
 
 # Production plotting

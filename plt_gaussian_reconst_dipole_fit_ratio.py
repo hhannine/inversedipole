@@ -502,7 +502,7 @@ def main(use_charm=False, real_data=False, use_log=True, big_bins=False, ratio=F
     write2file = True
     plt.tight_layout()
     if write2file:
-        mpl.use('agg') # if writing to PDF
+        # mpl.use('agg') # if writing to PDF
         plt.draw()
         outfilename = n_plot + composite_fname + "{}".format(PLOT_TYPE) + '.pdf'
         plotpath = G_PATH+"/inversedipole/plots_gaussian/"
