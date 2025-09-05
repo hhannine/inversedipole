@@ -1,6 +1,6 @@
 % Include dependencies: AIRToolsII, Regtools
 addpath(genpath('./dependencies'))
-addpath(genpath("G:\My Drive\Postdoc MathPhys\Project 2 - Inverse dipole LO\HenriAnttiPaperv2"))
+addpath(genpath("C:\Users\hana_\My Drive\Postdoc MathPhys\Project 2 - Inverse dipole LO\HenriAnttiPaperv2"))
 
 close all
 clear all
@@ -59,8 +59,8 @@ quark_mass_schemes = [
         "mqMbottom",
         "mqMW",
     ];
-mscheme = quark_mass_schemes(1); % standard scheme for reference
-% mscheme = quark_mass_schemes(5); % charm scale as the standard choice?
+% mscheme = quark_mass_schemes(1); % standard scheme for reference
+mscheme = quark_mass_schemes(5); % charm scale as the standard choice?
 % mscheme = quark_mass_schemes(6); % n=10 prefers this over charm
 % mscheme = quark_mass_schemes(7); % W boson mass scale for high Q^2?
 
@@ -92,13 +92,25 @@ eps_neg_penalty=1e-4; % THIS IS NECESSARY FOR nn=5 !!! Even strict wasn't workin
 %           1  2  3   4  5   6  7  8   9  10  11  12  13  14  15
 q_cuts = [1.5, 4, 5, 9, 12, 15, 22, 22, 22, 22, 22, 20, 30, 90, 100]; % bins selected to cut small-r peak
 
-% nn=15; % probably too weird to use? 14 perhaps even worse?
-% nn=1;
-nn=10; % big sub-peak
-% nn=8; % smaller but definite sub-peak, needed to drop lambda_strict to 1e-2 to see it.
-% nn=5;
-for xi = nn:nn
+save2file = false;
+save2file = true;
+if save2file == true
+    n0 = 1;
+    nend = length(all_xbj_bins);
+    plotting = false;
+else
+    % nn=15; % probably too weird to use? 14 perhaps even worse?
+    % nn=3;
+    nn=10; % big sub-peak
+    % nn=8; % smaller but definite sub-peak, needed to drop lambda_strict to 1e-2 to see it.
+    % nn=5;
+    n0 = nn;
+    nend = nn;
+    plotting = true;
+end
+
 % for xi = 1:length(all_xbj_bins)
+for xi = n0:nend
     close all
     xbj_bin = string(all_xbj_bins(xi));
 
@@ -121,6 +133,7 @@ for xi = nn:nn
     b_errs = sigmar_errs';
 
     % testing Q binning -- Careful, limiting upper limit reduces the number of points, and the reconstrctuion can break with too few points!
+    q_cut = 0; % no cut low or high
     use_low_Q_cut = false;
     % use_low_Q_cut = true;
     if use_low_Q_cut
@@ -166,7 +179,7 @@ for xi = nn:nn
         b_hera = b_hera(1:qn);
         b_errs = b_errs(1:qn);
     end
-    [nn, data_name_key, s_bin, xbj_bin, r_steps, use_real_data, mscheme, length(q2vals), min(q2vals), mean(sqrt(q2vals)), mean(q2vals), length(all_xbj_bins)]
+    [xi, data_name_key, s_bin, xbj_bin, r_steps, use_real_data, mscheme, length(q2vals), min(q2vals), mean(sqrt(q2vals)), mean(q2vals), length(all_xbj_bins)]
 
 
     N=r_steps;
@@ -398,6 +411,16 @@ for xi = nn:nn
         [M,I] = min(N_rec_principal);
         ["Negative principal", M, M/max(N_rec_principal), r_grid(I)]
     end
+    [N_max_strict, max_i] = max(rec_dip_principal_strict);
+    [N_max_relax, max_i_rel] = max(rec_dip_principal_relax);
+    [N_max_noisy, max_i_noisy] = max(rec_dip_principal_noisy);
+    r_Nmax_strict = r_grid(max_i);
+    r_Nmax_rel = r_grid(max_i_rel);
+    r_Nmax_noisy = r_grid(max_i_noisy);
+    N_max_strict_ci = [N_rec_CI682_dn(max_i), N_rec_CI682_up(max_i), N_rec_CI95_dn(max_i), N_rec_CI95_up(max_i)];
+    N_max_relax_ci = [N_rec_CI682_dn_relax(max_i_rel), N_rec_CI682_up_relax(max_i_rel), N_rec_CI95_dn_relax(max_i_rel), N_rec_CI95_up_relax(max_i_rel)];
+    N_max_data_strict = [N_max_strict, r_Nmax_strict, N_max_strict_ci];
+    N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
 
     sigmar_principal_strict;
     sigmar_ptw_mean = A*N_rec_ptw_mean;
@@ -416,7 +439,7 @@ for xi = nn:nn
     sigmar_principal_noisy;
 
     % plotting = false;
-    plotting = true;
+    % plotting = true;
     if plotting
         figure(1) % rec_princip vs. mean reconstruction vs. ground truth
         % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
@@ -477,8 +500,6 @@ for xi = nn:nn
     
     % EXPORTING RESULTS
     
-    save2file = false;
-    % save2file = true;
     if save2file
         if use_real_data
             reconst_type = "data_only";
@@ -503,15 +524,21 @@ for xi = nn:nn
         else
             data_name = "sim";
         end
+        q_cut_str = "no_Q_cut_";
+        if use_low_Q_cut == true
+            q_cut_str = "cut_low_Q_";
+        elseif use_high_Q_cut == true
+            q_cut_str = "cut_high_Q_";
+        end
         flavor_string = mscheme;
-        name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type];
+        name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type, '_', q_cut_str];
         recon_path = "./reconstructions_hera_uq/";
         f_exp_reconst = strjoin([recon_path 'hera_recon_uq_' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
         N_reconst = N_rec_principal;
         N_rec_one_std_up = N_rec_CI682_up; % N_rec + std
         N_rec_one_std_dn = N_rec_CI682_dn; % N_rec - std
         chisq_str_rel_noisy_vals;
-        b_from_reconst = sigmar_principal; % prescription of the data by the reconstructred dipole.
+        b_from_reconst = sigmar_principal_strict; % prescription of the data by the reconstructred dipole.
 
         save(f_exp_reconst, ...
             "r_grid", "r_steps", "q2vals", ...
@@ -519,13 +546,15 @@ for xi = nn:nn
             "b_from_reconst", "b_hera", "b_errs", ...
             "N_rec_principal", "N_rec_ptw_mean", "N_rec_CI682_up", "N_rec_CI682_dn", "N_rec_CI95_up", "N_rec_CI95_dn", ...
             "N_rec_principal_relax", "N_rec_ptw_mean_relax", "N_rec_CI682_up_relax", "N_rec_CI682_dn_relax", "N_rec_CI95_up_relax", "N_rec_CI95_dn_relax", ...
-            "sigmar_principal", "sigmar_ptw_mean", "sigmar_mean", ...
+            "N_max_data_strict", "N_max_data_relax", "chisq_over_N_strict", "chisq_over_N_relax", ...
+            "sigmar_principal_strict", "sigmar_ptw_mean", "sigmar_mean", ...
             "sigmar_CI682_up", "sigmar_CI682_dn", "sigmar_CI95_up", "sigmar_CI95_dn", ...
             "sigmar_principal_relax", "sigmar_ptw_mean_relax", "sigmar_mean_relax", ...
             "sigmar_CI682_up_relax", "sigmar_CI682_dn_relax", "sigmar_CI95_up_relax", "sigmar_CI95_dn_relax", ...
             "N_rec_principal_noisy", "sigmar_principal_noisy", ...
             "lambda_strict", "lambda_relaxed", "lambda_noisy", "lambda_type", "NUM_SAMPLES", "eps_neg_penalty", ...
             "xbj_bin", "s_bin", "use_real_data", "data_type", "mscheme", "run_file", ...
+            "use_low_Q_cut", "use_high_Q_cut", "q_cut", ...
             "-nocompression","-v7")
     end
 end
