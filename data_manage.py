@@ -1,20 +1,20 @@
 from math import sqrt
 import numpy as np
 
-def get_data(file, simulated=True, charm=False):
+def get_data(file, simulated=None, charm=False):
     # use for manually cut down file
-    skip_to = 1
+    # skip_to = 1
     # Data parsing
     #   data starts with
-    headerline="# === Computing Reduced Cross sections ===".strip()
+    headerline="=== Computing Reduced Cross sections ===".strip()
     if "lofit" in file:
         maxrows = 177
     else:
         maxrows = 187
     maxrows=0 # This is needed then the progress NNN/187 prints are in the data file.
-    skip_to = 0
+    # skip_to = 0
     # loadtxt defaults comment lines to '#': https://docs.scipy.org/doc/numpy/reference/generated/numpy.loadtxt.html
-    if simulated:
+    if simulated=="flft-contrib":
         skip_to = find_headerline(file, headerline) + maxrows + 1
         dtype = [
         ('xbj', float),
@@ -23,6 +23,17 @@ def get_data(file, simulated=True, charm=False):
         ('sigmar', float),
         ('FL', float),
         ('FT', float),
+        ]
+    elif simulated=="reference-dipole":
+        skip_to = find_headerline(file, headerline) + 1
+        print("skipto", skip_to)
+        dtype = [
+        ('xbj', float),
+        ('qsq', float),
+        ('y', float),
+        ('sigmar', float),
+        ('sigmarerr', float),
+        ('theory', float),
         ]
     elif not simulated and charm:
         dtype = [
@@ -55,8 +66,8 @@ def find_headerline(file, headerline):
     for num, line in enumerate(fopen, 1):
         if headerline in line:
             lineindex = num
-            # print("header at line: ", lineindex)
-            # print(line)
+            print("header at line: ", lineindex)
+            print(line)
             return lineindex
     print("headerline not found")
     return 0
@@ -99,32 +110,64 @@ def count_bins(arr, min=0):
 if __name__=="__main__":
     charm_only = False
     # charm_only = True
-    if not charm_only:
-        data_sigmar = get_data("./data/hera_II_combined_sigmar.txt", simulated=False)
-        dtype = [
-        ('qsq', float),
-        ('xbj', float),
-        ('y', float),
-        ('sigmar', float),
-        ('sigmarerr', float),
-        # ('theory', float),
-        ('StatErrUncor', float),
-        ('tot_noproc', float),
-        ('%', float),
-        ]
-    elif charm_only:
-        data_sigmar = get_data("./data/hera_II_combined_sigmar_cc.txt", simulated=False, charm=charm_only)
-        dtype = [
-        ('qsq', float),
-        ('xbj', float),
-        ('y', float),
-        ('sigmar', float),
-        ('sigmarerr', float),
-        # ('theory', float),
-        # ('StatErrUncor', float),
-        # ('tot_noproc', float),
-        # ('%', float),
-        ]
+    use_reference_dipoles = True
+    if use_reference_dipoles:
+        if not charm_only:
+            # data_sigmar = get_data("./data/paper2/unbinned/paper2_hera-referencedipole-lo-sigmar_bayesMV4-strict_Q_cuts.dat", simulated="reference-dipole", charm=charm_only)
+            # fitname="bayesMV4-strict_Q_cuts"
+            # data_sigmar = get_data("./data/paper2/unbinned/paper2_hera-referencedipole-lo-sigmar_bayesMV4-wide_Q_cuts.dat", simulated="reference-dipole", charm=charm_only)
+            # fitname="bayesMV4-wide_Q_cuts"
+            # data_sigmar = get_data("./data/paper2/unbinned/paper2_hera-referencedipole-lo-sigmar_bayesMV5-strict_Q_cuts.dat", simulated="reference-dipole", charm=charm_only)
+            # fitname="bayesMV5-strict_Q_cuts"
+            data_sigmar = get_data("./data/paper2/unbinned/paper2_hera-referencedipole-lo-sigmar_bayesMV5-wide_Q_cuts.dat", simulated="reference-dipole", charm=charm_only)
+            fitname="bayesMV5-wide_Q_cuts"
+            dtype = [
+            ('xbj', float),
+            ('qsq', float),
+            ('y', float),
+            ('sigmar', float),
+            ('sigmarerr', float),
+            ('theory', float),
+            ]
+        elif charm_only:
+            print("charm only reference dipole prediction data not generated! Exit.")
+            exit()
+            data_sigmar = get_data("./data/", simulated="reference-dipole", charm=charm_only)
+            dtype = [
+            ('xbj', float),
+            ('qsq', float),
+            ('y', float),
+            ('sigmar', float),
+            ('sigmarerr', float),
+            ('theory', float),
+            ]
+    else:
+        if not charm_only:
+            data_sigmar = get_data("./data/hera_II_combined_sigmar.txt", simulated=False)
+            dtype = [
+            ('qsq', float),
+            ('xbj', float),
+            ('y', float),
+            ('sigmar', float),
+            ('sigmarerr', float),
+            # ('theory', float),
+            ('StatErrUncor', float),
+            ('tot_noproc', float),
+            ('%', float),
+            ]
+        elif charm_only:
+            data_sigmar = get_data("./data/hera_II_combined_sigmar_cc.txt", simulated=False, charm=charm_only)
+            dtype = [
+            ('qsq', float),
+            ('xbj', float),
+            ('y', float),
+            ('sigmar', float),
+            ('sigmarerr', float),
+            # ('theory', float),
+            # ('StatErrUncor', float),
+            # ('tot_noproc', float),
+            # ('%', float),
+            ]
     qsq_vals = data_sigmar["qsq"]
     y_vals = data_sigmar["y"]
     s_vals = []
@@ -136,7 +179,9 @@ if __name__=="__main__":
     # s_bin = 318.1
     if not charm_only:
         for datum in data_sigmar:
-            (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+            qsq = datum["qsq"]
+            y = datum["y"]
+            xbj = datum["xbj"]
             sqrt_s = round(sqrt(qsq/(y*xbj)),1)
             s_vals.append(sqrt_s)
         s_bins = count_bins(s_vals)
@@ -147,16 +192,11 @@ if __name__=="__main__":
     for s_bin in s_bins:
         binned_data = []
         for datum in data_sigmar:
-            if charm_only:
-                (qsq, xbj, y, sigmar, sig_err) = datum
-            else:    
-                (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+            qsq = datum["qsq"]
+            y = datum["y"]
+            xbj = datum["xbj"]
             sqrt_s = round(sqrt(qsq/(y*xbj)),1)
             # print(s) # checking s-bins
-            # if (s == s_bin) and (xbj<=1e-2):
-            # if charm_only:
-            #     # charm data is only at sqrt(s)=318
-            #     binned_data.append(datum)
             if (sqrt_s == s_bin) and (xbj<=1):
                 binned_data.append(datum)
         binned_data_for_all_sqrts.append((s_bin, binned_data))
@@ -217,15 +257,11 @@ if __name__=="__main__":
         # 0.00032 11
         # [0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25, 0.4, 0.65, 0.00013, 0.0005, 0.0002, 0.00032]
 
-        # x_bin = 0.013
         binned_data2_s_xbj_arr = []
         for x_bin in selected_bins:
             binned_data2_s_xbj = []
             for datum in binned_data:
-                if charm_only:
-                    (qsq, xbj, y, sigmar, sig_err) = datum
-                else:
-                    (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = datum
+                xbj = datum["xbj"]
                 if xbj==x_bin:
                     binned_data2_s_xbj.append(datum)
             # print(binned_data2_s_xbj)
@@ -233,16 +269,23 @@ if __name__=="__main__":
         
         # print(binned_data2_s_xbj)
         for darr in binned_data2_s_xbj_arr:
-            if charm_only:
-                outf = "heraII_CC_filtered_s"+str(s_bin)+"_xbj"+str(darr[0]["xbj"])+".dat"
+            if use_reference_dipoles:
+                outf = "heraII_reference_dipoles_filtered_"+fitname+"_s"+str(s_bin)+"_xbj"+str(darr[0]["xbj"])+".dat"
             else:
-                outf = "heraII_filtered_s"+str(s_bin)+"_xbj"+str(darr[0]["xbj"])+".dat"
+                if charm_only:
+                    outf = "heraII_CC_filtered_s"+str(s_bin)+"_xbj"+str(darr[0]["xbj"])+".dat"
+                else:
+                    outf = "heraII_filtered_s"+str(s_bin)+"_xbj"+str(darr[0]["xbj"])+".dat"
             with open(outf, 'w') as f:
                 print("# qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err", file=f)
                 for d in darr:
-                    if charm_only:
-                        (qsq, xbj, y, sigmar, sig_err) = d
-                        print(qsq, xbj, y, sigmar, sig_err, file=f)
+                    if use_reference_dipoles:
+                        (xbj, qsq, y, sigmar, sig_err, theory) = d
+                        print(qsq, xbj, y, sigmar, sig_err, theory, file=f)
                     else:
-                        (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = d
-                        print(qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err, file=f)
+                        if charm_only:
+                            (qsq, xbj, y, sigmar, sig_err) = d
+                            print(qsq, xbj, y, sigmar, sig_err, file=f)
+                        else:
+                            (qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err) = d
+                            print(qsq, xbj, y, sigmar, sig_err, staterruncor, tot_noproc, relative_err, file=f)
