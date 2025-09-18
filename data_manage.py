@@ -24,12 +24,23 @@ def get_data(file, simulated=None, charm=False):
         ('FL', float),
         ('FT', float),
         ]
-    elif simulated=="reference-dipole":
+    elif simulated=="reference-dipole-inverted":
         skip_to = find_headerline(file, headerline) + 1
         print("skipto", skip_to)
         dtype = [
         ('xbj', float),
         ('qsq', float),
+        ('y', float),
+        ('sigmar', float),
+        ('sigmarerr', float),
+        ('theory', float),
+        ]
+    elif simulated=="reference-dipole":
+        skip_to = find_headerline(file, headerline) + 1
+        # print("skipto", skip_to)
+        dtype = [
+        ('qsq', float),
+        ('xbj', float),
         ('y', float),
         ('sigmar', float),
         ('sigmarerr', float),
@@ -69,7 +80,7 @@ def find_headerline(file, headerline):
             print("header at line: ", lineindex)
             print(line)
             return lineindex
-    print("headerline not found")
+    # print("headerline not found")
     return 0
 
 def read_sigma02(file):
