@@ -11,6 +11,12 @@ mass_scheme_standard = {
     "b": (4.9, 1/9),
 }
 
+mass_scheme_standard_light = {
+    "u": (0.14, 4/9),
+    "d": (0.14, 1/9),
+    "s": (0.14, 1/9),
+}
+
 mass_scheme_pole = {
     "u": (0.501, 4/9),
     "d": (0.517, 1/9),
