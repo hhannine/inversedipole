@@ -4,8 +4,9 @@ addpath(genpath("C:\Users\hana_\My Drive\Postdoc MathPhys\Project 2 - Inverse di
 
 close all
 clear all
-
 parp = gcp;
+
+gev_to_mb = 1/2.56819;
 
 s_bins = [318.1, 300.3, 251.5]; % 224.9 bin had no viable xbj bins at all
 s_bin = s_bins(1);
@@ -13,9 +14,9 @@ s_str = "s" + string(s_bin);
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08];
-% TODO these bins probably change in different s bins, how to implement that? Discretized filename needs to include sqrt(s) as well?
 s300_xbj_bins = [0.0002, 0.02];
 s251_xbj_bins = [0.032, 0.05, 0.08, 0.13, 0.18, 0.4];
+ref_dipole_bins = real_xbj_bins(real_xbj_bins <= 0.01)
 
 if s_bin == s_bins(2)
     real_xbj_bins = s300_xbj_bins;
@@ -31,6 +32,9 @@ r_steps_str = strcat("r_steps",int2str(r_steps));
 data_path = './export_hera_data/';
 data_files = dir(fullfile(data_path,'*.mat'));
 
+% ref_dip_path = './data/paper2/';
+% ref_data_files = dir(fullfile(ref_dip_path,'*.dat'));
+
 rec_methods = [
     "principal",
     "pkacz1",
@@ -43,15 +47,23 @@ rec_methods = [
 
 %%% real data settings
 use_real_data = true;
+% use_ref_dipole_data = true;
+use_ref_dipole_data = false;
 
 data_type = "dis_inclusive"; % vs. dis_charm, dis_bottom, diff_dis_inclusive
 data_name_key = "heraII_filtered";
-if use_real_data
+ref_data_name_key = "heraII_reference_dipoles_filtered_bayesMV4-strict_Q_cuts";
+% ref_data_name_key = "heraII_reference_dipoles_filtered_bayesMV4-wide_Q_cuts";
+if use_ref_dipole_data
+    all_xbj_bins = ref_dipole_bins;
+    data_name_key = ref_data_name_key;
+else
     all_xbj_bins = real_xbj_bins;
 end
 
 quark_mass_schemes = [
         "standard",
+        "standard_light",
         "pole",
         "mqMpole",
         "mqmq",
@@ -59,10 +71,16 @@ quark_mass_schemes = [
         "mqMbottom",
         "mqMW",
     ];
-% mscheme = quark_mass_schemes(1); % standard scheme for reference
-mscheme = quark_mass_schemes(5); % charm scale as the standard choice?
-% mscheme = quark_mass_schemes(6); % n=10 prefers this over charm
-% mscheme = quark_mass_schemes(7); % W boson mass scale for high Q^2?
+% mscheme = quark_mass_schemes(1); % standard scheme with charm and bottom
+mscheme = quark_mass_schemes(6); % charm scale as the standard choice?
+% mscheme = quark_mass_schemes(7); % n=10 prefers this over charm
+% mscheme = quark_mass_schemes(8); % W boson mass scale for high Q^2?
+
+ref_fit_mscheme = quark_mass_schemes(2);
+
+if use_ref_dipole_data
+    mscheme = quark_mass_schemes(2); % standard scheme with only light
+end
 
 lambda_type = "lambdaSRN"; % strict+relaxed+noisy
 lam1 = 1:0.1:9.9;
@@ -87,29 +105,42 @@ lambda_t2 = [lam1*3e-2]; % This might be close for TIKH2 at 0.02??
 % eps_neg_penalty=1e15; % this was working at low xi 1..3?
 % eps_neg_penalty=1e-1; % This was working well for real data above xi=5, where suddenly big breakage
 % eps_neg_penalty=1e-2; % strict default?
-eps_neg_penalty=1e-4; % THIS IS NECESSARY FOR nn=5 !!! Even strict wasn't working with a higher penalty.
+% eps_neg_penalty=1e-4; % THIS IS NECESSARY FOR nn=5 !!! Even strict wasn't working with a higher penalty.
+eps_neg_penalty=0;
+
+% Default target for chi^2 goodness of fit for the reconstruction
+chi_goal = 1.0;
 
 %           1  2  3   4  5   6  7  8   9  10  11  12  13  14  15
-q_cuts = [1.5, 4, 5, 9, 12, 15, 22, 22, 22, 22, 22, 20, 30, 90, 100]; % bins selected to cut small-r peak
+% q_cuts = [1.5, 4, 5, 9, 12, 15, 22, 22, 22, 22, 22, 20, 30, 90, 100]; % bins selected to cut small-r peak
+q_cuts = 2*ones(15); % cut at Q^2=2 like the LO Bayesian fits
+use_low_Q_cut = false;
+% use_low_Q_cut = true;
+
+q_high=22; % compare with 45~50 used by the LO Bayesian fits?
+use_high_Q_cut = false;
+% use_high_Q_cut = true;
 
 save2file = false;
-save2file = true;
+% save2file = true;
 if save2file == true
     n0 = 1;
     nend = length(all_xbj_bins);
     plotting = false;
 else
-    % nn=15; % probably too weird to use? 14 perhaps even worse?
-    % nn=3;
-    nn=10; % big sub-peak
+    nn=15; % probably too weird to use? 14 perhaps even worse?
+    % nn=14; % 14 very noisy as well
+    % nn=10; % big sub-peak
+    % nn=9;
     % nn=8; % smaller but definite sub-peak, needed to drop lambda_strict to 1e-2 to see it.
+    % nn=7;
+    % nn=6;
     % nn=5;
     n0 = nn;
     nend = nn;
     plotting = true;
 end
 
-% for xi = 1:length(all_xbj_bins)
 for xi = n0:nend
     close all
     xbj_bin = string(all_xbj_bins(xi));
@@ -126,16 +157,60 @@ for xi = n0:nend
     ivec3= 1:r_steps;
     r_grid(end) = [];
     A = forward_op_A(:,ivec3);
-    b_data = sigmar_vals'; % b is calculated by the C++ code, no error.
     q2vals = qsq_vals;
     % real HERA data
     b_hera = sigmar_vals';
     b_errs = sigmar_errs';
 
+    ref_dip_loaded = false;
+    if use_ref_dipole_data
+        b_hera_real = sigmar_vals';
+        b_hera = sigmar_theory';
+        % real_sigma0 = 13.9 / gev_to_mb;
+        real_sigma0 = 37.0628; % MV4 refit, in GeV^-2
+        ref_dipole = real_sigma0*discrete_dipole_N';
+        sigmar_ref_dipole = A*ref_dipole;
+        % sigmar_ref_dipole./b_hera
+        ref_dip_loaded = true;
+
+        chi_goal = 0.01;
+    end
+
+    if use_ref_dipole_data==false && ismember(all_xbj_bins(xi),ref_dipole_bins)
+        "looking for ref dipole"
+        for k = 1:numel(data_files)
+            fname = data_files(k).name;
+            % if (contains(fname, xbj_bin) && contains(fname, ref_data_name_key) && contains(fname, s_str))
+                % ref_file = fname;
+            if (contains(fname, xbj_bin) && contains(fname, ref_data_name_key) && contains(fname, ref_fit_mscheme) && contains(fname, r_steps_str) && contains(fname, s_str))
+                ref_file = fname;
+            end
+        end
+        % ref_dip_data = load(strcat(ref_dip_path, ref_file)) % qsq,xbj,y,sigmar,sigerr,theory
+        % xbj = ref_dip_data(:,2)
+        % ref_sig_theory = ref_dip_data(:,6);
+        % b_ref = ref_sig_theory;
+        ref_dip_data = load(strcat(data_path, ref_file))
+        ref_qsq_vals = ref_dip_data.qsq_vals;
+        
+        ref_real_sigma0 = 37.0628; % MV4 refit, in GeV^-2
+        ref_dipole = ref_real_sigma0*ref_dip_data.discrete_dipole_N';
+        sigmar_ref_dipole = ref_dip_data.sigmar_theory';
+        ref_dip_bins_b_hera = ref_dip_data.sigmar_vals'
+        ref_dip_bins_b_errs = ref_dip_data.sigmar_errs'
+        ref_dip_loaded = true;
+
+        chisq_vec_ref_dip = (sigmar_ref_dipole - ref_dip_bins_b_hera).^2 ./ ref_dip_bins_b_errs.^2;
+        chisq_over_ref_dip = sum(chisq_vec_ref_dip) / length(chisq_vec_ref_dip);
+        if chisq_over_ref_dip>1
+            chi_goal = 1;
+        else
+            chi_goal = chisq_over_ref_dip;
+        end
+    end
+
     % testing Q binning -- Careful, limiting upper limit reduces the number of points, and the reconstrctuion can break with too few points!
     q_cut = 0; % no cut low or high
-    use_low_Q_cut = false;
-    % use_low_Q_cut = true;
     if use_low_Q_cut
         if q2vals(1) < q_cuts(xi)
             "Smallest Q^2 point larger than cut!"
@@ -155,9 +230,6 @@ for xi = n0:nend
         b_hera = b_hera(qn:length(q2vals)+qn-1);
         b_errs = b_errs(qn:length(q2vals)+qn-1);
     end
-    use_high_Q_cut = false;
-    % use_high_Q_cut = true;
-    q_high=22;
     if use_high_Q_cut
         if q2vals(end) > q_high
             "highest Q^2 point lower than cut!"
@@ -185,11 +257,6 @@ for xi = n0:nend
     N=r_steps;
     [L1,W1]=get_l(N,1);
     [L2,W2]=get_l(N,2);
-
-    % TODOs before starting to save results:
-        % data types: inclusive vs charm (at least)
-        % methods: implement save using different methods
-        % s-bins: saving needs to denote which s-bin
     
    
     % first order derivative operator
@@ -226,11 +293,12 @@ for xi = n0:nend
     % xC2 = PCimmino2(A,b_hera,kmaxcim2,L2,W2);
     % xK2 = PKaczmarz2(A,b_hera,kmax2,L2,W2);
 
-    
+
+    % [length(b_hera_real), length(b_hera), length(b_errs)]
     for i = 1:length(lambda_strict)
         % errtik_p(i) = norm((b_hera-A*X_tikh_principal(:,i)))/norm(b_hera) + eps_neg_penalty*(1-sign(min(X_tikh_principal(:,i))));
         chisq_v = (A*X_tikh_principal(:,i) - b_hera).^2 ./ b_errs.^2;
-        errtik_p(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - 1.00);
+        errtik_p(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal);
     end
     for i = 1:length(lambda_relaxed)
         errtik_prel(i) = norm((b_hera-A*X_tikh_principal_relax(:,i)))/norm(b_hera) + eps_neg_penalty*(1-sign(min(X_tikh_principal_relax(:,i))));
@@ -254,6 +322,7 @@ for xi = n0:nend
     sigmar_principal_strict = A*rec_dip_principal_strict;
     sigmar_principal_relax = A*rec_dip_principal_relax;
     sigmar_principal_noisy = A*rec_dip_principal_noisy;
+
 
     % tikh comparison recs
     [m2,mI2]=min(errtik2);
@@ -292,8 +361,12 @@ for xi = n0:nend
     chisq_over_Nt2 = chisqt2 / length(chisq_vect2);
     chisq_over_Nk1 = chisqk1 / length(chisq_veck1);
     chisq_over_Ncim1 = sum(chisq_cimm1) / length(chisq_cimm1);
-    [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1]
-
+    % [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1]
+    % chisq_vec_ref_dip = (sigmar_ref_dipole - ref_dip_bins_b_hera).^2 ./ ref_dip_bins_b_errs.^2;
+    % chisq_over_ref_dip = sum(chisq_vec_ref_dip) / length(chisq_vec_ref_dip);
+    if ref_dip_loaded && use_ref_dipole_data==false
+        [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_ref_dip]
+    end
 
 
     %%%%%%%
@@ -322,7 +395,7 @@ for xi = n0:nend
             % errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1);
             % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + eps_neg_penalty*(1-sign(min(X_tikh(:,i))));
             chisq_v = (A*X_tikh_principal(:,i) - b_hera).^2 ./ b_errs.^2;
-            errtik(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - 1.00);
+            errtik(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal);
         end
         for i = 1:length(lambda_relaxed)
             % errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1);
@@ -409,7 +482,7 @@ for xi = n0:nend
     [max(N_rec_principal), max(N_rec_principal_relax), max(N_rec_principal_noisy)]
     if min(N_rec_principal) < 0
         [M,I] = min(N_rec_principal);
-        ["Negative principal", M, M/max(N_rec_principal), r_grid(I)]
+        ["Negative principal", M, M/max(N_rec_principal), r_grid(I), mean(b_errs./b_hera), max(b_errs./b_hera)]
     end
     [N_max_strict, max_i] = max(rec_dip_principal_strict);
     [N_max_relax, max_i_rel] = max(rec_dip_principal_relax);
@@ -440,6 +513,8 @@ for xi = n0:nend
 
     % plotting = false;
     % plotting = true;
+    plot_relax = false;
+    plot_comp_methods = false;
     if plotting
         figure(1) % rec_princip vs. mean reconstruction vs. ground truth
         % errorbar(r_grid', dataset_sample_pdfs(:,1), dataset_sample_pdfs(:,2))
@@ -448,52 +523,69 @@ for xi = n0:nend
         %      [.8 .9 .9],'linestyle','none')
         % semilogx(r_grid',x','-', ...
         % plot(r_grid',x','-', ...
+        % loglog(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
         semilogx(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
         hold on
+        if ref_dip_loaded
+            loglog(r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
+        end
         loglog(r_grid',abs(N_rec_principal),':', "DisplayName", "ABS principal", "Color","blue")
         loglog(r_grid',N_rec_ptw_mean,'-.', "DisplayName", "mean", "Color","white")
-        loglog(r_grid',rec_dip_principal_relax,'-.', "DisplayName", "relax", "Color", "#FFA500")
         loglog(r_grid',rec_dip_principal_noisy,'-.', "DisplayName", "noisy", "Color","#FF69B4")
         loglog(r_grid',N_rec_CI95_up,':', "DisplayName", "95 up", "Color","Red")
         loglog(r_grid',N_rec_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
         loglog(r_grid',N_rec_CI682_up,':', "DisplayName", "68 up", "Color","Green")
         loglog(r_grid',N_rec_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
-        loglog(r_grid',N_rec_CI95_up_relax,'.', "DisplayName", "95 up relax", "Color","Red")
-        loglog(r_grid',N_rec_CI95_dn_relax,'.', "DisplayName", "95 dn rel", "Color","Red")
-        loglog(r_grid',N_rec_CI682_up_relax,'.', "DisplayName", "68 up rel", "Color","Green")
-        loglog(r_grid',N_rec_CI682_dn_relax,'.', "DisplayName", "68 dn rel", "Color","Green")
-        % loglog(r_grid',rec_tikh0,'-.', "DisplayName", "tikh0")
-        % loglog(r_grid',rec_tikh2,'-.', "DisplayName", "tikh2", "Color","magenta")
-        % loglog(r_grid',abs(rec_tikh2),'-.', "DisplayName", "abs tikh2", "Color","cyan")
-        % % loglog(r_grid',rec_cimmino,'--', "DisplayName", "cimmino")
-        loglog(r_grid',rec_cimmino1,'-.', "DisplayName", "cimmino1")
-        % % loglog(r_grid',rec_cimmino2,'--', "DisplayName", "cimmino2")
-        % % loglog(r_grid',rec_kacz,'--', "DisplayName", "kacz")
-        loglog(r_grid',rec_kacz1,'-.', "DisplayName", "kacz1", "Color","Yellow")
-        % % loglog(r_grid',rec_kacz2,'--', "DisplayName", "kacz2", "Color","white")
+        if plot_relax
+            loglog(r_grid',rec_dip_principal_relax,'-.', "DisplayName", "relax", "Color", "#FFA500")
+            loglog(r_grid',N_rec_CI95_up_relax,'.', "DisplayName", "95 up relax", "Color","Red")
+            loglog(r_grid',N_rec_CI95_dn_relax,'.', "DisplayName", "95 dn rel", "Color","Red")
+            loglog(r_grid',N_rec_CI682_up_relax,'.', "DisplayName", "68 up rel", "Color","Green")
+            loglog(r_grid',N_rec_CI682_dn_relax,'.', "DisplayName", "68 dn rel", "Color","Green")
+        end
+        if plot_comp_methods
+            % loglog(r_grid',rec_tikh0,'-.', "DisplayName", "tikh0")
+            % loglog(r_grid',rec_tikh2,'-.', "DisplayName", "tikh2", "Color","magenta")
+            % loglog(r_grid',abs(rec_tikh2),'-.', "DisplayName", "abs tikh2", "Color","cyan")
+            % % loglog(r_grid',rec_cimmino,'--', "DisplayName", "cimmino")
+            loglog(r_grid',rec_cimmino1,'-.', "DisplayName", "cimmino1")
+            % % loglog(r_grid',rec_cimmino2,'--', "DisplayName", "cimmino2")
+            % % loglog(r_grid',rec_kacz,'--', "DisplayName", "kacz")
+            loglog(r_grid',rec_kacz1,'-.', "DisplayName", "kacz1", "Color","Yellow")
+            % % loglog(r_grid',rec_kacz2,'--', "DisplayName", "kacz2", "Color","white")
+        end
         hold off
                
 
         figure(2)
-        % [size(q2vals'), size(b_data), size(sigmar_principal), size(sigmar_ptw_mean), size(sigmar_CI_up), size(sigmar_CI_dn),] 
         semilogx(q2vals',b_hera,'-', 'DisplayName',"hera")
         hold on
         errorbar(q2vals', b_hera, b_errs, '')
         % hold on
+        if use_ref_dipole_data
+            semilogx(q2vals',b_hera_real,'-', 'DisplayName',"hera real") % when reconstructing to simulated data, plot the real data separately.
+            semilogx(q2vals',sigmar_ref_dipole,'-', 'DisplayName',"sigmar_ref_dipole=A*ref_dip")
+        elseif use_ref_dipole_data==false && ref_dip_loaded
+            semilogx(ref_qsq_vals',sigmar_ref_dipole,'-', 'DisplayName',"Reference fit")
+        end
         semilogx(q2vals',sigmar_principal_strict,'-.', 'DisplayName',"principal_strict")
-        semilogx(q2vals',sigmar_principal_relax,'-.', 'DisplayName',"principal_relax")
         semilogx(q2vals',sigmar_principal_noisy,'-.', 'DisplayName',"principal_noisy")
         semilogx(q2vals',sigmar_ptw_mean,':', 'DisplayName',"mean")
         semilogx(q2vals',sigmar_CI95_up,':', "DisplayName", "95 up", "Color","Red")
         semilogx(q2vals',sigmar_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
         semilogx(q2vals',sigmar_CI682_up,':', "DisplayName", "68 up", "Color","Green")
         semilogx(q2vals',sigmar_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
-        % semilogx(q2vals',sigmar_kacz,'--', "DisplayName", "skacz")
-        semilogx(q2vals',sigmar_tikh2,'--', "DisplayName", "tikh2")
-        semilogx(q2vals',sigmar_cimmino1,'--', "DisplayName", "cimm1")
-        % semilogx(q2vals',sigmar_cimmino2,'--', "DisplayName", "cimm2")
-        semilogx(q2vals',sigmar_kacz1,'--', "DisplayName", "skacz1")
-        % semilogx(q2vals',sigmar_kacz2,'--', "DisplayName", "skacz2")
+        if plot_relax
+            semilogx(q2vals',sigmar_principal_relax,'-.', 'DisplayName',"principal_relax")
+        end
+        if plot_comp_methods
+            % semilogx(q2vals',sigmar_kacz,'--', "DisplayName", "skacz")
+            semilogx(q2vals',sigmar_tikh2,'--', "DisplayName", "tikh2")
+            semilogx(q2vals',sigmar_cimmino1,'--', "DisplayName", "cimm1")
+            % semilogx(q2vals',sigmar_cimmino2,'--', "DisplayName", "cimm2")
+            semilogx(q2vals',sigmar_kacz1,'--', "DisplayName", "skacz1")
+            % semilogx(q2vals',sigmar_kacz2,'--', "DisplayName", "skacz2")
+        end
         hold off
     end
 
