@@ -180,12 +180,16 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
 
 def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_data_name, sigma02=None, include_dipole=True, use_unity_sigma0=False):
     interpolated_r_grid = []
-    rmin=5e-3
+    # rmin=5e-3
+    rmin=2e-3 # beta1 testing
     # rmax=25 # tightening rmin and rmax help a little with the discretization precision
     # r_steps=500 # 500 by default for simulated!
     # rmin=5e-2
-    rmax=20 # ALPHA2 testing, lower limit at 5e-3 seemed much more important than the upperlimit.
-    r_steps=256 # still good for simulated! (maybe, might be a bit too bad at large Q^2)
+    rmax=25 # ALPHA2 testing, lower limit at 5e-3 seemed much more important than the upperlimit.
+    # rmax=30 # beta1 testing # doesn't seem to help at all compared to 25
+    # r_steps=256 # still good for simulated! (maybe, might be a bit too bad at large Q^2)
+    r_steps=256+128 # testing for a little bit better accuracy at large Q^2 # not quite good enough? 0.5% errors seen?
+    # r_steps=512 # increasing this alone doesn't seem to improve the discretization error??
     # r_steps=128 # this leads to >2%, maybe up to 4-5%, errors at worst. Not good enough.
 
     if mass_scheme == "standard":
@@ -269,7 +273,7 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
     # Export
     exp_folder = "./export_hera_data/"
     # base_name = exp_folder+"exp_fwdop_qms_hera_"
-    base_name = exp_folder+"ALPHA2_exp_fwdop_qms_hera_"
+    base_name = exp_folder+"beta1_exp_fwdop_qms_hera_"
     if mass_scheme == "mass_scheme_heracc_charm_only":
         base_name += "CC_charm_only_"
     if include_dipole:
@@ -360,11 +364,12 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     s_bin = s_bins[0]
     s_str = "s" + str(s_bin)
 
-    # hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_filtered" in i and s_str in i]
+    hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_filtered" in i and s_str in i]
 
-    use_ref_dip = True
+    use_ref_dip = False
+    # use_ref_dip = True
     # hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_reference_dipoles_filtered_bayesMV4-strict_Q_cuts" in i and s_str in i]
-    hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_reference_dipoles_filtered_bayesMV4-wide_Q_cuts" in i and s_str in i]
+    # hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_reference_dipoles_filtered_bayesMV4-wide_Q_cuts" in i and s_str in i]
     print(hera_sigmar_files)
 
     if qm_scheme == "mass_scheme_heracc_charm_only":
@@ -396,7 +401,11 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
                     ref_dipole = None
                 else:
                     inc_dip = True
-                    ref_dipole = dipole_path+[i for i in dipole_files if str(xbj_bin) in i][0]
+                    if [i for i in dipole_files if str(xbj_bin) in i][0]:
+                        ref_dipole = dipole_path+[i for i in dipole_files if str(xbj_bin) in i][0]
+                    else:
+                        print("No ref_dipole file found for xbj=", xbj_bin)
+                        continue
                     print("inc_dipole", xbj_bin, str(xbj_bin) in ref_dipole, str(xbj_bin) in sig_file)
                 print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin, mass_scheme)
                 # continue
@@ -444,14 +453,14 @@ if __name__ == '__main__':
     r0=0
 
     run_settings=[
-        # "standard",
+        "standard",
         "standard_light",
         # "pole",
-        # "mqMpole", # this is the more accurate alternative to 'standard'
+        "mqMpole", # this is the more accurate alternative to 'standard'
         # "mqmq",
-        # "mqMcharm",
-        # "mqMbottom",
-        # "mqMW",
+        "mqMcharm",
+        "mqMbottom",
+        "mqMW",
         # "mass_scheme_heracc_charm_only"
     ]
 
