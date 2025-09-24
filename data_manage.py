@@ -3,7 +3,7 @@ import numpy as np
 
 def get_data(file, simulated=None, charm=False):
     # use for manually cut down file
-    # skip_to = 1
+    skip_to = 1
     # Data parsing
     #   data starts with
     headerline="=== Computing Reduced Cross sections ===".strip()
