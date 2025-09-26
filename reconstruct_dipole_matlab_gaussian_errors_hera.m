@@ -6,11 +6,39 @@ close all
 clear all
 parp = gcp;
 
-gev_to_mb = 1/2.56819;
+function a = calc_array_CI(arr)
+    % Determine arr mean and confidence intervals
+    p_tails_95 = [0.025, 0.975];
+    p_tails_682 = [0.159, 0.841];
+    rm_outliers = rmoutliers(arr, "percentiles", [1.5 98.5]);
+    pd = fitdist(rm_outliers,'Kernel','Kernel','epanechnikov');
+    arr_icdf_vals_95 = icdf(pd, p_tails_95);
+    arr_icdf_vals_682 = icdf(pd, p_tails_682);
+    a = [mean(pd), arr_icdf_vals_682(1), arr_icdf_vals_682(2), arr_icdf_vals_95(1), arr_icdf_vals_95(2)];
+end
 
-s_bins = [318.1, 300.3, 251.5]; % 224.9 bin had no viable xbj bins at all
-s_bin = s_bins(1);
-s_str = "s" + string(s_bin);
+function dip_props = calc_dipole_prop_variance(dip_data_arr, r_grid)
+    % Q_s: sampling saturation scale distribution for the reconstructions
+    % N_max(r_max) UQ. Sampling the maximum allows to solve for the position of the maximum as well (and its variance)
+    % each return variable is a list of [mean, +-1 std, +-2 std]
+    NUM_SAMPLES = length(dip_data_arr(1,:));
+    array_rec_sample_QsSig0distrib_data = zeros([NUM_SAMPLES,4]); % product with number of rec methods to compare for Q_s?
+    parfor i=1:NUM_SAMPLES
+        rec_dip_i = dip_data_arr(:,i)';
+        [Nmax_dip_i, max_i] = max(rec_dip_i);
+        r_max_i = r_grid(max_i);
+        interp_dip_i = makima(r_grid, rec_dip_i);
+        intrpfun_i = @(r) ppval(interp_dip_i,r)/Nmax_dip_i - 1 + 0.606530659712;
+        rs_i = fzero(intrpfun_i, 2);
+        Qs_i = sqrt(2)/rs_i;
+        array_rec_sample_QsSig0distrib_data(i,:) = [Nmax_dip_i, r_max_i, rs_i, Qs_i^2];
+    end
+    Nmax_dip = calc_array_CI(array_rec_sample_QsSig0distrib_data(:,1));
+    r_max = calc_array_CI(array_rec_sample_QsSig0distrib_data(:,2));
+    rs = calc_array_CI(array_rec_sample_QsSig0distrib_data(:,3));
+    Qs = calc_array_CI(array_rec_sample_QsSig0distrib_data(:,4));
+    dip_props = [Nmax_dip, r_max, rs, Qs];
+end
 
 all_xbj_bins = [1e-05, 0.0001, 0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.001, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.01];
 real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08];
@@ -18,6 +46,10 @@ s300_xbj_bins = [0.0002, 0.02];
 s251_xbj_bins = [0.032, 0.05, 0.08, 0.13, 0.18, 0.4];
 ref_dipole_bins = real_xbj_bins(real_xbj_bins <= 0.01);
 
+gev_to_mb = 1/2.56819;
+s_bins = [318.1, 300.3, 251.5]; % 224.9 bin had no viable xbj bins at all
+s_bin = s_bins(1);
+s_str = "s" + string(s_bin);
 if s_bin == s_bins(2)
     real_xbj_bins = s300_xbj_bins;
 elseif s_bin == s_bins(3)
@@ -40,8 +72,9 @@ use_ref_dipole_data = false;
 
 data_type = "dis_inclusive"; % vs. dis_charm, dis_bottom, diff_dis_inclusive
 data_name_key = "heraII_filtered";
-% ref_data_name_key = "heraII_reference_dipoles_filtered_bayesMV4-strict_Q_cuts";
-ref_data_name_key = "heraII_reference_dipoles_filtered_bayesMV4-wide_Q_cuts";
+% ref_data_name = "bayesMV4-strict_Q_cuts";
+ref_data_name = "bayesMV4-wide_Q_cuts";
+ref_data_name_key = "heraII_reference_dipoles_filtered_"+ref_data_name;
 if use_ref_dipole_data
     all_xbj_bins = ref_dipole_bins;
     data_name_key = ref_data_name_key;
@@ -91,26 +124,26 @@ chi_goal = 1.0;
 
 %           1  2  3   4  5   6  7  8   9  10  11  12  13  14  15
 % q_cuts = [1.5, 4, 5, 9, 12, 15, 22, 22, 22, 22, 22, 20, 30, 90, 100]; % bins selected to cut small-r peak
-q_cuts = 2*ones(15); % cut at Q^2=2 like the LO Bayesian fits
+q_cuts = 5*ones(15); % cut at Q^2=2 like the LO Bayesian fits
 use_low_Q_cut = false;
 % use_low_Q_cut = true;
 
 q_high=50; % compare with 45~50 used by the LO Bayesian fits?
 use_high_Q_cut = false;
-use_high_Q_cut = true;
+% use_high_Q_cut = true;
 
 save2file = false;
-% save2file = true;
+save2file = true;
 if save2file == true
     n0 = 1;
     nend = length(all_xbj_bins);
     plotting = false;
 else
     % nn=15; % probably too weird to use? 14 perhaps even worse?
-    nn=11;
+    % nn=11;
     % nn=10; % big sub-peak
     % nn=9;
-    % nn=8; % smaller but definite sub-peak, needed to drop lambda_strict to 1e-2 to see it.
+    nn=8; % smaller but definite sub-peak, needed to drop lambda_strict to 1e-2 to see it.
     % nn=7;
     % nn=6;
     % nn=5;
@@ -145,12 +178,15 @@ for xi = n0:nend
     b_errs = sigmar_errs';
 
     ref_dip_loaded = false;
+    N_fit = [];
+    sigmar_ref_dipole = [];
     if use_ref_dipole_data
         b_hera_real = sigmar_vals';
         b_hera = sigmar_theory';
         % real_sigma0 = 13.9 / gev_to_mb;
         real_sigma0 = 37.0628; % MV4 refit, in GeV^-2
         ref_dipole = real_sigma0*discrete_dipole_N';
+        N_fit = ref_dipole;
         sigmar_ref_dipole = A*ref_dipole;
         % sigmar_ref_dipole./b_hera
         ref_dip_loaded = true;
@@ -173,6 +209,7 @@ for xi = n0:nend
         ref_qsq_vals = ref_dip_data.qsq_vals;
         ref_real_sigma0 = 37.0628; % MV4 refit, in GeV^-2
         ref_dipole = ref_real_sigma0*ref_dip_data.discrete_dipole_N';
+        N_fit = ref_dipole;
         ref_r_grid = ref_dip_data.r_grid;
         ref_r_grid(end) = [];
         % r_i=33; TODO REF DIPOLE R_GRID PROBABLY NOT THE SAME AS THE HERA DATA EXPORT R_GRID?! (r_grid is implicitly taken from the first file loaded!)
@@ -195,7 +232,7 @@ for xi = n0:nend
     % testing Q binning -- Careful, limiting upper limit reduces the number of points, and the reconstrctuion can break with too few points!
     q_cut = 0; % no cut low or high
     if use_low_Q_cut
-        if q2vals(1) < q_cuts(xi)
+        if q2vals(1) > q_cuts(xi)
             "Smallest Q^2 point larger than cut!"
         end
         q_cut = q_cuts(xi);
@@ -206,7 +243,7 @@ for xi = n0:nend
         b_errs = b_errs(qn:length(q2vals)+qn-1);
     end
     if use_high_Q_cut
-        if q2vals(end) > q_high
+        if q2vals(end) < q_high
             "highest Q^2 point lower than cut!"
         end
         eps_neg_penalty=1e10;
@@ -303,7 +340,7 @@ for xi = n0:nend
     % chisq = sum(chisq_vec);
     chisqt2 = sum(chisq_vect2);
     chisqk1 = sum(chisq_veck1);
-    chisq_str_rel_noisy_vals = [sum(chisq_vec_strict), sum(chisq_vec_relax), sum(chisq_vec_noisy)];
+    % chisq_str_rel_noisy_vals = [sum(chisq_vec_strict), sum(chisq_vec_relax), sum(chisq_vec_noisy)];
     chisq_over_N_strict = sum(chisq_vec_strict) / (length(chisq_vec_strict)-1);
     chisq_over_N_relax = sum(chisq_vec_relax) / length(chisq_vec_relax);
     chisq_over_N_noisy = sum(chisq_vec_noisy) / length(chisq_vec_noisy);
@@ -315,9 +352,9 @@ for xi = n0:nend
         chisq_over_ref_dip = sum(chisq_vec_ref_dip) / length(chisq_vec_ref_dip);
     end
     if ref_dip_loaded && use_ref_dipole_data==false
-        [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1, chisq_over_ref_dip]
+        chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1, chisq_over_ref_dip]
     else
-        [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1]
+        chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1]
     end
 
 
@@ -332,7 +369,7 @@ for xi = n0:nend
     array_over_dataset_samples_sigmar_rel = [];
     array_over_dataset_samples_dipole_recs_tik2 = [];
     array_over_dataset_samples_sigmar_tik2 = [];
-    NUM_SAMPLES = 1000;
+    NUM_SAMPLES = 5000;
     parfor j=1:NUM_SAMPLES
         % TODO need to sample error point specific distributions! -> redo err and b.
         % err = eta.*b_data.*randn(length(b_data),1); %%% relative error for simulated data (paper 1)
@@ -384,31 +421,31 @@ for xi = n0:nend
     dataset_sample_pdfs_sigmar_tik2 = zeros([length(q2vals),5]);
     p_tails_95 = [0.025, 0.975];
     p_tails_682 = [0.159, 0.841];
-    for j=1:r_steps
+    parfor j=1:r_steps
         %princip
         rec_dips_at_rj = array_over_dataset_samples_dipole_recs(j,:)';
         dip_rm_outliers = rmoutliers(rec_dips_at_rj, "percentiles", [1.5 98.5]);
         pd = fitdist(dip_rm_outliers,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
         dip_icdf_vals_95 = icdf(pd, p_tails_95);
+        dip_icdf_vals_682 = icdf(pd, p_tails_682);
         %relax
         rec_dips_at_rj_rel = array_over_dataset_samples_dipole_recs_rel(j,:)';
         dip_rm_outliers_rel = rmoutliers(rec_dips_at_rj_rel, "percentiles", [1.5 98.5]);
         pd_rel = fitdist(dip_rm_outliers_rel,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
         dip_icdf_vals_95_rel = icdf(pd_rel, p_tails_95);
+        dip_icdf_vals_682_rel = icdf(pd_rel, p_tails_682);
         %tikh2
         rec_dips_at_rj_tik2 = array_over_dataset_samples_dipole_recs_tik2(j,:)';
         dip_rm_outliers_tik2 = rmoutliers(rec_dips_at_rj_tik2, "percentiles", [1.5 98.5]);
         pd_tik2 = fitdist(dip_rm_outliers_tik2,'Kernel','Kernel','epanechnikov'); % see available methods with 'methods(pd)'
         dip_icdf_vals_95_tik2 = icdf(pd_tik2, p_tails_95);
-
-        dip_icdf_vals_682 = icdf(pd, p_tails_682);
-        dip_icdf_vals_682_rel = icdf(pd_rel, p_tails_682);
         dip_icdf_vals_682_tik2 = icdf(pd_tik2, p_tails_682);
+
         dataset_sample_pdfs(j,:) = [mean(pd), dip_icdf_vals_682(1), dip_icdf_vals_682(2), dip_icdf_vals_95(1), dip_icdf_vals_95(2)];
         dataset_sample_pdfs_rel(j,:) = [mean(pd_rel), dip_icdf_vals_682_rel(1), dip_icdf_vals_682_rel(2), dip_icdf_vals_95_rel(1), dip_icdf_vals_95_rel(2)];
         dataset_sample_pdfs_tik2(j,:) = [mean(pd_tik2), dip_icdf_vals_682_tik2(1), dip_icdf_vals_682_tik2(2), dip_icdf_vals_95_tik2(1), dip_icdf_vals_95_tik2(2)];
     end
-    for j=1:length(q2vals)
+    parfor j=1:length(q2vals)
         %princip
         sigmar_at_Qj = array_over_dataset_samples_sigmar(j,:)';
         pd_sig = fitdist(sigmar_at_Qj,'Kernel','Kernel','epanechnikov');
@@ -478,6 +515,12 @@ for xi = n0:nend
     N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
 
     % SATURATION SCALE
+    dip_props_strict = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs, r_grid); % returns Nmax, rmax, rs, Qs as [mean, dn, up, dn2, up2]
+    dip_props_rel = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs_rel, r_grid);
+    dip_props_tik2 = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs_tik2, r_grid);
+    %(below Qs calculations are superceded by the new implementation?)
+    % (also the above N_max code?)
+
     dip_interp = makima(r_grid, N_rec_principal);
     dip_interp_princip_mean = makima(r_grid, N_rec_ptw_mean);
     dip_interp_noisy = makima(r_grid, N_rec_principal_noisy);
@@ -486,13 +529,14 @@ for xi = n0:nend
     fun_dip_qs_ptw_mean = @(r) ppval(dip_interp_princip_mean,r)/N_max_ptw_mean - 1 + 0.606530659712;
     fun_dip_qs_noisy = @(r) ppval(dip_interp_noisy,r)/N_max_noisy - 1 + 0.606530659712;
     fun_dip_qs_tik2 = @(r) ppval(dip_interp_tik2,r)/N_max_tik2 - 1 + 0.606530659712;
+    ref_dip_props = [];
     if ref_dip_loaded
         % dip_interp_ref = makima(ref_r_grid, ref_dipole);
         dip_interp_ref = makima(r_grid, ref_dipole);
-        % max(ref_dipole)
         fun_dip_qs_ref = @(r) ppval(dip_interp_ref,r)/max(ref_dipole) - 1 + 0.606530659712;
         rs_ref = fzero(fun_dip_qs_ref, 2);
         Qs_ref = sqrt(2)/rs_ref;
+        ref_dip_props = [max(ref_dipole), r_grid(end), rs_ref, Qs_ref^2];
     end
     rs_strict = fzero(fun_dip_qs_strict, 2);
     rs_ptw_mean = fzero(fun_dip_qs_ptw_mean, 2);
@@ -504,9 +548,13 @@ for xi = n0:nend
     Qs_tik2 = sqrt(2)/rs_tik2;
     if ref_dip_loaded
         ["r_s", rs_strict, rs_ptw_mean, rs_noisy, rs_tik2, rs_ref, "Q_s", Qs_strict^2, Qs_ptw_mean^2, Qs_noisy^2, Qs_tik2^2, "ref", Qs_ref^2]
+        ["r_s", dip_props_strict(11), rs_ptw_mean, rs_noisy, dip_props_tik2(11), rs_ref, "Q_s", dip_props_strict(16), Qs_ptw_mean^2, Qs_noisy^2, dip_props_tik2(16), "ref", Qs_ref^2]
+        % dip_props_strict(11:15)
     else
-        ["r_s", rs_strict, rs_ptw_mean, rs_noisy, rs_tik2, "Q_s", Qs_strict^2, Qs_ptw_mean^2, Qs_noisy^2, Qs_tik2^2]
+        % ["r_s", rs_strict, rs_ptw_mean, rs_noisy, rs_tik2, "Q_s", Qs_strict^2, Qs_ptw_mean^2, Qs_noisy^2, Qs_tik2^2]
     end
+  
+
     % SIGMA_R REDUCED CROSS SECTIONS
     sigmar_principal_strict;
     sigmar_ptw_mean = A*N_rec_ptw_mean;
@@ -612,29 +660,23 @@ for xi = n0:nend
     
     % EXPORTING RESULTS
     if save2file
-        if use_real_data
-            reconst_type = "data_only";
-        else
-            if (contains(run_file, "_MV_"))
-                reconst_type = "MV";
-            elseif (contains(run_file, "_MVe_"))
-                reconst_type = "MVe";
-            elseif (contains(run_file, "_MVgamma_"))
-                reconst_type = "MVgamma";
-            elseif (contains(run_file, "_bayesMV4_"))
-                reconst_type = "bayesMV4";
-            elseif (contains(run_file, "_bayesMV5_"))
-                reconst_type = "bayesMV5";
+        if use_ref_dipole_data==false
+            % reconstructing from HERA data
+            rec_type_str = "rec_hera_data";
+            if ref_dip_loaded==false
+                % no ref available
+                exp_ref_str = "norefdip";
             else
-                reconst_type = "FITNAME_NOT_RECOGNIZED";
-                error([reconst_type ' with ' run_file]);
+                % ref available
+                exp_ref_str = ref_data_name;
             end
+        elseif use_ref_dipole_data
+            % reconstructing from simulated reference dipole data (with the same measurement points and errors as HERA)
+            rec_type_str = "rec_refdip_data";
+            exp_ref_str = ref_data_name; % fit name is in here.
         end
-        if (use_real_data)
-            data_name = "heraII_"+data_type+s_str;
-        else
-            data_name = "sim";
-        end
+
+        data_name = rec_type_str+"_"+data_type+"_"+s_str;
         q_cut_str = "no_Q_cut_";
         if use_low_Q_cut == true
             q_cut_str = "cut_low_Q_";
@@ -642,27 +684,33 @@ for xi = n0:nend
             q_cut_str = "cut_high_Q_";
         end
         flavor_string = mscheme;
-        name = [data_name, '_', reconst_type, '_', flavor_string, '_', lambda_type, '_', q_cut_str];
+        name = [data_name, '_', flavor_string, '_', lambda_type, '_', q_cut_str];
         recon_path = "./reconstructions_hera_uq/";
         f_exp_reconst = strjoin([recon_path 'hera_recon_uq_' r_steps '_' name '_xbj' xbj_bin '.mat'],"")
         N_reconst = N_rec_principal;
         N_rec_one_std_up = N_rec_CI682_up; % N_rec + std
         N_rec_one_std_dn = N_rec_CI682_dn; % N_rec - std
-        chisq_str_rel_noisy_vals;
         b_from_reconst = sigmar_principal_strict; % prescription of the data by the reconstructred dipole.
+
+        % TODO ADD FOR SAVING
+        % - Other quality / hypothesis testing numbers?
+        % TODO CHECK THAT ref dipole Q_s IS calculated correctly
 
         save(f_exp_reconst, ...
             "r_grid", "r_steps", "q2vals", ...
             "N_reconst", "N_rec_one_std_up", "N_rec_one_std_dn", ...
+            "N_fit", "sigmar_ref_dipole", ...
             "b_from_reconst", "b_hera", "b_errs", ...
             "N_rec_principal", "N_rec_ptw_mean", "N_rec_CI682_up", "N_rec_CI682_dn", "N_rec_CI95_up", "N_rec_CI95_dn", ...
             "N_rec_principal_relax", "N_rec_ptw_mean_relax", "N_rec_CI682_up_relax", "N_rec_CI682_dn_relax", "N_rec_CI95_up_relax", "N_rec_CI95_dn_relax", ...
             "N_max_data_strict", "N_max_data_relax", "chisq_over_N_strict", "chisq_over_N_relax", ...
+            "dip_props_strict", "dip_props_rel", "dip_props_tik2", "ref_dip_props", ...
             "sigmar_principal_strict", "sigmar_ptw_mean", "sigmar_mean", ...
             "sigmar_CI682_up", "sigmar_CI682_dn", "sigmar_CI95_up", "sigmar_CI95_dn", ...
             "sigmar_principal_relax", "sigmar_ptw_mean_relax", "sigmar_mean_relax", ...
             "sigmar_CI682_up_relax", "sigmar_CI682_dn_relax", "sigmar_CI95_up_relax", "sigmar_CI95_dn_relax", ...
             "N_rec_principal_noisy", "sigmar_principal_noisy", ...
+            "chisq_data", ...
             "lambda_strict", "lambda_relaxed", "lambda_noisy", "lambda_type", "NUM_SAMPLES", "eps_neg_penalty", ...
             "xbj_bin", "s_bin", "use_real_data", "data_type", "mscheme", "run_file", ...
             "use_low_Q_cut", "use_high_Q_cut", "q_cut", ...
