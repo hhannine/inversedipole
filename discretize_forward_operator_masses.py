@@ -385,7 +385,6 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     if use_real_data:
         if use_ref_dip:
             print("Discretizing with reference dipole sigma_r data in HERA II bins.")
-            print(hera_sigmar_files)
             xbj_bin_vals = [float(Path(i).stem.split("xbj")[1]) for i in hera_sigmar_files]
             print(xbj_bin_vals)
             for sig_file in hera_sigmar_files:
@@ -414,7 +413,6 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
             print("Export done with:", mass_scheme, use_real_data)
         else:
             print("Discretizing with HERA II data.")
-            print(hera_sigmar_files)
             xbj_bin_vals = [float(Path(i).stem.split("xbj")[1]) for i in hera_sigmar_files]
             print(xbj_bin_vals)
             for sig_file in hera_sigmar_files:
