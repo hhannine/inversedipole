@@ -91,112 +91,84 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     ####################
     # Data filename settings
-    # data_path = "./reconstructions/"
-    data_path = "./reconstructions_IUSdip/"
+    data_path = "./reconstructions_hera_uq/"
     str_data = "sim_"
-    str_fit = fitname
-    str_flavor = "lightonly_"
-    name_base = 'recon_out_'
-    str_flavor_c = "lightpluscharm_"
+    s_str = "s318.1_"
+    str_fit = "dis_inclusive_" + s_str
+    str_flavor = "standard_"
+    # str_flavor_c = "lightpluscharm_"
+    r_steps = "384"
+    name_base = 'hera_recon_uq_'+r_steps+"_"
     if use_real_data:
-        str_data = "hera_"
-        str_fit = "data_only_"
+        str_data = "rec_hera_data_"
     if use_noise:
         name_base = 'recon_with_noise_out_'
-    
-    # lambda_type = "broad_"
-    # lambda_type = "semiconstrained_"
-    # lambda_type = "semicon2_"
-    lambda_type = "fixed_"
-    composite_fname = name_base+str_data+str_fit+str_flavor+lambda_type
-    composite_fname_c = name_base+str_data+str_fit+str_flavor_c+lambda_type
-    print(composite_fname, composite_fname_c)
+    q_cut_str = "no_Q_cut"
+
+    lambda_type = "lambdaSRN_"
+    composite_fname = name_base + str_data + str_fit + str_flavor + lambda_type + q_cut_str
+    print(composite_fname)
 
     # Reading data files
     recon_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and composite_fname in i]
-    recon_files_c = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and composite_fname_c in i]
     if not recon_files:
         print("No files found!")
         print(data_path, composite_fname)
         exit(None)
-    # xbj_bins = sorted([float(Path(i).stem.split("xbj")[1]) for i in recon_files])
     xbj_bins = [float(Path(i).stem.split("xbj")[1]) for i in recon_files]
-    # print(xbj_bins)
     recon_files = [x for _, x in sorted(zip(xbj_bins, recon_files))]
-    recon_files_c = [x for _, x in sorted(zip(xbj_bins, recon_files_c))]
     print(recon_files)
-    print(recon_files_c)
 
     xbj_bins = sorted(xbj_bins)
     print(xbj_bins)
 
     data_list = [loadmat(data_path + fle) for fle in recon_files]
-    data_list_c = [loadmat(data_path + fle) for fle in recon_files_c]
+   
+    # composite_fname_c = name_base+str_data+str_fit+str_flavor_c+lambda_type
+    # recon_files_c = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and composite_fname_c in i]
+    # recon_files_c = [x for _, x in sorted(zip(xbj_bins, recon_files_c))]
+    # data_list_c = [loadmat(data_path + fle) for fle in recon_files_c]
     
     # Reading data
     R_GRID = data_list[0]["r_grid"][0]
     XBJ = np.array(xbj_bins)
-    real_sigma = data_list[0]["real_sigma"][0]
-    best_lambdas = [dat["best_lambda"][0] for dat in data_list]
-    lambda_list_list = [dat["lambda"][0].tolist() for dat in data_list]
-    mI_list = [lambda_list.index(best_lambda) for lambda_list, best_lambda in zip(lambda_list_list, best_lambdas)]
-    best_lambdas_c = [dat["best_lambda"][0] for dat in data_list_c]
-    lambda_list_list_c = [dat["lambda"][0].tolist() for dat in data_list_c]
-    mI_list_c = [lambda_list_c.index(best_lambda_c) for lambda_list_c, best_lambda_c in zip(lambda_list_list_c, best_lambdas_c)]
-    if lambda_type in ["semiconstrained_", "fixed_"]:
-        uncert_i = [range(0, 5) for mI in mI_list]
-    else:
-        ucrt_step = 2
-        uncert_i = [range(mI-2*ucrt_step, mI+1+2*ucrt_step, ucrt_step) for mI in mI_list]
 
+# data from
+# dip_props_strict % Nmax, rmax, rs, Qs as [mean, dn, up, dn2, up2] -> Qs mean is 16th element
+# and ref_dip_props
 
-    dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-    dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-    dip_data_rec_c = np.array([dat["N_reconst"] for dat in data_list_c]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
-    dip_data_rec_adj = np.array([dat["N_rec_adjacent"] for dat in data_list]) # matrix of all the reconstructions, need to find correct lambda
-    if use_real_data:
-        dip_rec_from_b_plus_err = [dat["N_reconst_from_b_plus_err"] for dat in data_list]
-        dip_rec_from_b_minus_err = [dat["N_reconst_from_b_minus_err"] for dat in data_list]
+    # dip_data_fit = np.array([dat["N_fit"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
+    # dip_data_rec = np.array([dat["N_reconst"] for dat in data_list]) # data_list is indexed the same as xbj_bins, each N_rec is indexed in r_grid
 
-    N_max_data = [dat["N_maxima"][0] for dat in data_list]
-    Nc_max_data = [dat["N_maxima"][0] for dat in data_list_c]
+    Qs_fit = []
+    Qs_strict = []
+    for xbj, dat in zip(xbj_bins, data_list):
+        # print(dat["dip_props_strict"][0][16])
+        Qs_strict.append(dat["dip_props_strict"][0][16])
+        if xbj < 0.01:
+            Qs_fit.append(dat["ref_dip_props"][0][3])
+        else:
+            a = 0
+            Qs_fit.append(a)
+    Qs_fit = np.array(Qs_fit)
+    Qs_strict = np.array(Qs_strict)
+    # print(Qs_fit[0])
+    # print(Qs_strict[0])
+    # exit()
 
-    Nlight_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list, N_max_data)])
-    Ncharm_max = np.array([max_vals[mI] for mI, max_vals in zip(mI_list_c, Nc_max_data)])
+    N_max_data = np.array([dat["N_max_data_strict"][0] for dat in data_list]) # this is used for the colorization scaling
+    N_max_data = N_max_data[:,0]
+    sig_max = max(N_max_data)
 
-    
-    # PROPER PLOTS
-    # 1. reconstruction from simulated data (light only)
-    #       - dipole vs reconstruction
-    # 2. simu sigmar data vs data from reconst
-    # 3. dipole rec with charm (simulated)
-    # 4. simu sigmar rec with charm
-    # 5. dipole reconstruction from HERA, light only
-    # 6. HERA sigmar vs sigmar(fit) vs sigmar(reconst), light only
-    # 7. dipole reconstruction from HERA, light plus charm
-    # 8. HERA sigmar vs sigmar(fit) vs sigmar(reconst), light plus charm
-    # 9. Sigma0(xbj) plot from real data reconstruction (or in W^2?)
-    #       - lightonly rec vs lightpluscharm rec vs horizontal line from fits (how about average of rec values?)
-    # 10. 2D dipole comparison in (r, xbj) or (r, W^2)
-    #       - fit vs real rec lightonly vs real rec lightpluscharm (3 plots/figures/images)
-    # 11. Ratios
-    # 12. satscale
-    # 13. dipole evolution
 
     ####################
     ### PLOT TYPE Q_sat
     ####################
 
-    # for i, x in enumerate(xbj_bins):
-        # print(x, data_list[i]["xbj_bin"], data_list[i]["run_file"], data_list_c[i]["run_file"],)
-        # print(x, data_list[i]["dip_file"], data_list[i]["run_file"], data_list_c[i]["run_file"],)
+    # Qs_fit = [calc_saturation_scale(dip, 1) for dip in dip_data_fit]
+    # Qs_rec = [calc_saturation_scale(dip, mx) for dip, mx in zip(dip_data_rec, Nlight_max)]
+    # Qs_rec_c = [calc_saturation_scale(dip, mx) for dip, mx in zip(dip_data_rec_c, Ncharm_max)]
 
-    print(real_sigma)
-    Qs_fit = [calc_saturation_scale(dip, 1) for dip in dip_data_fit]
-    Qs_rec = [calc_saturation_scale(dip, mx) for dip, mx in zip(dip_data_rec, Nlight_max)]
-    Qs_rec_c = [calc_saturation_scale(dip, mx) for dip, mx in zip(dip_data_rec_c, Ncharm_max)]
-
-    
     fig = plt.figure()
     ax = plt.gca()
     plt.xticks(fontsize=20, rotation=0)
@@ -205,20 +177,15 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     ax.tick_params(which='minor',width=0.7,length=4)
     ax.tick_params(axis='both', pad=7)
     ax.tick_params(axis='both', which='both', direction="in")
-
-    # if USE_TITLE:
-    #     plt.title(title)
     plt.xlabel(r'$x_{\mathrm{Bj.}}$', fontsize=22)
     plt.ylabel(r'$Q_s ~ \left(\mathrm{GeV}\right)$', fontsize=22)
     xvar = xbj_bins
 
     # LOG AXIS
     ax.set_xscale('log')
-    # ax.set_yscale('log')
     
     ##############
     # LABELS
-
     colors = ["blue", "green", "brown", "orange", "magenta", "red"]
     lw=2.8
     ms=4
@@ -232,33 +199,16 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     
     uncert_col = Patch(facecolor="black", alpha=0.3)
     line_rec = Line2D([0,1],[0,1],linestyle='-',linewidth=lw/2, color="black")
-    line_rec_bplus = Line2D([0,1],[0,1],linestyle='-.',linewidth=lw/3, color="black")
-    line_rec_bminus = Line2D([0,1],[0,1],linestyle=':',linewidth=lw/3, color="black")
 
-    if use_real_data:
-        manual_handles = [line_fit0, (line_rec, uncert_col),
-                        line_rec_bplus, line_rec_bminus,
-                        uncert_col0,
-                        uncert_col1,
-                        uncert_col2,]
-    else:
-        manual_handles = [line_fit0, (line_rec, uncert_col),
-                        uncert_col0,
-                        uncert_col1,
-                        uncert_col2,]
+    manual_handles = [line_fit0, (line_rec, uncert_col),
+                    uncert_col0,
+                    uncert_col1,
+                    uncert_col2,]
+    manual_labels = [
+        r'${\mathrm{Fit ~ dipole}}$',
+        r'${\mathrm{Reconstruction ~ from ~ HERA ~ data}\, \pm \, \varepsilon_\lambda}$',
+    ]
 
-    if use_real_data:
-        manual_labels = [
-            r'${\mathrm{Fit ~ dipole}}$',
-            r'${\mathrm{Reconstruction ~ from ~ HERA ~ data}\, \pm \, \varepsilon_\lambda}$',
-            r'${\mathrm{Reconstruction ~ to} ~ \sigma_r + \mathrm{error}}$',
-            r'${\mathrm{Reconstruction ~ to} ~ \sigma_r - \mathrm{error}}$',
-        ]
-    else:
-        manual_labels = [
-            r'${\mathrm{Fit ~ dipole}}$',
-            r'${\mathrm{Reconstructed ~ dipole}\, \pm \, \varepsilon_\lambda}$',
-        ]
 
     ####################
     #################### PLOTTING
@@ -266,7 +216,7 @@ def main(use_charm=False, real_data=False, fitname_i=None):
 
     # Plot fit dipoles and their reconstructions
     # ax.plot(xbj_bins, [0.28]*len(xbj_bins),
-    ax.plot([0.01], [math.sqrt(0.28)]*len([0.01]),
+    ax.plot([0.01], [0.28]*len([0.01]),
             # label=labels[i],
             label="Fit at x0",
             linestyle="",
@@ -283,44 +233,27 @@ def main(use_charm=False, real_data=False, fitname_i=None):
             # color=colors[2*i]
             color="black"
             )
-    if True:
-        # ax.plot(xbj_bins, np.ones(len(Qs_rec))/Qs_rec,
-        ax.plot(xbj_bins, Qs_rec*Nlight_max/max(Nlight_max),
-                # label=labels[i+1],
-                label="Qs light * sigma0(x)/max(sigma0)",
-                linestyle="-",
-                linewidth=lw/2.5,
-                color=colors[0],
-                alpha=1
-                )
-        # ax.plot(xbj_bins, np.ones(len(Qs_rec_c))/Qs_rec_c,
-        ax.plot(xbj_bins, Qs_rec_c*Ncharm_max/max(Ncharm_max),
-                # label=labels[i+1],
-                label="Qs charm * sigma0(x)/max(sigma0)",
-                linestyle="-",
-                linewidth=lw/2.5,
-                color=colors[1],
-                alpha=1
-                )
-        # if use_real_data:
-        #     dip_from_bplus = binned_dip_rec_from_bplus[i].T[0]
-        #     dip_from_bminus = binned_dip_rec_from_bminus[i].T[0]
-        #     ax.plot(xvar[0], gev_to_mb*scalings[i%3]*dip_from_bplus+additives[i%3],
-        #             # label=labels[i+1],
-        #             label="Reconstuction of fit dipole",
-        #             linestyle="-.",
-        #             linewidth=lw/3.5,
-        #             color=colors[2*i+1],
-        #             alpha=1
-        #             )
-        #     ax.plot(xvar[0], gev_to_mb*scalings[i%3]*dip_from_bminus+additives[i%3],
-        #             # label=labels[i+1],
-        #             label="Reconstuction of fit dipole",
-        #             linestyle=":",
-        #             linewidth=lw/3.5,
-        #             color=colors[2*i+1],
-        #             alpha=1
-        #             )
+    # ax.plot(xbj_bins, Qs_rec*Nlight_max/max(Nlight_max),
+    ax.plot(xbj_bins, Qs_strict*N_max_data/max(N_max_data),
+    # ax.plot(xbj_bins, Qs_strict,
+            # label=labels[i+1],
+            # label="Qs light * sigma0(x)/max(sigma0)",
+            label="Qs strict",
+            linestyle="-",
+            linewidth=lw/2.5,
+            color=colors[0],
+            alpha=1
+            )
+    # ax.plot(xbj_bins, np.ones(len(Qs_rec_c))/Qs_rec_c,
+    # ax.plot(xbj_bins, Qs_rec_c*Ncharm_max/max(Ncharm_max),
+    #         # label=labels[i+1],
+    #         label="Qs charm * sigma0(x)/max(sigma0)",
+    #         linestyle="-",
+    #         linewidth=lw/2.5,
+    #         color=colors[1],
+    #         alpha=1
+    #         )
+
 
     # ################## SHADING        
     # # Plot reconstruction uncertainties by plotting and shading between adjacent lambdas
@@ -348,10 +281,6 @@ def main(use_charm=False, real_data=False, fitname_i=None):
     #             ax.fill_between(xvar[0], gev_to_mb*scalings[i%3]*rec_dip+additives[i%3], gev_to_mb*scalings[i%3]*needed_adj_dips[0]+additives[i%3], color=colors[2*i+1], alpha=shade_alph_further)
     #     i+=1
 
-
-    # plt.text(0.95, 0.146, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black')
-    # plt.text(0.95, 0.14, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled log log
-    # plt.text(1.16, 0.225, r"$x_\mathrm{Bj} = 0.002$", fontsize = 14, color = 'black') # scaled linear log
     
     # plt.legend(manual_handles, manual_labels, frameon=False, fontsize=12, ncol=1, loc="upper left") 
     plt.legend(frameon=False, fontsize=12, ncol=1, loc="upper left") 
