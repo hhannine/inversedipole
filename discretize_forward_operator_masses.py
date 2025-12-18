@@ -111,6 +111,22 @@ def z_inted_fw_sigmar_udscb_riem_uniftrapez(datum, r_grid, sigma02, quark_masses
             z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
     return np.array(z_inted_points)
 
+def z_inted_fw_sigmar_udscb_riem_logstep(datum, r_grid, sigma02, quark_masses):
+    qsq = datum["qsq"]
+    y = datum["y"]
+    r_grid=r_grid[0]
+    z_inted_points = []
+
+    # Rieman sum, MIDPOINT rule, LOG interval width
+    # Delta_r_i = r_{i+1} - r_i
+    # sum Delta_r_i * f(r_i + (r_{i+1}-r_i)/2) = sum Delta_r_i f((r_{i+1}+r_i)/2)
+    for i, r in enumerate(r_grid[:-1]):
+        delta_r = r_grid[i+1]-r_grid[i]
+        r_midpoint = (r_grid[i+1]+r_grid[i])/2
+        z_inted_fw_sigmar_val = integrate.quad(lambda z: sigma02*fwd_op_sigma_reduced_udscb(qsq, y, z, r_midpoint, quark_masses), 0, 1, epsrel=1e-4)
+        z_inted_points.append((r, z_inted_fw_sigmar_val[0]*delta_r))
+    return np.array(z_inted_points)
+
 
 
 def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, include_dipole=True, use_charm=False):
@@ -178,7 +194,8 @@ def export_discrete(dipfile, xbj_bin, data_sigmar, parent_data_name, sigma02, in
 
 
 
-def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_data_name, sigma02=None, include_dipole=True, use_unity_sigma0=False):
+# def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_data_name, sigma02=None, include_dipole=True, use_unity_sigma0=False):
+def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_data_name, sigma02=None, include_dipole=True, use_unity_sigma0=False):
     interpolated_r_grid = []
     # rmin=5e-3
     rmin=2e-3 # beta1 testing
@@ -187,8 +204,8 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
     # rmin=5e-2
     rmax=25 # ALPHA2 testing, lower limit at 5e-3 seemed much more important than the upperlimit.
     # rmax=30 # beta1 testing # doesn't seem to help at all compared to 25
-    # r_steps=256 # still good for simulated! (maybe, might be a bit too bad at large Q^2)
-    r_steps=256+128 # testing for a little bit better accuracy at large Q^2 # not quite good enough? 0.5% errors seen?
+    r_steps=256 # still good for simulated! (maybe, might be a bit too bad at large Q^2)
+    # r_steps=256+128 # testing for a little bit better accuracy at large Q^2 # not quite good enough? 0.5% errors seen?
     # r_steps=512 # increasing this alone doesn't seem to improve the discretization error??
     # r_steps=128 # this leads to >2%, maybe up to 4-5%, errors at worst. Not good enough.
 
@@ -217,7 +234,8 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
     r=rmin
     while len(interpolated_r_grid)<r_steps+1:
         interpolated_r_grid.append(r)
-        r+=(rmax-rmin)/r_steps
+        # r+=(rmax-rmin)/r_steps # linear uniform grid step
+        r*=(rmax/rmin)**(1/r_steps) # log grid
 
     if dipfile:
         data_dipole = load_dipole(dipfile)
@@ -233,10 +251,13 @@ def export_discrete_uniform(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_d
         # S_interp = CubicSpline(r_vals, S_vals)
         S_interp = InterpolatedUnivariateSpline(r_vals, S_vals, k=1, ext=3)
         discrete_N_vals = []
-        for r in interpolated_r_grid[:-1]:
-            discr_N = 1-S_interp(r)
+        # for r in interpolated_r_grid[:-1]:
+        for i in range(len(interpolated_r_grid)-1):
+            r_mid = (interpolated_r_grid[i]+interpolated_r_grid[i+1])
+            # mid point rule interpolation
+            discr_N = 1-S_interp(r_mid)
             if discr_N <= 0:
-                print("DISCRETE N NOT POSITIVE!:", discr_N, r)
+                print("DISCRETE N NOT POSITIVE!:", discr_N, r_mid)
                 exit()
             discrete_N_vals.append(discr_N)
         vec_discrete_N = np.array(discrete_N_vals)
