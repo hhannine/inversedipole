@@ -44,8 +44,10 @@ if lambda_type == "broad"
     % lambda = [lam1*1e-5];
 elseif lambda_type == "chifit"
     lam1 = 1:0.1:9.9;
+    lam2 = 5:0.1:9.9;
     % lambda = [lam1*5e-3, lam1*1e-2, lam1*1e-1]; % from real data implem. Not flexible enough?
-    lambda = [lam1*5e-4, lam1*1e-3, lam1*1e-2];
+    lambda = [lam2.*1e-4, lam1.*1e-3, lam1.*1e-2];
+    [lam2.*1e-4]
 elseif lambda_type == "semiconstrained"
     lambda = [0.01, 0.02, 0.03, 0.04, 0.05]; % semi-constrained
 elseif lambda_type == "semicon2"
@@ -83,11 +85,12 @@ sim_type = "simulated";
 
 dipole_N_ri_rec_distributions = [];
 
-% nn=1;
+nn=1;
+% nn=10;
 % nn=14;
 % nn=13;
-% for xi = nn:nn
-for xi = 1:length(all_xbj_bins)
+for xi = nn:nn
+% for xi = 1:length(all_xbj_bins)
     close all
     xbj_bin = string(all_xbj_bins(xi));
 
@@ -176,6 +179,7 @@ for xi = 1:length(all_xbj_bins)
         end
         [mp_nless,mIp_nless]=min(errtik_p_noiseless);
         rec_dip_principal_noiseless = X_tikh_principal_noiseless(:,mIp_nless);
+        ["lam noiseless", lambda(mIp_nless)]
     else
         % principal reconstruction to actual data points
         X_tikh_principal = tikhonov(UU,sm,XX,b_data,lambda);
@@ -197,8 +201,9 @@ for xi = 1:length(all_xbj_bins)
     % bootstrapping reconstruction uncertainties
     array_over_dataset_samples_dipole_recs = [];
     array_over_dataset_samples_sigmar = [];
-    NUM_SAMPLES = 1000;
+    NUM_SAMPLES = 10000;
     % for j=1:10000
+    sampled_lambdas = [];
     parfor j=1:NUM_SAMPLES
         err = eta.*b_data.*randn(length(b_data),1);
         b = b_data + err;
@@ -228,9 +233,14 @@ for xi = 1:length(all_xbj_bins)
         end
         [m,mI]=min(errtik);
         rec_dip = X_tikh(:,mI);
+        sampled_lambdas(j) = lambda(mI);
         array_over_dataset_samples_dipole_recs(:,j) = rec_dip;
         array_over_dataset_samples_sigmar(:,j) = A*rec_dip;
     end % rec loop over dataset samples ends here
+
+    % histogram(sampled_lambdas)
+    % histogram(sampled_lambdas, length(lambda))
+    histogram(sampled_lambdas, lambda) % edges
     
     % Reconstruction statistics / bootstrapping for pointwise distributions
     dataset_sample_pdfs = [];
@@ -323,7 +333,7 @@ for xi = 1:length(all_xbj_bins)
     % EXPORTING RESULTS
     
     save2file = false;
-    save2file = true;
+    % save2file = true;
     if save2file
         if use_real_data
             reconst_type = "data_only";

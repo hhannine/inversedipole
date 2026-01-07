@@ -133,7 +133,7 @@ use_high_Q_cut = false;
 % use_high_Q_cut = true;
 
 save2file = false;
-save2file = true;
+% save2file = true;
 if save2file == true
     n0 = 1;
     nend = length(all_xbj_bins);
