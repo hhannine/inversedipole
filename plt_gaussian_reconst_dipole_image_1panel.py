@@ -132,12 +132,12 @@ def main(plotvar="xbj"):
     ### PLOT TYPE DIPOLE IMAGE
     ####################
 
-    fig, axs = plt.subplots(nrows=1, ncols=2)
+    fig, axs = plt.subplots(nrows=1, ncols=1)
     # fig, axs = plt.subplots(nrows=1, ncols=3)
-    fig.set_size_inches(12, 5)
+    fig.set_size_inches(7, 5)
     # fig.set_size_inches(20, 7)
     plt.tight_layout()
-    plt.subplots_adjust(top = 0.945, bottom = 0.13, right = 1.05, left = 0.07, hspace = 0, wspace = 0.03)
+    plt.subplots_adjust(top = 0.945, bottom = 0.13, right = 0.95, left = 0.13, hspace = 0, wspace = 0.03)
 
     titles = [r"$\mathrm{CKM ~ Bayesian ~ inference, ~ MVe ~ model}$", 
             #   r"$\mathrm{HERA ~ reconstruction, ~ standard ~ scheme ~ u,d,s,c,b}$",
@@ -146,26 +146,28 @@ def main(plotvar="xbj"):
               ]
     if plotvar == "r":
         xvar = xbj_bins
-        for i, ax1 in enumerate(axs):
-            # ax1.xticks(fontsize=20, rotation=0)
-            # ax1.yticks(fontsize=20, rotation=0)
-            ax1.set_xscale('log')
-            ax1.set_yscale('log')
-            ax1.grid(False)
-            ax1.tick_params(which='major',width=1,length=6,labelsize=15)
-            ax1.tick_params(which='minor',width=0.7,length=4,labelsize=15)
-            ax1.tick_params(axis='both', pad=7)
-            ax1.tick_params(axis='both', which='both', direction="in")
-            # ax1.set_xlim([1e-2, max(R)])
-            ax1.set_xlim([min(R), max(R)])
-            # ax1.set_ylim([min(XBJ), max(XBJ)])
-            # ax1.set_title(titles[i], fontsize=20, pad=10)
-            ax1.set_title(titles[i], fontsize=18, pad=4)
-            ax1.set_xlabel(r'$r ~ \left( \mathrm{GeV}^{-1} \right)$', fontsize=19)
-            if i==0:
-                ax1.set_ylabel(r'$x_{\mathrm{Bj.}}$', fontsize=27)
-            elif i!=0:
-                ax1.set_yticks([])
+        # for i, ax1 in enumerate(axs):
+        ax1=axs
+        i=0
+        # ax1.xticks(fontsize=20, rotation=0)
+        # ax1.yticks(fontsize=20, rotation=0)
+        ax1.set_xscale('log')
+        ax1.set_yscale('log')
+        ax1.grid(False)
+        ax1.tick_params(which='major',width=1,length=6,labelsize=15)
+        ax1.tick_params(which='minor',width=0.7,length=4,labelsize=15)
+        ax1.tick_params(axis='both', pad=7)
+        ax1.tick_params(axis='both', which='both', direction="in")
+        # ax1.set_xlim([1e-2, max(R)])
+        ax1.set_xlim([min(R), max(R)])
+        # ax1.set_ylim([min(XBJ), max(XBJ)])
+        # ax1.set_title(titles[i], fontsize=20, pad=10)
+        ax1.set_title(titles[i], fontsize=18, pad=4)
+        ax1.set_xlabel(r'$r ~ \left( \mathrm{GeV}^{-1} \right)$', fontsize=19)
+        if i==0:
+            ax1.set_ylabel(r'$x_{\mathrm{Bj.}}$', fontsize=27)
+        elif i!=0:
+            ax1.set_yticks([])
 
 
 
@@ -228,7 +230,7 @@ def main(plotvar="xbj"):
 
     max_adj_mult = 1
     # clim=[0,sig_max]
-    ax = axs[0]
+    ax = ax1
     ax.grid(False, which="both")
     # cfit = ax.pcolormesh(rr, xx, real_sigma*reshape_fit, vmin=0, vmax=max(N_max_data)*max_adj_mult, cmap = cmap) # new export has real_sigma, no need to multiply it anymore
     # cfit = ax.pcolormesh(rr, xx, gev_to_mb*reshape_fit, vmin=0, vmax=max(N_max_data)*max_adj_mult, cmap = cmap)
@@ -240,24 +242,26 @@ def main(plotvar="xbj"):
     # cfit.norm.autoscale(clim)
     if plot_rad_line:
         ax.plot([sigma0_to_rad_fm]*len(xbj_bins), xbj_bins, marker="o", markersize=3.5, c="white")
-    ax = axs[1]
-    ax.grid(False, which="both")
-    if log_scale_col:
-        missing_data_bg = ax.pcolormesh(rr, xx, np.zeros((len(xbj_bins), len(R))), vmin=0, vmax=max(N_max_data)*max_adj_mult, cmap = "inferno", linewidth=0,rasterized=True)
-        missing_data_bg.set_edgecolor('face')
-    # c = ax.pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(N_max_data)*max_adj_mult, cmap = cmap) 
-    c = ax.pcolormesh(rr, xx, gev_to_mb*reshape_dip, cmap = cmap, norm = lognorm,linewidth=0,rasterized=True)
-    c.set_edgecolor('face')
-    # c.norm.autoscale(clim)
-    if plot_rad_line:
-        ax.plot(radii_in_gev, xbj_bins, marker="o", markersize=3.5, c="white")
+    if False:
+        ax = axs[1]
+        ax.grid(False, which="both")
+        if log_scale_col:
+            missing_data_bg = ax.pcolormesh(rr, xx, np.zeros((len(xbj_bins), len(R))), vmin=0, vmax=max(N_max_data)*max_adj_mult, cmap = "inferno", linewidth=0,rasterized=True)
+            missing_data_bg.set_edgecolor('face')
+        # c = ax.pcolormesh(rr, xx, reshape_dip, vmin=0, vmax=max(N_max_data)*max_adj_mult, cmap = cmap) 
+        c = ax.pcolormesh(rr, xx, gev_to_mb*reshape_dip, cmap = cmap, norm = lognorm,linewidth=0,rasterized=True)
+        c.set_edgecolor('face')
+        # c.norm.autoscale(clim)
+        if plot_rad_line:
+            ax.plot(radii_in_gev, xbj_bins, marker="o", markersize=3.5, c="white")
     # ax = axs[2] 
     # cc = ax.pcolormesh(rr, xx, reshape_dip_c, vmin=0, vmax=max(Ncharm_max)*max_adj_mult, cmap = cmap) 
     # cc.norm.autoscale(clim)
     # ax.plot(radii_in_gev_c, xbj_bins, marker="s", c="white")
     # cc = ax.pcolormesh(rr, xx, reshape_dip_c+0.9, cmap = cmap, norm = mpl.colors.LogNorm(np.min(Ncharm_max)/10, np.max(Ncharm_max))) 
     
-    cbar=fig.colorbar(c, ax=axs.ravel().tolist(), shrink=1, pad=0.01)
+    # cbar=fig.colorbar(c, ax=axs.ravel().tolist(), shrink=1, pad=0.01)
+    cbar=fig.colorbar(cfit, ax=ax1, shrink=1, pad=0.01)
     cbar.set_label(r'$\frac{\sigma_0}{2} N(r) ~ \left(\mathrm{mb}\right)$', fontsize=22)
     cbar.ax.tick_params(labelsize=15) 
 
@@ -281,12 +285,12 @@ def main(plotvar="xbj"):
         manual_labels = [
             r'$\mathrm{Rec. ~ noise ~/~ exclusion ~ from ~ fit}$',
         ]
-    leg = axs[0].legend(manual_handles, manual_labels, frameon=True, fontsize=20, ncol=1, loc="upper left") 
+    leg = ax1.legend(manual_handles, manual_labels, frameon=True, fontsize=20, ncol=1, loc="upper left") 
     for txt in leg.get_texts():
         # txt.set_color("white")
         txt.set_color("black")
     
-    prelim = True
+    prelim = False
     if prelim:
         x_crd = 0.04
         y_crd = 0.97
@@ -299,7 +303,7 @@ def main(plotvar="xbj"):
                 transform=axs.flatten()[i].transAxes)
 
     if plotvar=="r":
-        n_plot = "plot10-r-dipoleimage-"
+        n_plot = "plot10-r-dipoleimage-singlepanel-"
     if not n_plot:
         print("Plot number?")
         exit()
