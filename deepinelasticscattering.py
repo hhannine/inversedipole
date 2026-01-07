@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 inversedipole implementation written in collaboration by H. Hänninen, A. Kykkänen and H. Schlüter
-Copyright 2024
+Copyright 2026
 
 deepinelasticscattering module implements calculation of DIS cross sections in the dipole picture.
 """
