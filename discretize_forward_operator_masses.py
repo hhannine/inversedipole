@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+"""
+inversedipole implementation written in collaboration by H. Hänninen, H. Schlüter
+Copyright 2026
+
+Implements discretization and export of the forward operator for inclusive DIS in the dipole picture.
+"""
+
 # import math
 import os
 from pathlib import Path
@@ -294,7 +302,7 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
     # Export
     exp_folder = "./export_hera_data/"
     # base_name = exp_folder+"exp_fwdop_qms_hera_"
-    base_name = exp_folder+"beta1_exp_fwdop_qms_hera_"
+    base_name = exp_folder+"beta2log_exp_fwdop_qms_hera_"
     if mass_scheme == "mass_scheme_heracc_charm_only":
         base_name += "CC_charm_only_"
     if include_dipole:
@@ -339,6 +347,7 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
 
     use_unity_sigma0 = True
     charm_only=False
+    use_charm = False
 
     # #        0        1        2        3           4
     fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
@@ -358,12 +367,12 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     # xbj_bins = [float(Path(i).stem.split("xbj")[1]) for i in dipole_files]
     # print(xbj_bins)
 
-    # if use_charm:
-    #     sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-    #         'sigmar_'+fitname+"_dipole-lightpluscharm" in i]
-    # else:
-    #     sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-    #         'sigmar_'+fitname+"_dipole." in i]
+    if use_charm:
+        sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
+            'sigmar_'+fitname+"_dipole-lightpluscharm" in i]
+    else:
+        sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
+            'sigmar_'+fitname+"_dipole." in i]
     # print(sigmar_files)
     
     # loading data for the corret fit setup
@@ -430,7 +439,7 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
                 print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin, mass_scheme)
                 # continue
                 # export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
-                ret = export_discrete_uniform(ref_dipole, mass_scheme, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02=sigma02, include_dipole=inc_dip, use_unity_sigma0=use_unity_sigma0)
+                ret = export_discrete_riemann_log(ref_dipole, mass_scheme, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02=sigma02, include_dipole=inc_dip, use_unity_sigma0=use_unity_sigma0)
             print("Export done with:", mass_scheme, use_real_data)
         else:
             print("Discretizing with HERA II data.")
@@ -442,22 +451,23 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
                 xbj_bin = float(Path(sig_file).stem.split("xbj")[1])
                 print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin, mass_scheme)
                 # export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
-                ret = export_discrete_uniform(None, mass_scheme, xbj_bin, data_sigmar, Path(sig_file).stem, include_dipole=False, use_unity_sigma0=use_unity_sigma0)
+                ret = export_discrete_riemann_log(None, mass_scheme, xbj_bin, data_sigmar, Path(sig_file).stem, include_dipole=False, use_unity_sigma0=use_unity_sigma0)
             print("Export done with:", mass_scheme, use_real_data)
         # exit()
-    # else:
-    #     # Simulated data
-    #     print("Simulated data with quark mass schemes not implemented! Exit!")
-    #     exit()
-    #     for dip_file in dipole_files:
-    #         xbj_bin = float(Path(dip_file).stem.split("xbj")[1])
-    #         data_sigmar_binned = data_sigmar[data_sigmar["xbj"]==xbj_bin]
-    #         if data_sigmar_binned.size==0:
-    #             print("NO DATA FOUND IN THIS BIN: ", xbj_bin, " in file: ", sig_file)
-    #             continue
-    #         print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
-    #         # export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
-    #         ret = export_discrete_uniform(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, use_unity_sigma0=use_unity_sigma0)
+    else:
+        # Simulated data
+        print("Simulated data with quark mass schemes not implemented! Use STANDARD ONLY for now!") # Fits only use the standard scheme so need to use that for 1-to-1 comparison!
+        mass_scheme = "standard"
+        for dip_file in dipole_files:
+            xbj_bin = float(Path(dip_file).stem.split("xbj")[1].split("r")[0])
+            data_sigmar = get_data(data_path + sig_file, simulated="reference-dipole", charm=charm_only)
+            data_sigmar_binned = data_sigmar[data_sigmar["xbj"]==xbj_bin]
+            if data_sigmar_binned.size==0:
+                print("NO DATA FOUND IN THIS BIN: ", xbj_bin, " in file: ", sig_file)
+                continue
+            print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
+            # export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
+            ret = export_discrete_riemann_log(data_path+dip_file, mass_scheme, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, use_unity_sigma0=use_unity_sigma0)
         # exit()
 
     if ret==-1:
@@ -482,9 +492,12 @@ if __name__ == '__main__':
         "mqMW",
         # "mass_scheme_heracc_charm_only"
     ]
+    test_set=["standard"]
+    run_settings=test_set
 
     fitname_i = None
-    use_real_data = True
+    use_real_data = False
+    # use_real_data = True
 
     for setting in run_settings:
         qm_scheme = setting 
