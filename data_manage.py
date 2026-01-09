@@ -95,14 +95,17 @@ def read_sigma02(file):
     print("DID NOT FIND MATCHING SIGMA02. ABORT.")
     return -666
 
-def load_dipole(file):
+def load_dipole(file, use_dtype=True):
     skip_to = 5
     dtype = [
         ('xbj', float),
         ('r', float),
         ('S', float),
     ]
-    data = np.loadtxt(file, dtype=dtype, skiprows=skip_to)
+    if use_dtype:
+        data = np.loadtxt(file, dtype=dtype, skiprows=skip_to)
+    else:
+        data = np.loadtxt(file, skiprows=skip_to)
     return data
 
 def count_bins(arr, min=0):
