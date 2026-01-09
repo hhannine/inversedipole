@@ -13,6 +13,7 @@ import sys
 
 import numpy as np
 
+from pathlib import Path
 from scipy.io import loadmat, savemat
 from data_manage import load_dipole
 
@@ -92,16 +93,64 @@ if __name__=="__main__":
                 print("invalid file: ", dip_file)
         except:
             print("Need to give the input dipole file as argument!")
+        
         # Load the dip_file as a mat file
+        ref_dip_name = Path(dip_file).stem
         dip_mat = loadmat(dip_file)["dip_array"]
 
-        print(dip_mat.shape)
-        dip_1st_x_bin = dip_mat[0]
-        print(dip_1st_x_bin.shape)
-        x0 = dip_1st_x_bin[:,0]
-        r0 = dip_1st_x_bin[:,1]
-        print(r0)
+        print(dip_mat.shape) # (14, 254, 3)
+        # dip_1st_x_bin = dip_mat[0]
+        # x0 = dip_1st_x_bin[:,0]
+        # r0 = dip_1st_x_bin[:,1]
 
         # need to initialize the (xbj, r) grid to then be able to calculate effects on top of it
+        x_bins = dip_mat[:,0,0]
+        print(x_bins)
+        r_grid = dip_mat[0,:,1]
+        print(r_grid)
+
+        # first x bin S would be dip_mat[0,:,2]
 
         # implement different effect types to add, file naming scheme
+            # - extension to xbj > 0.01 (HOW?)
+            # - waviness on the saturation front / in x / in r
+            # - gaussian peaks here and there
+            # - an arbitrary perturbation to lay on top like the shepp--logan phantom?
+        opt = "large_x_extension"
+        # opt = "wave0" # 0, 1, 2 ~ ?
+        # opt = "gaussian" # 0 ~ Gaussian(s), try to reconstruct a number of peaks located in different regimes (simultaneously? 3x3 grid of peaks ~ {small r, mid r, large r} x {small x, mid x, large x})
+        # opt = "prescribed_sigma0" # define some logarithmic growth of sigma0(xbj) to try to reconstruct in the closure test
+        # opt = "shepplogan" # play with a completely arbitrary overlay if things are working really well?
+
+        if opt == "large_x_extension":
+            ext_type = "MVfreeze" # just freeze the IC!! the evolution will not be the same anyway! And this is clearly the easiest to do!
+            # ext_type = "MVlike"
+            # ext_type = "GBW"
+            opt+="_"+ext_type
+
+            bins_to_extend = [0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25]
+        elif opt == "wave":
+            pass
+        elif opt == "gaussian":
+            pass
+            # need to parametrize a set of gaussians and add them on top of the dipole data
+        elif opt == "prescribed_sigma0":
+            pass
+            # need to prescribe a log growth for the dipole in Bjorken-x. Perhaps in can just be a multiplicative scaling that grows with log(1/x)?
+            # Define a size at some scale and "evolve" from there, log(1/x) is probably the only simple reasonable option? Maybe double log(log(1/x)) for even slower growth?
+            # or log(Q^2)*log(1/x) like the summer plot suggested?
+        elif opt == "shepplogan":
+            pass
+            # TBD whether this is implemented
+        
+        save_to_file = False
+        # save_to_file = True
+        if save_to_file:
+            outfilename = "dipole_modeffect_evol_data_"+ref_dip_name+"_"+opt+"_r256.edip"
+            data_dict = {
+            "dip_array": dip_array,
+            }
+            savemat(outfilename, data_dict)
+            print("Saved to file: ", outfilename)
+        else:
+            print("Not saving output!")
