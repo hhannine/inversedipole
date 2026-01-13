@@ -62,11 +62,6 @@ if __name__=="__main__":
             if test_formatting:
                 print("Testing formatting")
                 print(dip_array.shape)
-                # print(dip_array[0]) # full dipole data table for first xbj bin
-                # print(dip_array[0][:,0]) # xbj for first dipole data set
-                # print(dip_array[0][:,1]) # r for first dipole data set
-                # print(dip_array[1][0]) # first [x,r,S] element of second xbj bin
-                # print(dip_array[10][:,0]) # xbj for second dipole data set
 
         # save_to_file = False
         save_to_file = True
@@ -98,21 +93,15 @@ if __name__=="__main__":
         ref_dip_name = Path(dip_file).stem
         dip_mat = loadmat(dip_file)["dip_array"]
 
-        print(dip_mat.shape) # (14, 254, 3)
-        # dip_1st_x_bin = dip_mat[0]
-        # x0 = dip_1st_x_bin[:,0]
-        # r0 = dip_1st_x_bin[:,1]
+        # print(dip_mat.shape) # (14, 254, 3)
 
         # need to initialize the (xbj, r) grid to then be able to calculate effects on top of it
         x_bins = dip_mat[:,0,0]
-        print(x_bins)
         r_grid = dip_mat[0,:,1]
-        print(r_grid)
-
-        # first x bin S would be dip_mat[0,:,2]
+        print("Input xbj bins: ", x_bins, len(x_bins))
 
         # implement different effect types to add, file naming scheme
-            # - extension to xbj > 0.01 (HOW?)
+            # - extension to xbj > 0.01
             # - waviness on the saturation front / in x / in r
             # - gaussian peaks here and there
             # - an arbitrary perturbation to lay on top like the shepp--logan phantom?
@@ -128,7 +117,29 @@ if __name__=="__main__":
             # ext_type = "GBW"
             opt+="_"+ext_type
 
-            bins_to_extend = [0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25]
+            bins_to_extend = [0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25] # HERA bins above typical IC at 0.01
+            x_max = max(x_bins)
+            x_bins_to_extend = [x for x in bins_to_extend if x > x_max]
+            if not x_bins_to_extend:
+                print("x_max in dipole data higher than any extension x_bin?", x_max)
+            print("Expected extension bin count: ", len(x_bins)+len(x_bins_to_extend))
+
+            if ext_type == "MVfreeze":
+                # COPY IC dipole data bin to extend
+                # i_x_ic = x_bins.index(x_max) # not valid for numpy array
+                i_x_ic, = np.where(x_bins == x_max)
+                print("xmax ", x_max, " at ", i_x_ic[0])
+                S_ic = dip_mat[i_x_ic[0],:,2]
+                # Need to write the data in the correct format into the new array
+                for xbj in x_bins_to_extend:
+                    x_ar = np.array([xbj]*len(r_grid))
+                    S_extension = [np.array([x_ar, r_grid, S_ic]).T]
+                    dip_mat = np.append(dip_mat, S_extension, axis=0)
+                # Verify extension success
+                x_bins = dip_mat[:,0,0]
+                print("xbj bins after extension: ", x_bins, len(x_bins))
+
+                # extension done, jump to exporting to file.
         elif opt == "wave":
             pass
         elif opt == "gaussian":
@@ -144,11 +155,11 @@ if __name__=="__main__":
             # TBD whether this is implemented
         
         save_to_file = False
-        # save_to_file = True
+        save_to_file = True
         if save_to_file:
             outfilename = "dipole_modeffect_evol_data_"+ref_dip_name+"_"+opt+"_r256.edip"
             data_dict = {
-            "dip_array": dip_array,
+            "dip_array": dip_mat,
             }
             savemat(outfilename, data_dict)
             print("Saved to file: ", outfilename)
