@@ -25,10 +25,11 @@ if __name__=="__main__":
         "heraII_reference_dipoles_filtered_bayesMV5-strict_Q_cuts",
         "heraII_reference_dipoles_filtered_bayesMV5-wide_Q_cuts",
         ]
-    sqrt_s = 318.1
-    dip_name = dip_types[5] + "_s" + str(sqrt_s)
+    # sqrt_s = 318.1
+    sqrt_s = 300.3
+    dip_name = dip_types[0] + "_s" + str(sqrt_s)
     
-    data_path = "./data/paper2"
+    data_path = "./data/paper2/separate binned files"
     # Load sigma_r data files, filter by name and sqrt(s)
     sigr_data_files = [os.path.join(data_path, i) for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and dip_name in i]
     # sort files by xbj
