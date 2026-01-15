@@ -26,7 +26,7 @@ if __name__=="__main__":
         "heraII_reference_dipoles_filtered_bayesMV5-wide_Q_cuts",
         ]
     sqrt_s = 318.1
-    dip_name = dip_types[0] + "_s" + str(sqrt_s)
+    dip_name = dip_types[5] + "_s" + str(sqrt_s)
     
     data_path = "./data/paper2"
     # Load sigma_r data files, filter by name and sqrt(s)
@@ -50,7 +50,7 @@ if __name__=="__main__":
         new_data = []
         for x_bin_data in sigr_data:
             for datum in x_bin_data:
-                # print(datum) # array of 8 elements
+                # print(datum) # list of 8 elements
                 qsq = datum[0]
                 xbj = datum[1]
                 y = datum[2]
@@ -62,9 +62,37 @@ if __name__=="__main__":
         new_data = np.array(new_data)
         print("Combined data in (N, 7) array:", new_data.shape)
     elif "heraII_CC_filtered" in dip_name:
-        todo
+        # input columns are: qsq, xbj, y, sigmar, sig_err
+        new_data = []
+        for x_bin_data in sigr_data:
+            for datum in x_bin_data:
+                # print(datum) # list of 5 elements
+                qsq = datum[0]
+                xbj = datum[1]
+                y = datum[2]
+                root_s = sqrt_s
+                sigmar = datum[3]
+                sig_err = datum[4]
+                theory = 0
+                new_data.append([qsq, xbj, y, root_s, sigmar, sig_err, theory])
+        new_data = np.array(new_data)
+        print("Combined data in (N, 7) array:", new_data.shape)
     elif "heraII_reference_dipoles_filtered" in dip_name:
-        todo
+        # input columns are: qsq, xbj, y, sigmar, sig_err, theory
+        new_data = []
+        for x_bin_data in sigr_data:
+            for datum in x_bin_data:
+                # print(datum) # list of 6 elements
+                qsq = datum[0]
+                xbj = datum[1]
+                y = datum[2]
+                root_s = sqrt_s
+                sigmar = datum[3]
+                sig_err = datum[4]
+                theory = datum[5]
+                new_data.append([qsq, xbj, y, root_s, sigmar, sig_err, theory])
+        new_data = np.array(new_data)
+        print("Combined data in (N, 7) array:", new_data.shape)
     else:
         print("Data type not identified from dip_name: ", dip_name)
 
