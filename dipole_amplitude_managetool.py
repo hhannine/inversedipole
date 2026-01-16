@@ -105,7 +105,9 @@ if __name__=="__main__":
             # - waviness on the saturation front / in x / in r
             # - gaussian peaks here and there
             # - an arbitrary perturbation to lay on top like the shepp--logan phantom?
-        opt = "large_x_extension"
+        # opt = "large_x_extension"
+        # opt = "small_x_extension"
+        opt = "sigma0_included"
         # opt = "wave0" # 0, 1, 2 ~ ?
         # opt = "gaussian" # 0 ~ Gaussian(s), try to reconstruct a number of peaks located in different regimes (simultaneously? 3x3 grid of peaks ~ {small r, mid r, large r} x {small x, mid x, large x})
         # opt = "prescribed_sigma0" # define some logarithmic growth of sigma0(xbj) to try to reconstruct in the closure test
@@ -140,6 +142,30 @@ if __name__=="__main__":
                 print("xbj bins after extension: ", x_bins, len(x_bins))
 
                 # extension done, jump to exporting to file.
+        elif opt == "small_x_extension":
+            pass # would be more accurate to compute the dipole with the BK equation in cpp
+        elif opt == "sigma0_included":
+            # Multiply sigma02 into the dipole amplitude data to make it self contained for data generation tasks
+            strict_Q_cuts = True
+            if "bayesMV4" in ref_dip_name:
+                if strict_Q_cuts:
+                    sigma02=37.0628 # LO Bayes MV 4 refit, strict cuts
+                else:
+                    sigma02=36.8195 # LO Bayes MV 4 refit, wide cuts
+            elif "bayesMV5" in ref_dip_name:
+                if strict_Q_cuts:
+                    sigma02=36.3254 # LO Bayes MV 5 refit, strict cuts
+                else:
+                    sigma02=36.0176 # LO Bayes MV 5 refit, wide cuts
+            else:
+                print("CKM reference dipole not recognized, others not supported, ref_dip_name: ", ref_dip_name)
+            if not strict_Q_cuts:
+                opt+="_wideQcuts"
+            # Loop over xbj bins of dipole data, and multiply S by sigma02
+            print("Multiplying sigma02 into dipole data.")
+            for i, x in enumerate(x_bins):
+                dip_mat[i,:,2] *= sigma02
+            # sigma02 inclusion mod done, jump to exporting
         elif opt == "wave":
             pass
         elif opt == "gaussian":
@@ -165,3 +191,5 @@ if __name__=="__main__":
             print("Saved to file: ", outfilename)
         else:
             print("Not saving output!")
+    else:
+        print("Need to give argument: reformat / dipmod !")
