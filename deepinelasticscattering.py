@@ -12,7 +12,7 @@ import scipy.integrate as integrate
 import scipy.special as special
 import vegas
 from scipy import stats
-from scipy.interpolate import CubicSpline, PchipInterpolator, griddata, RegularGridInterpolator, make_interp_spline
+from scipy.interpolate import CubicSpline, PchipInterpolator, griddata, RegularGridInterpolator, make_interp_spline, InterpolatedUnivariateSpline
 
 from data_manage import load_dipole, get_data
 
@@ -244,10 +244,23 @@ class Sigmar_calc:
             return np.array([self.sigma02*fwd_op_FT_LO(self.qsq, z, r)*(1-self.S_interp(r)),])
 
 
+def reduced_cross_section(sigmar_datum, r_grid, S_interp, sigma02):
+    """Compute reduced cross section from given dipole amplitude data.
+    Using the continuous formulation of the problem to enable data generation independently of the
+    discretized formulation of the problem used to solve the inversion problem."""
+    qsq, xbj, y, sqrt_s, sigmar, sig_err, theory_cpp = sigmar_datum
+    r_min = r_grid[0]
+    r_max = r_grid[-1]
+    sigmar_py = integrate.dblquad(lambda z, r: sigma02*fwd_op_sigma_reduced(qsq, y, z, r)*(1-S_interp(r)), r_min, r_max, 0, 1, epsrel=1e-3)
+    return sigmar_py[0]
+
+
+
+
 # Main
 
 def main():
-    """Recostruct the dipole amplitude N from simulated reduced cross section data."""
+    """DIS reduced cross section computation testing and development."""
 
     # Load data.
     # data_sigmar = get_data("./data/simulated-lo-sigmar_DIPOLE_TAKEN.txt")
