@@ -18,6 +18,8 @@ This module has two core functionalities:
 import os
 import sys
 
+import numpy as np
+
 from pathlib import Path
 from scipy.io import loadmat, savemat
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -64,17 +66,71 @@ def test_sigmar():
         print(datum, sigmar, sigmar_cpp, sigmar_theory_cont, sigmar_theory_cont/sigmar_cpp, abs(sigmar_theory_cont/sigmar_cpp-1) < 1e-2)
 
 
-def generate_sigmar(todo):
+def generate_sigmar(dip_file):
     """Generate reduced cross section data from a dipole amplitude data file, using HERA data points."""
-    todo
+    # Load dipole data, make interpolators
+    ref_dip_name = Path(dip_file).stem
+    print("Generate sigma_r data from: ", ref_dip_name)
+    dip_mat = loadmat(dip_file)["dip_array"]
+    x_bins = dip_mat[:,0,0]
+    r_grid = dip_mat[0,:,1] # same for each xbj
+    S_data_list = [dip_mat[i,:,2] for i in range(len(x_bins))]
+    S_interp_list = [InterpolatedUnivariateSpline(r_grid, S_vals, ext=3) for S_vals in S_data_list]
+    S_interp_dict = dict(zip(x_bins, S_interp_list))
+
+    # Read HERA data to have the points to compute at
+    hera_data_file = "./data/paper2/heraII_filtered_s318.1_all_xbj_bins.rcs"
+    hera_sigr_data = loadmat(hera_data_file)["sigma_r_data"]
+    print("Loaded N=", len(hera_sigr_data), "HERA II data points from: ", hera_data_file)
+
+    # Multiply sigma02 into dipole amplitude data so that it mathces the real data reconstruction in kind, and we don't need to have it here.
+    sigma02 = 1
+
+    generated_sigmar_data = []
+    for datum in hera_sigr_data:
+        qsq, xbj, y, sqrt_s, sigmar, sig_err, theory_cpp = datum
+        try:
+            S_interp = S_interp_dict[xbj]
+        except KeyError:
+            print("skipping at xbj=", xbj)
+            continue
+        sigmar_theory_cont = reduced_cross_section(datum, r_grid, S_interp, sigma02)
+        generated_sigmar_data.append([qsq, xbj, y, sqrt_s, sigmar, sig_err, sigmar_theory_cont])
+        print(len(generated_sigmar_data))
+    generated_sigmar_data = np.array(generated_sigmar_data)
+
+    # Export output
+
+    save_to_file = False
+    save_to_file = True
+    if save_to_file:
+        out_name = "generated_sigmar_heraIIbins_" + ref_dip_name + "_all_xbj_bins.rcs"
+        data_dict = {
+        "sigma_r_data": generated_sigmar_data,
+        }
+        savemat(out_name, data_dict)
+        print("Saved to file: ", out_name)
+    else:
+        print("Not saving output!")
+
 
 
 if __name__ == "__main__":
-    acc_testing = True
+    # acc_testing = True
+    acc_testing = False
 
     if acc_testing:
         print("Testing accuracy of MC integration against C++ implementation data.")
         test_sigmar()
     else:
         # get args
-        generate_sigmar()
+        try:
+            dip_file = sys.argv[1]
+            if os.path.isfile(dip_file):
+                print("loading input dipole file: ", dip_file)
+            else:
+                print("invalid file: ", dip_file)
+        except:
+            print("Need to give the input dipole file as argument!")
+            exit()
+        generate_sigmar(dip_file)
