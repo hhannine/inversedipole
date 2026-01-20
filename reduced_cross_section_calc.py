@@ -48,22 +48,38 @@ def test_sigmar():
     ref_sigr_data = loadmat(ref_sigr_file)["sigma_r_data"]
     print("Loaded N=", len(ref_sigr_data), "data points.")
 
+    # settings: standard mass scheme, no charm
+
     # Reference sigma02 from the Bayesian LO fit
     sigma02=37.0628 # LO Bayes MV 4 refit, strict cuts
     # sigma02=36.8195 # LO Bayes MV 4 refit, wide cuts
     # sigma02=36.3254 # LO Bayes MV 5 refit, strict cuts
     # sigma02=36.0176 # LO Bayes MV 5 refit, wide cuts
 
-    # settings: standard mass scheme, no charm
+    test_continuous = False
+    test_discrete = True
+
+    if test_discrete:
+        discr_r, discr_N = discretize_dipole_data(r_grid, S_interp_dict)
+
+    TODO ADD comparison to discretized implementation (use the new riemann log calculation, need to separate it from the export function)
 
     for datum in ref_sigr_data:
     # for datum in ref_sigr_data[100:110]:
         xbj = datum[1]
         S_interp = S_interp_dict[xbj]
-        sigmar_theory_cont = reduced_cross_section(datum, r_grid, S_interp, sigma02)
+        sigmar_theory_cont = 0
+        if test_continuous:
+            sigmar_theory_cont = reduced_cross_section(datum, r_grid, S_interp, sigma02)
+        sigmar_theory_discr = 0
+        if test_discrete:
+            sigmar_theory_discr = TODO
         sigmar = datum[4]
         sigmar_cpp = datum[6]
-        print(datum, sigmar, sigmar_cpp, sigmar_theory_cont, sigmar_theory_cont/sigmar_cpp, abs(sigmar_theory_cont/sigmar_cpp-1) < 1e-2)
+        if test_continuous:
+            print(datum, sigmar, sigmar_cpp, sigmar_theory_cont, sigmar_theory_cont/sigmar_cpp, abs(sigmar_theory_cont/sigmar_cpp-1) < 1e-2)
+        elif test_discrete:
+            print(datum, sigmar, sigmar_cpp, sigmar_theory_discr, sigmar_theory_discr/sigmar_cpp, abs(sigmar_theory_discr/sigmar_cpp-1) < 1e-2)
 
 
 def generate_sigmar(dip_file):

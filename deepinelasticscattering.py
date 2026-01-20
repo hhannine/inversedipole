@@ -255,6 +255,41 @@ def reduced_cross_section(sigmar_datum, r_grid, S_interp, sigma02):
     return sigmar_py[0]
 
 
+def discretize_dipole_data_log(r_grid, S_interp_dict):
+    rmin=2e-3 # todo: re-test with log grid
+    rmax=25 # todo: re-test with log grid
+    r_steps=256 # todo: re-test with log grid
+
+    r=rmin
+    interpolated_r_grid = []
+    while len(interpolated_r_grid)<r_steps+1:
+        interpolated_r_grid.append(r)
+        # r+=(rmax-rmin)/r_steps # linear uniform grid step
+        r*=(rmax/rmin)**(1/r_steps) # log grid
+
+    # TODO MAKE A NEW DICT FOR THE DISCRETE DIPOLES, so that it works the same way
+    for S_interp in S_interp_dict:
+        discrete_N_vals = []
+        for i in range(len(interpolated_r_grid)-1):
+            r_mid = (interpolated_r_grid[i]+interpolated_r_grid[i+1])
+            # mid point rule interpolation
+            discr_N = 1-S_interp(r_mid)
+            if discr_N <= 0:
+                print("DISCRETE N NOT POSITIVE!:", discr_N, r_mid)
+                exit()
+            discrete_N_vals.append(discr_N)
+        vec_discrete_N = np.array(discrete_N_vals)
+
+    return discr_r, discr_N_dict
+
+
+def discrete_reduced_cross_section(sigmar_datum, r_grid, discrete_S, sigma02):
+    """Compute reduced cross section from given dipole amplitude data with discrete formulation."""
+    qsq, xbj, y, sqrt_s, sigmar, sig_err, theory_cpp = sigmar_datum
+
+
+    dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
+
 
 
 # Main
