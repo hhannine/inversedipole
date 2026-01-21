@@ -24,7 +24,7 @@ from pathlib import Path
 from scipy.io import loadmat, savemat
 from scipy.interpolate import InterpolatedUnivariateSpline
 
-from deepinelasticscattering import reduced_cross_section
+from deepinelasticscattering import reduced_cross_section, discrete_reduced_cross_section, discretize_dipole_data_log
 
 
 def test_sigmar():
@@ -60,9 +60,8 @@ def test_sigmar():
     test_discrete = True
 
     if test_discrete:
-        discr_r, discr_N = discretize_dipole_data(r_grid, S_interp_dict)
-
-    TODO ADD comparison to discretized implementation (use the new riemann log calculation, need to separate it from the export function)
+        # Prepare discrete computation
+        discr_r, discr_N_dict = discretize_dipole_data_log(r_grid, S_interp_dict, x_bins)
 
     for datum in ref_sigr_data:
     # for datum in ref_sigr_data[100:110]:
@@ -73,13 +72,14 @@ def test_sigmar():
             sigmar_theory_cont = reduced_cross_section(datum, r_grid, S_interp, sigma02)
         sigmar_theory_discr = 0
         if test_discrete:
-            sigmar_theory_discr = TODO
+            discr_N = discr_N_dict[xbj]
+            sigmar_theory_discr = discrete_reduced_cross_section(datum, discr_r, discr_N, sigma02)
         sigmar = datum[4]
         sigmar_cpp = datum[6]
         if test_continuous:
             print(datum, sigmar, sigmar_cpp, sigmar_theory_cont, sigmar_theory_cont/sigmar_cpp, abs(sigmar_theory_cont/sigmar_cpp-1) < 1e-2)
         elif test_discrete:
-            print(datum, sigmar, sigmar_cpp, sigmar_theory_discr, sigmar_theory_discr/sigmar_cpp, abs(sigmar_theory_discr/sigmar_cpp-1) < 1e-2)
+            print(datum, sigmar, sigmar_cpp, sigmar_theory_discr, sigmar_theory_discr/sigmar_cpp, abs((sigmar_theory_discr/sigmar_cpp)-1) < 1e-2)
 
 
 def generate_sigmar(dip_file):
@@ -132,8 +132,8 @@ def generate_sigmar(dip_file):
 
 
 if __name__ == "__main__":
-    # acc_testing = True
-    acc_testing = False
+    acc_testing = True
+    # acc_testing = False
 
     if acc_testing:
         print("Testing accuracy of MC integration against C++ implementation data.")
