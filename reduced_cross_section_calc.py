@@ -24,7 +24,7 @@ from pathlib import Path
 from scipy.io import loadmat, savemat
 from scipy.interpolate import InterpolatedUnivariateSpline
 
-from deepinelasticscattering import reduced_cross_section, discrete_reduced_cross_section, discretize_dipole_data_log
+from deepinelasticscattering import reduced_cross_section, discrete_reduced_cross_section, discretize_dipole_data_log, discretize_dipole_data_linear
 
 
 def test_sigmar():
@@ -58,10 +58,15 @@ def test_sigmar():
 
     test_continuous = False
     test_discrete = True
+    use_log = True
+    # use_log = False
 
     if test_discrete:
         # Prepare discrete computation
-        discr_r, discr_N_dict = discretize_dipole_data_log(r_grid, S_interp_dict, x_bins)
+        if use_log:
+            discr_r, discr_N_dict = discretize_dipole_data_log(r_grid, S_interp_dict, x_bins)
+        else:
+            discr_r, discr_N_dict = discretize_dipole_data_linear(r_grid, S_interp_dict, x_bins)
 
     for datum in ref_sigr_data:
     # for datum in ref_sigr_data[100:110]:
@@ -79,7 +84,7 @@ def test_sigmar():
         if test_continuous:
             print(datum, sigmar, sigmar_cpp, sigmar_theory_cont, sigmar_theory_cont/sigmar_cpp, abs(sigmar_theory_cont/sigmar_cpp-1) < 1e-2)
         elif test_discrete:
-            print(datum, sigmar, sigmar_cpp, sigmar_theory_discr, sigmar_theory_discr/sigmar_cpp, abs((sigmar_theory_discr/sigmar_cpp)-1) < 1e-2)
+            print(datum, sigmar, sigmar_cpp, sigmar_theory_discr, sigmar_theory_discr/sigmar_cpp, abs((sigmar_theory_discr/sigmar_cpp)-1) < 1e-2, abs((sigmar_theory_discr/sigmar_cpp)-1) < 1e-3)
 
 
 def generate_sigmar(dip_file):

@@ -256,26 +256,17 @@ def reduced_cross_section(sigmar_datum, r_grid, S_interp, sigma02):
     return sigmar_py[0]
 
 
-# def discretize_dipole_data_linear(r_grid, S_interp_dict, x_bins):
-    # TODO MAKE A LINEAR GRID IMPLEMENTATION AS A COMPARISON AND CONTROL!!! Will definitely help with evaluating the accuracy gains
-
-
-
-
-def discretize_dipole_data_log(r_grid, S_interp_dict, x_bins):
+def discretize_dipole_data_linear(r_grid, S_interp_dict, x_bins):
     rmin=2e-3 # todo: re-test with log grid
     rmax=25 # todo: re-test with log grid
     # r_steps=256 # old linear grid step count
-    # r_steps=128 # SEEMS TO WORK EXCELLENTLY!!
-    # r_steps=32 # EVEN THIS SEEMS TO WORK??!?!?
-    r_steps=30 # this is close to the limit for 1% numerical accuarcy for the discretization
+    r_steps=128
 
     r=rmin
     interpolated_r_grid = []
     while len(interpolated_r_grid)<r_steps+1:
         interpolated_r_grid.append(r)
-        # r+=(rmax-rmin)/r_steps # linear uniform grid step
-        r*=(rmax/rmin)**(1/r_steps) # log grid
+        r+=(rmax-rmin)/r_steps # linear uniform grid step
 
     discrete_N_list = []
     for xbin in x_bins:
@@ -283,7 +274,6 @@ def discretize_dipole_data_log(r_grid, S_interp_dict, x_bins):
         discrete_N_vals = []
         for i in range(len(interpolated_r_grid)-1):
             r_mid = (interpolated_r_grid[i]+interpolated_r_grid[i+1])/2
-            # r_mid = interpolated_r_grid[i] # TODO TEMP LOWER POINT TESTING
             # mid point rule interpolation
             discr_N = 1-S_interp(r_mid)
             if discr_N <= 0:
@@ -300,7 +290,45 @@ def discretize_dipole_data_log(r_grid, S_interp_dict, x_bins):
     return discr_r, discr_N_dict
 
 
-def z_inted_fw_sigmar_udscb_riem_logstep_unifieddatum(datum, r_grid, sigma02, quark_masses):
+def discretize_dipole_data_log(r_grid, S_interp_dict, x_bins):
+    rmin=2e-3 # todo: re-test with log grid
+    rmax=25 # todo: re-test with log grid
+    # r_steps=256 # old linear grid step count
+    # r_steps=128 # reaches 1e-3 error!
+    # r_steps=96 # reaches 1e-3 most of the time?
+    # r_steps=64 # doesn't reach 1e-3 rel err
+    r_steps=32 # EVEN THIS SEEMS TO WORK??!?!? for 1%?
+    # r_steps=30 # this is close to the limit for 1% numerical accuarcy for the discretization.
+
+    r=rmin
+    interpolated_r_grid = []
+    while len(interpolated_r_grid)<r_steps+1:
+        interpolated_r_grid.append(r)
+        r*=(rmax/rmin)**(1/r_steps) # log grid
+
+    discrete_N_list = []
+    for xbin in x_bins:
+        S_interp = S_interp_dict[xbin]
+        discrete_N_vals = []
+        for i in range(len(interpolated_r_grid)-1):
+            r_mid = (interpolated_r_grid[i]+interpolated_r_grid[i+1])/2
+            # mid point rule interpolation
+            discr_N = 1-S_interp(r_mid)
+            if discr_N <= 0:
+                print("DISCRETE N NOT POSITIVE!:", discr_N, r_mid)
+                exit()
+                # alternatively just append 0
+                # discr_N = 0
+            discrete_N_vals.append(discr_N)
+        vec_discrete_N = np.array(discrete_N_vals)
+        discrete_N_list.append(vec_discrete_N)
+    
+    discr_r = interpolated_r_grid
+    discr_N_dict = dict(zip(x_bins, discrete_N_list))
+    return discr_r, discr_N_dict
+
+
+def z_inted_fw_sigmar_udscb_riem_unifieddatum(datum, r_grid, sigma02, quark_masses):
     # .rcs data: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory
     qsq = datum[0]
     y = datum[2]
@@ -331,7 +359,7 @@ def discrete_reduced_cross_section(sigmar_datum, r_grid, discrete_N, sigma02, qu
     # fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
     # Without parallelization
-    fw_op_vals_z_int = z_inted_fw_sigmar_udscb_riem_logstep_unifieddatum(sigmar_datum, r_grid, sigma02, quark_masses)
+    fw_op_vals_z_int = z_inted_fw_sigmar_udscb_riem_unifieddatum(sigmar_datum, r_grid, sigma02, quark_masses)
     fw_op_datum_r_matrix = fw_op_vals_z_int[:,1]
 
     # dscr_sigmar = np.matmul(fw_op_datum_r_matrix, discrete_N)
