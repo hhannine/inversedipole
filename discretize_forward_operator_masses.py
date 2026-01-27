@@ -212,10 +212,11 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
     # rmin=5e-2
     rmax=25 # ALPHA2 testing, lower limit at 5e-3 seemed much more important than the upperlimit.
     # rmax=30 # beta1 testing # doesn't seem to help at all compared to 25
-    r_steps=256 # still good for simulated! (maybe, might be a bit too bad at large Q^2)
+    # r_steps=256 # still good for simulated! (maybe, might be a bit too bad at large Q^2)
     # r_steps=256+128 # testing for a little bit better accuracy at large Q^2 # not quite good enough? 0.5% errors seen?
     # r_steps=512 # increasing this alone doesn't seem to improve the discretization error??
     # r_steps=128 # this leads to >2%, maybe up to 4-5%, errors at worst. Not good enough.
+    r_steps=64 # Good enough with log step!
 
     if mass_scheme == "standard":
         quark_masses = mass_scheme_standard
@@ -302,7 +303,7 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
     # Export
     exp_folder = "./export_hera_data/"
     # base_name = exp_folder+"exp_fwdop_qms_hera_"
-    base_name = exp_folder+"beta2log_exp_fwdop_qms_hera_"
+    base_name = exp_folder+"beta3log_exp_fwdop_qms_hera_"
     if mass_scheme == "mass_scheme_heracc_charm_only":
         base_name += "CC_charm_only_"
     if include_dipole:
@@ -359,8 +360,8 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     ####################
     # Reading data files
     # data_path = "./data/paper1/"
-    data_path = "./data/paper2/" # s binned data
-    data_path_cc = "./data/paper2/"
+    data_path = "./data/paper2/separate binned files/" # s binned data
+    data_path_cc = "./data/paper2/separate binned files/"
     dipole_path = "./data/paper2/dipoles/"
     dipole_files = [i for i in os.listdir(dipole_path) if os.path.isfile(os.path.join(dipole_path, i)) and 'dipole_fit_'+fitname+"_" in i]
     # print(dipole_files)
@@ -496,8 +497,8 @@ if __name__ == '__main__':
     run_settings=test_set
 
     fitname_i = None
-    use_real_data = False
-    # use_real_data = True
+    # use_real_data = False
+    use_real_data = True
 
     for setting in run_settings:
         qm_scheme = setting 

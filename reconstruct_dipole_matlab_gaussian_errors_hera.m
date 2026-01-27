@@ -57,9 +57,12 @@ elseif s_bin == s_bins(3)
 end
 
 % r_steps = 256; % might not be quite good enough for high Q^2?
-r_steps = 384; % beta1 exports use this for everything
+% r_steps = 384; % beta1 exports use this for everything
 % r_steps = 512;
+r_steps = 64; % LOG step
 r_steps_str = strcat("r_steps",int2str(r_steps));
+ref_r_steps = 384; % beta1
+ref_r_steps_str = strcat("r_steps",int2str(ref_r_steps));
 
 % forward operator data files
 data_path = './export_hera_data/';
@@ -143,14 +146,14 @@ else
     % nn=11;
     % nn=10; % big sub-peak
     % nn=9;
-    nn=8; % smaller but definite sub-peak, needed to drop lambda_strict to 1e-2 to see it.
+    % nn=8; % smaller but definite sub-peak, needed to drop lambda_strict to 1e-2 to see it.
     % nn=7;
     % nn=6;
     % nn=5;
     % nn=4;
     % nn=3;
     % nn=2;
-    % nn=1;
+    nn=1;
     n0 = nn;
     nend = nn;
     plotting = true;
@@ -201,7 +204,7 @@ for xi = n0:nend
             fname = data_files(k).name;
             % if (contains(fname, xbj_bin) && contains(fname, ref_data_name_key) && contains(fname, s_str))
                 % ref_file = fname;
-            if (contains(fname, xbj_bin) && contains(fname, ref_data_name_key) && contains(fname, ref_fit_mscheme) && contains(fname, r_steps_str) && contains(fname, s_str))
+            if (contains(fname, xbj_bin) && contains(fname, ref_data_name_key) && contains(fname, ref_fit_mscheme) && contains(fname, ref_r_steps_str) && contains(fname, s_str))
                 ref_file = fname;
             end
         end
@@ -531,8 +534,8 @@ for xi = n0:nend
     fun_dip_qs_tik2 = @(r) ppval(dip_interp_tik2,r)/N_max_tik2 - 1 + 0.606530659712;
     ref_dip_props = [];
     if ref_dip_loaded
-        % dip_interp_ref = makima(ref_r_grid, ref_dipole);
-        dip_interp_ref = makima(r_grid, ref_dipole);
+        dip_interp_ref = makima(ref_r_grid, ref_dipole);
+        % dip_interp_ref = makima(r_grid, ref_dipole);
         fun_dip_qs_ref = @(r) ppval(dip_interp_ref,r)/max(ref_dipole) - 1 + 0.606530659712;
         rs_ref = fzero(fun_dip_qs_ref, 2);
         Qs_ref = sqrt(2)/rs_ref;
@@ -587,7 +590,7 @@ for xi = n0:nend
         loglog(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
         % semilogx(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
         hold on
-        if ref_dip_loaded
+        if ref_dip_loaded && false
             loglog(r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
             % loglog(ref_r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
         end
