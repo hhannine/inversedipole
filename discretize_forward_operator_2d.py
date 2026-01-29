@@ -62,39 +62,15 @@ def z_inted_fw_sigmar_udscb_riem_logstep(datum, r_grid, sigma02, quark_masses):
 
 
 
-def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_data_name, sigma02=None, include_dipole=True, use_unity_sigma0=False):
+def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, parent_data_name, sigma02=1, include_dipole=True):
     interpolated_r_grid = []
-    # rmin=5e-3
-    rmin=2e-3 # beta1 testing
-    # rmax=25 # tightening rmin and rmax help a little with the discretization precision
-    rmax=25 # ALPHA2 testing, lower limit at 5e-3 seemed much more important than the upperlimit.
-    # r_steps=256 # still good for simulated! (maybe, might be a bit too bad at large Q^2)
-    # r_steps=256+128 # testing for a little bit better accuracy at large Q^2 # not quite good enough? 0.5% errors seen?
-    # r_steps=512 # increasing this alone doesn't seem to improve the discretization error??
-    # r_steps=128 # this leads to >2%, maybe up to 4-5%, errors at worst. Not good enough.
+    rmin=1e-3 # Nice round lower limit to aim for
+    rmax=25 #
+    # r_steps=256 # Paper 1 grid size
+    # r_steps=128 #
     r_steps=64 # Good enough with log step!
 
-    if mass_scheme == "standard":
-        quark_masses = mass_scheme_standard
-    elif mass_scheme == "standard_light":
-        quark_masses = mass_scheme_standard_light
-    elif mass_scheme == "pole":
-        quark_masses = mass_scheme_pole
-    elif mass_scheme == "mqMpole":
-        quark_masses = mass_scheme_mq_Mpole
-    elif mass_scheme == "mqmq":
-        quark_masses = mass_scheme_mq_mq
-    elif mass_scheme == "mqMcharm":
-        quark_masses = mass_scheme_mcharm
-    elif mass_scheme == "mqMbottom":
-        quark_masses = mass_scheme_mbottom
-    elif mass_scheme == "mqMW":
-        quark_masses = mass_scheme_mW
-    elif mass_scheme == "mass_scheme_heracc_charm_only":
-        quark_masses = mass_scheme_heracc_charm_only
-    else:
-        print("BAD MASS SCHEME")
-        exit()
+    qm_scheme_name, quark_masses = mass_scheme
 
     r=rmin
     while len(interpolated_r_grid)<r_steps+1:
@@ -102,6 +78,9 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
         r*=(rmax/rmin)**(1/r_steps) # log grid
 
     if dipfile:
+        # Including discretized reference dipole for closure testing / comparison
+        # TODO NEEDS TO BE UPDATED FOR THE UNIFIED DIPOLE FILE FORMAT
+        
         data_dipole = load_dipole(dipfile)
         data_dipole = np.sort(data_dipole, order=['xbj','r'])
         xbj_vals = data_dipole["xbj"]
@@ -125,9 +104,6 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
             discrete_N_vals.append(discr_N)
         vec_discrete_N = np.array(discrete_N_vals)
 
-    real_sigma = sigma02
-    if use_unity_sigma0:
-        sigma02 = 1
 
     with multiprocessing.Pool(processes=16) as pool:
         fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udscb_riem_uniftrapez, ((datum, (interpolated_r_grid,), sigma02, quark_masses) for datum in data_sigmar))
@@ -135,15 +111,11 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
 
     fw_op_datum_r_matrix = []
     for array in fw_op_vals_z_int:
-        fw_op_datum_r_matrix.append(array[:,1]) # vector value riemann/uniform trapez sum operator, also has r in 0th col
+        fw_op_datum_r_matrix.append(array[:,1]) # vector value riemann sum operator, also has r in 0th col
     fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
     # Filename settings
-    str_id_qmass = "_" + mass_scheme + "_"
-    if use_unity_sigma0:
-        str_unity_sigma02 = "_unitysigma"
-    else:
-        str_unity_sigma02 = "_realsigma"
+    str_id_qmass = "_" + qm_scheme_name + "_"
     
     qsq_vals = data_sigmar["qsq"]
     sigmar_vals = data_sigmar["sigmar"]
@@ -327,17 +299,16 @@ if __name__ == '__main__':
     r0=0
 
     run_settings=[
-        "standard",
-        "standard_light",
-        # "pole",
-        "mqMpole", # this is the more accurate alternative to 'standard'
-        # "mqmq",
-        "mqMcharm",
-        "mqMbottom",
-        "mqMW",
-        # "mass_scheme_heracc_charm_only"
+        ("standard", mass_scheme_standard,),
+        ("standard_light", mass_scheme_standard_light,),
+        ("mqMpole", mass_scheme_mq_Mpole,),
+        ("mqMcharm", mass_scheme_mcharm,),
+        ("mqMbottom", mass_scheme_mbottom,),
+        ("mqMW", mass_scheme_mW,),
+        ("mass_scheme_heracc_charm_only", mass_scheme_heracc_charm_only),
     ]
-    test_set=["standard"]
+
+    test_set=[run_settings[0]]
     run_settings=test_set
 
     fitname_i = None
