@@ -70,7 +70,6 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
     # r_steps=128 #
     r_steps=64 # Good enough with log step!
 
-    qm_scheme_name, quark_masses = mass_scheme
 
     r=rmin
     while len(interpolated_r_grid)<r_steps+1:
@@ -80,7 +79,7 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
     if dipfile:
         # Including discretized reference dipole for closure testing / comparison
         # TODO NEEDS TO BE UPDATED FOR THE UNIFIED DIPOLE FILE FORMAT
-        
+
         data_dipole = load_dipole(dipfile)
         data_dipole = np.sort(data_dipole, order=['xbj','r'])
         xbj_vals = data_dipole["xbj"]
@@ -104,92 +103,77 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
             discrete_N_vals.append(discr_N)
         vec_discrete_N = np.array(discrete_N_vals)
 
-
     with multiprocessing.Pool(processes=16) as pool:
         fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udscb_riem_uniftrapez, ((datum, (interpolated_r_grid,), sigma02, quark_masses) for datum in data_sigmar))
-
 
     fw_op_datum_r_matrix = []
     for array in fw_op_vals_z_int:
         fw_op_datum_r_matrix.append(array[:,1]) # vector value riemann sum operator, also has r in 0th col
     fw_op_datum_r_matrix = np.array(fw_op_datum_r_matrix)
 
-    # Filename settings
-    str_id_qmass = "_" + qm_scheme_name + "_"
-    
-    qsq_vals = data_sigmar["qsq"]
-    sigmar_vals = data_sigmar["sigmar"]
-    sigmar_errs = data_sigmar["sigmarerr"]
-
-    if "reference" in parent_data_name:
-        sigmar_theory = data_sigmar["theory"]
-    else:
-        sigmar_theory = []
-
-    # Export
-    exp_folder = "./export_hera_data_2d/"
-    base_name = exp_folder+"exp2dlog_fwdop_qms_hera_"
-    if mass_scheme == "mass_scheme_heracc_charm_only":
-        base_name += "CC_charm_only_"
-    savename = base_name+parent_data_name+str_id_qmass+"_r_steps"+str(r_steps)+".mat"
-    if include_dipole:
-        # Real data, reference theory simulated data, and dipole
-        dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
-        for d, s in zip(data_sigmar, dscr_sigmar):
-            print(d, d["theory"], s, s/d["theory"])
-        # if "reference" in parent_data_name:
-        mat_dict = {
-            "forward_op_A": fw_op_datum_r_matrix,
-            "discrete_dipole_N": vec_discrete_N, 
-            "r_grid": interpolated_r_grid,
-            "qsq_vals": qsq_vals,
-            "sigmar_vals": sigmar_vals,
-            "sigmar_errs": sigmar_errs,
-            "sigmar_theory": sigmar_theory,
-            }
-    else:
-        # Real data without dipole
-        mat_dict = {
-            "forward_op_A": fw_op_datum_r_matrix,
-            "r_grid": interpolated_r_grid,
-            "qsq_vals": qsq_vals,
-            "sigmar_vals": sigmar_vals,
-            # TODO CORRELATED UNCERTAINTIES ALSO!
-            "sigmar_errs": sigmar_errs,
-            }
-    
-    savemat(savename, mat_dict)
-    
-    return 0
+    return fw_op_datum_r_matrix
 
 
-# TODO
+
+
 def export_discrete_2d(mass_scheme, data_sigmar, data_name, ground_truth=None, reference_dip=None):
     """
     2D discretization routine.
     Needs to run 1D discretization in r for each Bjorken-x, and then contstruct the sparce forward operator.
     If a reference dipole is included, N(r,x) needs to be reshaped into a stacked column vector: [N(r,x1),...,N(r,xn)].
     """
+    qm_scheme_name, quark_masses = mass_scheme
+
+
+    Process in bins of xbj and use the old code to build those matrices?
+    And then here build them into the sparce matrix?
+
+
+    # Export
+    exp_folder = "./export_hera_data_2d/"
+    base_name = exp_folder
+    
+    if closure_testing:
+        # Closure testing simulated data and ground truth dipole
+        base_name += "ctest_"
+        dscr_check = True
+        if dscr_check:
+            # Test that discretization agrees with simulated data
+            dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
+            for d, s in zip(data_sigmar, dscr_sigmar):
+                print(d, d["theory"], s, s/d["theory"])
+        mat_dict = {
+            "forward_op_A": fw_op_datum_r_matrix,
+            "discrete_dipole_N": vec_discrete_N, 
+            "r_grid": interpolated_r_grid,
+            "rcs_data_table": rcs_data_table,
+            }
+    else:
+        # Real data fwd operator with comparison reference CKM MV4 dipole
+        mat_dict = {
+            "forward_op_A": fw_op_datum_r_matrix,
+            "r_grid": interpolated_r_grid,
+            "rcs_data_table": rcs_data_table,
+            "ref_dipole": ref_dipole_discrete
+            }
+    
+    base_name+="exp2dlog_fwdop_qms_hera_"
+    if mass_scheme == "mass_scheme_heracc_charm_only":
+        base_name += "CC_charm_only_"
+    savename = base_name+data_name+"_" + qm_scheme_name + "_"+"_r_steps"+str(r_steps)+".mat"
+
+    savemat(savename, mat_dict)
+    
+    return 0
 
 
 
-def run_export(mass_scheme, closure_testing, fitname_i=None):
+def run_export(mass_scheme, closure_testing, ct_groundtruth_dip=None):
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
-
     ###################################
     ### SETTINGS ######################
     ###################################
-
-    use_unity_sigma0 = True
     charm_only=False
-    use_charm = False
-
-    # #        0        1        2        3           4
-    fits = ["MV", "MVgamma", "MVe", "bayesMV4", "bayesMV5"]
-    if not fitname_i:
-        fitname = fits[3]
-    # else:
-    #     fitname = fits[fitname_i]
 
     ####################
     # Reading data files
@@ -198,24 +182,24 @@ def run_export(mass_scheme, closure_testing, fitname_i=None):
     dipole_path = "./data/paper2/dipoles_unified2d/"
     dipole_files = [i for i in os.listdir(dipole_path) if os.path.isfile(os.path.join(dipole_path, i)) and 'dipole_fit_'+fitname+"_" in i]
 
-    if use_charm:
-        sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-            'sigmar_'+fitname+"_dipole-lightpluscharm" in i]
-    else:
-        sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-            'sigmar_'+fitname+"_dipole." in i]
-    # print(sigmar_files)
-    
+    ref_fit_bayesMV4_dip = "dip_amp_evol_data_bayesMV4_sigma0_included_r256.edip"
+    # ref_fit_bayesMV4_dip = "dipole_modeffect_evol_data_dip_amp_evol_data_bayesMV4_r256_large_x_extension_MVfreeze_r256.edip"
+
+    # Load sigma_r .rcs file for the specified closure testing dipole amplitude and effect
+    # sigmar filenames for ref fits: heraII_reference_dipoles_filtered_bayesMV4-strict_Q_cuts_s318.1_all_xbj_bins.rcs
+    # TODO actual closure testing data has not been generated yet, naming scheme not decided yet TODO
+    closure_name_base = "TODO"
+    if closure_testing:
+        closure_testing_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
+            closure_name_base in i and ct_groundtruth_dip in i]    
 
     s_bins = [318.1, 300.3, 251.5, 224.9]
     s_bin = s_bins[0]
     s_str = "s" + str(s_bin)
 
+    # Load unified HERA II sigma_r .rcs file(s) with specified sqrt(s)
     hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_filtered" in i and s_str in i]
     print(hera_sigmar_files)
-
-    use_ref_dip = False
-    # use_ref_dip = True
 
     if qm_scheme == "mass_scheme_heracc_charm_only":
         # HERA II charm only data settings
@@ -237,7 +221,7 @@ def run_export(mass_scheme, closure_testing, fitname_i=None):
         for sig_file in sigmar_files:
             ground_truth_dip = load_edip(TODO)
             print("Loading sigma_r rcs file: ", sig_file)
-            data_sigmar = get_rcs(sig_file)
+            data_sigmar = load_rcs(sig_file)
             print("Discretizing forward problem for sigmar data file: ", sig_file, mass_scheme)
             ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=ground_truth_dip)
         print("Export done with:", mass_scheme, closure_testing)
@@ -246,10 +230,10 @@ def run_export(mass_scheme, closure_testing, fitname_i=None):
         # Including the Casuga-Karhunen-Mäntysaari Bayesian MV4 fit dipole as reference
         print("Discretizing with HERA II data.")
         g_truth = None
-        reference_fit_dip = TODO
+        reference_fit_dip = load_edip(ref_fit_bayesMV4_dip)
         for sig_file in hera_sigmar_files:
             print("Loading data file: ", sig_file)
-            data_sigmar = get_rcs(sig_file)
+            data_sigmar = load_rcs(sig_file)
             print("Discretizing forward problem for real data file: ", sig_file, mass_scheme)
             ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=g_truth, reference_dip=reference_fit_dip)
         print("Export done with:", mass_scheme, use_real_data)
@@ -279,15 +263,22 @@ if __name__ == '__main__':
     test_set=[run_settings[0]]
     run_settings=test_set
 
-    fitname_i = None
-    # use_real_data = False
-    use_real_data = True
+    # closure_testing = False
+    closure_testing = True
+
+    ctesting_dipoles=[
+        "large_x_extension",
+    ]
 
     for setting in run_settings:
-        qm_scheme = setting 
+        qm_scheme = setting
+        if closure_testing:
+            ct_groundtruth_dip = ctesting_dipoles[0]
+        else:
+            ct_groundtruth_dip = None
 
         try:
-            r0 += run_export(qm_scheme, use_real_data)
+            r0 += run_export(qm_scheme, closure_testing, ct_groundtruth_dip=ct_groundtruth_dip)
         except Exception as err:
             print(f"Unexpected {err=}, {type(err)=}")
             i+=1
