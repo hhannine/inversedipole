@@ -131,11 +131,12 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
     base_name = exp_folder+"exp2dlog_fwdop_qms_hera_"
     if mass_scheme == "mass_scheme_heracc_charm_only":
         base_name += "CC_charm_only_"
+    savename = base_name+parent_data_name+str_id_qmass+"_r_steps"+str(r_steps)+".mat"
     if include_dipole:
         # Real data, reference theory simulated data, and dipole
         dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
         for d, s in zip(data_sigmar, dscr_sigmar):
-            print(d, d["theory"], real_sigma*s, real_sigma*s/d["theory"])
+            print(d, d["theory"], s, s/d["theory"])
         # if "reference" in parent_data_name:
         mat_dict = {
             "forward_op_A": fw_op_datum_r_matrix,
@@ -145,9 +146,7 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
             "sigmar_vals": sigmar_vals,
             "sigmar_errs": sigmar_errs,
             "sigmar_theory": sigmar_theory,
-            # "real_sigma": real_sigma
             }
-        savemat(base_name+parent_data_name+str_id_qmass+str_unity_sigma02+"_r_steps"+str(r_steps)+"_xbj"+str(xbj_bin)+".mat", mat_dict)
     else:
         # Real data without dipole
         mat_dict = {
@@ -158,13 +157,14 @@ def export_discrete_riemann_log(dipfile, mass_scheme, xbj_bin, data_sigmar, pare
             # TODO CORRELATED UNCERTAINTIES ALSO!
             "sigmar_errs": sigmar_errs,
             }
-        savemat(base_name+parent_data_name+str_id_qmass+str_unity_sigma02+"_r_steps"+str(r_steps)+".mat", mat_dict)
+    
+    savemat(savename, mat_dict)
     
     return 0
 
 
 # TODO
-def export_discrete_2d(TODO):
+def export_discrete_2d(mass_scheme, data_sigmar, data_name, ground_truth=None, reference_dip=None):
     """
     2D discretization routine.
     Needs to run 1D discretization in r for each Bjorken-x, and then contstruct the sparce forward operator.
@@ -173,7 +173,7 @@ def export_discrete_2d(TODO):
 
 
 
-def run_export(mass_scheme, use_real_data, fitname_i=None):
+def run_export(mass_scheme, closure_testing, fitname_i=None):
     """Recostruct the dipole amplitude N from simulated reduced cross section data."""
 
     ###################################
@@ -212,14 +212,13 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     s_str = "s" + str(s_bin)
 
     hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_filtered" in i and s_str in i]
+    print(hera_sigmar_files)
 
     use_ref_dip = False
     # use_ref_dip = True
-    # hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_reference_dipoles_filtered_bayesMV4-strict_Q_cuts" in i and s_str in i]
-    # hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_reference_dipoles_filtered_bayesMV4-wide_Q_cuts" in i and s_str in i]
-    print(hera_sigmar_files)
 
     if qm_scheme == "mass_scheme_heracc_charm_only":
+        # HERA II charm only data settings
         data_path = data_path_cc
         charm_only=True
         hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_CC_filtered" in i]
@@ -229,63 +228,32 @@ def run_export(mass_scheme, use_real_data, fitname_i=None):
     #############################################
     # Discretizing and exporting forward problems
     ret = -1
-    if use_real_data:
-        if use_ref_dip:
-            print("Discretizing with reference dipole sigma_r data in HERA II bins.")
-            xbj_bin_vals = [float(Path(i).stem.split("xbj")[1]) for i in hera_sigmar_files]
-            print(xbj_bin_vals)
-            for sig_file in hera_sigmar_files:
-                print("Loading reference file: ", sig_file)
-                # sigma02=read_sigma02(data_path +sig_file)
-                # sigma02=13.9/(1/2.56819) # the binned files don't save the sigma02. convert 13.9 mb to GeV^-2
-                sigma02=37.0628 # own refit of the normalization! (difference from correlated uncertainties?)
-                data_sigmar = get_data(data_path + sig_file, simulated="reference-dipole", charm=charm_only)
-                xbj_bin = float(Path(sig_file).stem.split("xbj")[1])
-                if xbj_bin>0.01:
-                    print("Reference dipole not available!")
-                    inc_dip = False
-                    ref_dipole = None
-                else:
-                    inc_dip = True
-                    if [i for i in dipole_files if str(xbj_bin) in i][0]:
-                        ref_dipole = dipole_path+[i for i in dipole_files if str(xbj_bin) in i][0]
-                    else:
-                        print("No ref_dipole file found for xbj=", xbj_bin)
-                        continue
-                    print("inc_dipole", xbj_bin, str(xbj_bin) in ref_dipole, str(xbj_bin) in sig_file)
-                print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin, mass_scheme)
-                # continue
-                # export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
-                ret = export_discrete_riemann_log(ref_dipole, mass_scheme, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02=sigma02, include_dipole=inc_dip, use_unity_sigma0=use_unity_sigma0)
-            print("Export done with:", mass_scheme, use_real_data)
-        else:
-            print("Discretizing with HERA II data.")
-            xbj_bin_vals = [float(Path(i).stem.split("xbj")[1]) for i in hera_sigmar_files]
-            print(xbj_bin_vals)
-            for sig_file in hera_sigmar_files:
-                print("Loading data file: ", sig_file)
-                data_sigmar = get_data(data_path + sig_file, simulated=False, charm=charm_only)
-                xbj_bin = float(Path(sig_file).stem.split("xbj")[1])
-                print("Discretizing forward problem for real data file: ", sig_file, " at xbj=", xbj_bin, mass_scheme)
-                # export_discrete(None, xbj_bin, data_sigmar, Path(sig_file).stem, sigma02, include_dipole=False, use_charm=use_charm)
-                ret = export_discrete_riemann_log(None, mass_scheme, xbj_bin, data_sigmar, Path(sig_file).stem, include_dipole=False, use_unity_sigma0=use_unity_sigma0)
-            print("Export done with:", mass_scheme, use_real_data)
-        # exit()
-    else:
-        # Simulated data
-        print("Simulated data with quark mass schemes not implemented! Use STANDARD ONLY for now!") # Fits only use the standard scheme so need to use that for 1-to-1 comparison!
-        mass_scheme = "standard"
-        for dip_file in dipole_files:
-            xbj_bin = float(Path(dip_file).stem.split("xbj")[1].split("r")[0])
-            data_sigmar = get_data(data_path + sig_file, simulated="reference-dipole", charm=charm_only)
-            data_sigmar_binned = data_sigmar[data_sigmar["xbj"]==xbj_bin]
-            if data_sigmar_binned.size==0:
-                print("NO DATA FOUND IN THIS BIN: ", xbj_bin, " in file: ", sig_file)
-                continue
-            print("Discretizing forward problem for dipole file: ", dip_file, " at xbj=", xbj_bin, ", Datapoints N=", data_sigmar_binned.size)
-            # export_discrete(data_path+dip_file, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, sigma02, use_charm=use_charm)
-            ret = export_discrete_riemann_log(data_path+dip_file, mass_scheme, xbj_bin, data_sigmar_binned, Path(sigmar_files[0]).stem, use_unity_sigma0=use_unity_sigma0)
-        # exit()
+    if closure_testing:
+        # Discretization for CLOSURE TESTING
+        # Generate forward operator discretization for data from a known dipole amplitude
+        # "reference" dipole here is the ground truth
+        # TODO LOAD dipole and sigmar files in pairs
+        print("Closure testing: Discretizing with reference dipole sigma_r data in HERA II bins.")
+        for sig_file in sigmar_files:
+            ground_truth_dip = load_edip(TODO)
+            print("Loading sigma_r rcs file: ", sig_file)
+            data_sigmar = get_rcs(sig_file)
+            print("Discretizing forward problem for sigmar data file: ", sig_file, mass_scheme)
+            ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=ground_truth_dip)
+        print("Export done with:", mass_scheme, closure_testing)
+    elif not closure_testing:
+        # Discretizing forward operator for reconstruction from real data (HERA II)
+        # Including the Casuga-Karhunen-Mäntysaari Bayesian MV4 fit dipole as reference
+        print("Discretizing with HERA II data.")
+        g_truth = None
+        reference_fit_dip = TODO
+        for sig_file in hera_sigmar_files:
+            print("Loading data file: ", sig_file)
+            data_sigmar = get_rcs(sig_file)
+            print("Discretizing forward problem for real data file: ", sig_file, mass_scheme)
+            ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=g_truth, reference_dip=reference_fit_dip)
+        print("Export done with:", mass_scheme, use_real_data)
+
 
     if ret==-1:
         print("loop error: export not done?")
