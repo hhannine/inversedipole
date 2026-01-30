@@ -18,6 +18,15 @@ from scipy.io import loadmat, savemat
 from data_manage import load_dipole
 
 
+def load_edip(file):
+    """Load unified dipole data file into a numpy array."""
+    dip_mat = loadmat(dip_file)["dip_array"]
+    return dip_mat
+
+def edip_dipole_xbins(file):
+    dip_mat = load_edip(file)
+    x_bins = dip_mat[:,0,0]
+    return x_bins
 
 
 if __name__=="__main__":
@@ -128,7 +137,6 @@ if __name__=="__main__":
 
             if ext_type == "MVfreeze":
                 # COPY IC dipole data bin to extend
-                # i_x_ic = x_bins.index(x_max) # not valid for numpy array
                 i_x_ic, = np.where(x_bins == x_max)
                 print("xmax ", x_max, " at ", i_x_ic[0])
                 S_ic = dip_mat[i_x_ic[0],:,2]

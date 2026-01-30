@@ -14,7 +14,25 @@ import sys
 import numpy as np
 
 from pathlib import Path
-from scipy.io import savemat
+from scipy.io import loadmat, savemat
+
+
+def load_rcs(rcs_file):
+    """Load an RCS file into a numpy array.
+    
+    rcs format: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory"""
+    rcs = loadmat(rcs_file)
+    rcs_array = rcs["sigma_r_data"]
+    return rcs_array
+
+def sigmar_rcs_cnt_xbj_points(rcs_array):
+    """Return list of xbj value and point count pairs."""
+    # rcs_array = load_rcs(rcs_file)
+    x_values = rcs_array[:,1]
+    xvals, counts = numpy.unique(x_values, return_counts=True)
+    xbins_npoints = list(zip(xvals, counts))
+    return xbins_npoints
+
 
 if __name__=="__main__":
     dip_types = [
@@ -43,7 +61,7 @@ if __name__=="__main__":
     # - heraII_CC:                  qsq, xbj, y, sigmar, sig_err -- (files wrongly have the same header as heraII inclusive)
     # - reference_dipoles_filtered: qsq, xbj, y, sigmar, sig_err, theory -- (all but one wrongly have the same header as heraII)
 
-    # Filter and store the data as: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory
+    # Filter and store the data in .rcs format: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory
 
     # Build data into the new array:
     if "heraII_filtered" in dip_name:
