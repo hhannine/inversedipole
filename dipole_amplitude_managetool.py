@@ -115,8 +115,8 @@ if __name__=="__main__":
             # - gaussian peaks here and there
             # - an arbitrary perturbation to lay on top like the shepp--logan phantom?
         # opt = "large_x_extension"
-        # opt = "small_x_extension"
-        opt = "sigma0_included"
+        opt = "small_x_extension"
+        # opt = "sigma0_included"
         # opt = "wave0" # 0, 1, 2 ~ ?
         # opt = "gaussian" # 0 ~ Gaussian(s), try to reconstruct a number of peaks located in different regimes (simultaneously? 3x3 grid of peaks ~ {small r, mid r, large r} x {small x, mid x, large x})
         # opt = "prescribed_sigma0" # define some logarithmic growth of sigma0(xbj) to try to reconstruct in the closure test
@@ -151,7 +151,37 @@ if __name__=="__main__":
 
                 # extension done, jump to exporting to file.
         elif opt == "small_x_extension":
-            pass # would be more accurate to compute the dipole with the BK equation in cpp
+            # Freeze evolution at small-x to quickly patch the reference data for the full HERA range.
+            # Would be more accurate to compute the dipole with the BK equation in cpp
+            ext_type = "smallxfreeze" # just freeze the IC!! the evolution will not be the same anyway! And this is clearly the easiest to do!
+            opt+="_"+ext_type
+            bins_to_extend = [3.98e-05, 8e-05] # small x HERA bins
+            x_min = min(x_bins)
+            # x_bins_to_extend = [x for x in bins_to_extend if x < x_min]
+            x_bins_to_extend = bins_to_extend
+            if not x_bins_to_extend:
+                print("x_min in dipole data lower than any extension x_bin?", x_min)
+            print("Expected extension bin count: ", len(x_bins)+len(x_bins_to_extend))
+
+            if ext_type == "smallxfreeze":
+                # COPY smallest x dipole data bin to extend
+                i_x_low, = np.where(x_bins == x_min)
+                print("x_min ", x_min, " at ", i_x_low[0])
+                S_low = dip_mat[i_x_low[0],:,2]
+                # Need to write the data in the correct format into the new array
+                for xbj in reversed(x_bins_to_extend):
+                    # loop over reversed list since insertion has to be done in the beginning of the data array
+                    # and increasing order of xbj must be preserved
+                    x_ar = np.array([xbj]*len(r_grid))
+                    S_extension = [np.array([x_ar, r_grid, S_low]).T]
+                    # dip_mat = np.insert(dip_mat, 0, S_extension, axis=0) # insert at the begining
+                    dip_mat = np.insert(dip_mat, 1, S_extension, axis=0) # insert AFTER THE SMALLEST BIN (1)
+                # Verify extension success
+                x_bins = dip_mat[:,0,0]
+                print("xbj bins after extension: ", x_bins, len(x_bins))
+                print("INSERTION AFTER THE SMALLEST XBJ, DOUBLE CHECK SORTING!!")
+
+                # extension done, jump to exporting to file.
         elif opt == "sigma0_included":
             # Multiply sigma02 into the dipole amplitude data to make it self contained for data generation tasks
             strict_Q_cuts = True
