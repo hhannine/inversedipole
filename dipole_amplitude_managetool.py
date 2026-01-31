@@ -20,7 +20,7 @@ from data_manage import load_dipole
 
 def load_edip(file):
     """Load unified dipole data file into a numpy array."""
-    dip_mat = loadmat(dip_file)["dip_array"]
+    dip_mat = loadmat(file)["dip_array"]
     return dip_mat
 
 def edip_dipole_xbins(file):

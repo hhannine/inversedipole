@@ -63,7 +63,7 @@ def z_inted_fw_sigmar_udscb_riem_logstep(datum, r_grid, sigma02, quark_masses):
 
 def r_grid_log():
     interpolated_r_grid = []
-    rmin=1e-3 # Nice round lower limit to aim for
+    rmin=2e-3 # Nice round lower limit to aim for
     rmax=25 #
     # r_steps=256 # Paper 1 grid size
     # r_steps=128 #
@@ -77,17 +77,18 @@ def r_grid_log():
 
 def discretize_1D_dipole(interpolated_r_grid, r_vals, S_vals):
     S_interp = InterpolatedUnivariateSpline(r_vals, S_vals, k=1, ext=3)
+    S_max = max(S_vals)
     discrete_N_vals = []
     for i in range(len(interpolated_r_grid)-1):
         r_mid = (interpolated_r_grid[i]+interpolated_r_grid[i+1])/2
         # mid point rule interpolation
-        discr_N = 1-S_interp(r_mid)
+        discr_N = S_max-S_interp(r_mid)
         if discr_N <= 0:
             print("DISCRETE N NOT POSITIVE!:", discr_N, r_mid)
-            exit()
+            raise Exception
         discrete_N_vals.append(discr_N)
     # vec_discrete_N = np.array(discrete_N_vals)
-    return vec_discrete_N
+    return discrete_N_vals
 
 
 def build_discrete_dipole_stack(dipole_edip):
@@ -141,41 +142,52 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
 
     # Reading Bjorken-x bins and point counts from data for structuring the forward operator
     xbj_bins_and_points_sigmar = sigmar_rcs_cnt_xbj_points(data_sigmar_rcs) # xbj bins and number of datapoints in each is needed to build the sparce fwd operator.
+    xbj_ordinal_dict = dict([(xbj, ix) for ix, (xbj, nx) in enumerate(xbj_bins_and_points_sigmar)])
     print(xbj_bins_and_points_sigmar)
     n_x_bins = len(xbj_bins_and_points_sigmar)
     print(n_x_bins)
-    qsq_points_total = sum([nx for ix, nx in xbj_bins_and_points_sigmar])
+    qsq_points_total = sum([nx for xbj, nx in xbj_bins_and_points_sigmar])
     print(qsq_points_total)
 
     # TODO: Double check sigmar and dipole sorting in xbj?
 
     # Discretization loop over datapoints in sigma_r
+    sigma02 = 1 # Normalization sigma0/2 is now integrated into the dipole amplitude data, not used here anymore.
     with multiprocessing.Pool(processes=16) as pool:
-        fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udscb_riem_logstep, ((datum, (interpolated_r_grid,), sigma02, quark_masses) for datum in data_sigmar_rcs))
+        # fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udscb_riem_logstep, ((datum, (interpolated_r_grid,), sigma02, quark_masses) for datum in data_sigmar_rcs))
+        fw_op_vals_z_int = pool.starmap(z_inted_fw_sigmar_udscb_riem_logstep, ((datum, (interpolated_r_grid,), sigma02, quark_masses) for datum in data_sigmar_rcs[:16]))
 
     # Building the sparce unified forward operator.
     # If sorting is in order, the starting point is a block column matrix of the 1D operators stacked one after another.
-    # Task is to place them in the large stacked operator of size (r_steps*n_x_bins, qsq_points_total*n_x_bins)
-    sparce_stacked_fwdop = np.zeros((r_steps*n_x_bins, qsq_points_total*n_x_bins))
+    # Task is to place them in the large stacked operator of size (r_steps*n_x_bins, qsq_points_total)
+    sparce_stacked_fwdop = np.zeros((r_steps*n_x_bins, qsq_points_total))
     for i, array in enumerate(fw_op_vals_z_int):
         fwd_op_datum_row = prune_1D_fwdop_array(array)
         # xbj of datum determines the column block this goes into, and Q^2 of datum the row
         datum = data_sigmar_rcs[i]
         xbj = datum[1]
-        ix, nx = xbj_bins_and_points_sigmar[xbj] # ordinal of xbj bin, and number of data points in that bin
-        print(ix, nx)
+        ix = xbj_ordinal_dict[xbj] # ordinal of xbj bin
         # inserting the data
         sparce_stacked_fwdop[i,r_steps*ix:r_steps*(ix+1)-1] = fwd_op_datum_row
 
     # Test stacked forward operator
     testing_stack = True
     if testing_stack:
+        print(sparce_stacked_fwdop.shape)
+        print("Sparce operator rows expected is qsq_points_total = ", qsq_points_total) # each row corresponds to a real data point at some xbj, Q^2
+        print("ref dip shape", discrete_refdip_stack.shape, "expected: (nr-1) * nxbins = ", (r_steps-1)*len(ref_xbj_bins))
+        if n_x_bins != len(ref_xbj_bins):
+            print("Mismatch in number of xbins in rcs data selected, and those available for the reference dipole!", n_x_bins, len(ref_xbj_bins))
         # compute some stack op * stack dipole products and compare against sigmar in datum
         # todo automate comparison by comparing relative error and counting those that are not in agreement
         err_count = 0
         for i, datum in enumerate(data_sigmar_rcs):
-            print("Todo implement check")
-            continue
+            # rcs format: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory
+            dscr_sigmar = np.matmul(sparce_stacked_fwdop.T, discrete_refdip_stack)
+            for d, s in zip(data_sigmar, dscr_sigmar):
+                if d[1] < 1e-4 or d[1] > 0.01:
+                    continue
+                print(d, d[4], s, s/d[4])
         print("Error count:", err_count)
 
 
@@ -193,7 +205,7 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
             for d, s in zip(data_sigmar, dscr_sigmar):
                 print(d, d["theory"], s, s/d["theory"])
         mat_dict = {
-            "forward_op_A": fw_op_datum_r_matrix,
+            "forward_op_A": sparce_stacked_fwdop,
             "discrete_ground_truth_stack": discrete_ground_truth_stack, 
             "r_grid": interpolated_r_grid,
             "data_sigmar_rcs": data_sigmar_rcs,
@@ -201,7 +213,7 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
     else:
         # Real data fwd operator with comparison reference CKM MV4 dipole
         mat_dict = {
-            "forward_op_A": fw_op_datum_r_matrix,
+            "forward_op_A": sparce_stacked_fwdop,
             "r_grid": interpolated_r_grid,
             "data_sigmar_rcs": data_sigmar_rcs,
             "discrete_refdip_stack": discrete_refdip_stack,
@@ -270,6 +282,7 @@ def run_export(mass_scheme, closure_testing, ct_groundtruth_dip=None):
         # TODO LOAD dipole and sigmar files in pairs
         print("Closure testing: Discretizing with reference dipole sigma_r data in HERA II bins.")
         for sig_file in sigmar_files:
+            sig_file = data_path + sig_file
             ground_truth_dip = load_edip(TODO)
             print("Loading sigma_r rcs file: ", sig_file)
             data_sigmar = load_rcs(sig_file)
@@ -283,9 +296,10 @@ def run_export(mass_scheme, closure_testing, ct_groundtruth_dip=None):
         g_truth = None
         reference_fit_dip = ref_fit_bayesMV4_dip
         for sig_file in hera_sigmar_files:
+            sig_file = data_path + sig_file
             print("Loading data file: ", sig_file)
             data_sigmar = load_rcs(sig_file)
-            print("Discretizing forward problem for real data file: ", sig_file, mass_scheme)
+            print("Discretizing forward problem for real data file: ", sig_file, mass_scheme[0])
             ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=g_truth, reference_dip=reference_fit_dip)
         print("Export done with:", mass_scheme, use_real_data)
 
@@ -314,8 +328,8 @@ if __name__ == '__main__':
     test_set=[run_settings[0]]
     run_settings=test_set
 
-    # closure_testing = False
-    closure_testing = True
+    closure_testing = False
+    # closure_testing = True
 
     ctesting_dipoles=[
         "large_x_extension",

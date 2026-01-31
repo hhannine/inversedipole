@@ -21,6 +21,9 @@ def load_rcs(rcs_file):
     """Load an RCS file into a numpy array.
     
     rcs format: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory"""
+    if not os.path.isfile(rcs_file):
+        print("File not found!", rcs_file)
+        raise Exception
     rcs = loadmat(rcs_file)
     rcs_array = rcs["sigma_r_data"]
     return rcs_array
@@ -29,7 +32,7 @@ def sigmar_rcs_cnt_xbj_points(rcs_array):
     """Return list of xbj value and point count pairs."""
     # rcs_array = load_rcs(rcs_file)
     x_values = rcs_array[:,1]
-    xvals, counts = numpy.unique(x_values, return_counts=True)
+    xvals, counts = np.unique(x_values, return_counts=True)
     xbins_npoints = list(zip(xvals, counts))
     return xbins_npoints
 
