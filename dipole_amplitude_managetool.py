@@ -37,7 +37,8 @@ if __name__=="__main__":
         # reformat old split data format to unified data file
         ref_dip_name = "bayesMV4"
         # ref_dip_name = "bayesMV5"
-        dipole_path = "./data/paper2/dipoles/"
+        # dipole_path = "./data/paper2/dipoles/"
+        dipole_path = "./data/paper2/dipoles/patch/"
         dipole_files = [i for i in os.listdir(dipole_path) if os.path.isfile(os.path.join(dipole_path, i)) and 'dipole_fit_'+ref_dip_name+"_" in i]
         print(dipole_files)
         n_xbj = len(dipole_files)
@@ -75,7 +76,8 @@ if __name__=="__main__":
         # save_to_file = False
         save_to_file = True
         if save_to_file:
-            outfilename = "dip_amp_evol_data_"+ref_dip_name+"_r256.edip"
+            # outfilename = "dip_amp_evol_data_"+ref_dip_name+"_r256.edip"
+            outfilename = "dip_amp_evol_data_"+ref_dip_name+"patch_r256.edip"
             # Matlab compatible data format is probably preferrable, so it would be more straightforward to work on the data in there as well.
             data_dict = {
             "dip_array": dip_array,
@@ -114,8 +116,8 @@ if __name__=="__main__":
             # - waviness on the saturation front / in x / in r
             # - gaussian peaks here and there
             # - an arbitrary perturbation to lay on top like the shepp--logan phantom?
-        # opt = "large_x_extension"
-        opt = "small_x_extension"
+        opt = "large_x_extension"
+        # opt = "small_x_extension"
         # opt = "sigma0_included"
         # opt = "wave0" # 0, 1, 2 ~ ?
         # opt = "gaussian" # 0 ~ Gaussian(s), try to reconstruct a number of peaks located in different regimes (simultaneously? 3x3 grid of peaks ~ {small r, mid r, large r} x {small x, mid x, large x})
@@ -128,7 +130,7 @@ if __name__=="__main__":
             # ext_type = "GBW"
             opt+="_"+ext_type
 
-            bins_to_extend = [0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25] # HERA bins above typical IC at 0.01
+            bins_to_extend = [0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25, 0.4, 0.65] # HERA bins above typical IC at 0.01
             x_max = max(x_bins)
             x_bins_to_extend = [x for x in bins_to_extend if x > x_max]
             if not x_bins_to_extend:
