@@ -291,7 +291,7 @@ def run_export(mass_scheme, closure_testing, ct_groundtruth_dip=None):
             data_sigmar = load_rcs(sig_file)
             print("Discretizing forward problem for sigmar data file: ", sig_file, mass_scheme)
             ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=ground_truth_dip)
-        print("Export done with:", mass_scheme, closure_testing, ct_groundtruth_dip)
+        print("Export done with:", mass_scheme[0], closure_testing, ct_groundtruth_dip)
     elif not closure_testing:
         # Discretizing forward operator for reconstruction from real data (HERA II)
         # Including the Casuga-Karhunen-Mäntysaari Bayesian MV4 fit dipole as reference
@@ -304,7 +304,7 @@ def run_export(mass_scheme, closure_testing, ct_groundtruth_dip=None):
             data_sigmar = load_rcs(sig_file)
             print("Discretizing forward problem for real data file: ", sig_file, mass_scheme[0])
             ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=g_truth, reference_dip=reference_fit_dip)
-        print("Export done with:", mass_scheme, closure_testing)
+        print("Export done with:", mass_scheme[0], "closure_testing:", closure_testing)
 
 
     if ret==-1:
