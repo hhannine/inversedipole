@@ -13,7 +13,7 @@ addpath(genpath("C:\Users\hana_\My Drive\Postdoc MathPhys\Project 2 - Inverse di
 
 close all
 clear all
-parp = gcp;
+% parp = gcp;
 
 
 function [ L ] = get_l_2d_modified( nr,nx,dr,dx )
@@ -112,10 +112,10 @@ quark_mass_schemes = [
         "mqMW",
     ];
 ref_fit_mscheme = quark_mass_schemes(2);
-mscheme = quark_mass_schemes(1); % standard scheme with charm and bottom
+% mscheme = quark_mass_schemes(1); % standard scheme with charm and bottom
 % mscheme = quark_mass_schemes(2);
 % mscheme = quark_mass_schemes(3);
-% mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'standard'
+mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'standard'
 % mscheme = quark_mass_schemes(5);
 % mscheme = quark_mass_schemes(6); % charm scale as the standard choice?
 % mscheme = quark_mass_schemes(7); % bottom scale. n=10 prefers this over charm
@@ -123,9 +123,9 @@ mscheme = quark_mass_schemes(1); % standard scheme with charm and bottom
 
 lambda_type = "lambdaSRN"; % strict+relaxed+noisy
 lam1 = 1:0.1:9.9;
-lambda_noisy = [lam1*3e-3]; % testing for noisy % very noisy at times, deprecate this, move towards relax
+lambda_noisy = [lam1*9e-4,lam1*1e-3]; % testing for noisy
 lambda_relaxed = [lam1*1e-3, lam1*1e-2, lam1*1e-1]; 
-lambda_strict = [lam1*5e-3, lam1*1e-2, lam1*1e-1];
+lambda_strict = [lam1*2e-3, lam1*1e-2, lam1*1e-1];
 lambda_t2 = [lam1*10e-2]; % This might be close for TIKH2 at 0.02??
 
 % eps_neg_penalty=1e-2; % strict default?
@@ -172,13 +172,13 @@ else
     ["FILE NOT FOUND? with:", data_name_key, mscheme, r_steps_str, s_str]
     return
 end
-
+format long
 rng(69,"twister");
 r_grid(end) = [];
 A = forward_op_A;
 data_sigmar_rcs = data_sigmar_rcs; % rcs format: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory
-b_hera = data_sigmar_rcs(:,5)';
-b_errs = data_sigmar_rcs(:,6)';
+b_hera = data_sigmar_rcs(:,5);
+b_errs = data_sigmar_rcs(:,6);
 x_data_vals = data_sigmar_rcs(:,2);
 [xcounts, xbj_bins] = groupcounts(x_data_vals);
 xbj_grid = xbj_bins';
@@ -202,7 +202,7 @@ if closure_testing==true
     % chi_goal = 0.01
     % chi_goal = 1
 
-elseif closure_testing==false
+elseif closure_testing==false && false
     % Load reference dipole to have a comparison for the real data reconstruction.
     for k = 1:numel(data_files)
         fname = data_files(k).name;
@@ -263,7 +263,8 @@ end
 
 nr=r_steps;
 nx=length(xbj_bins);
-L1=get_l_2d_modified(nr,nx,1,1);
+L1=get_l_2d_modified(nr-1,nx,1,1);
+[size(A), size(L1), size(b_hera)]
 
 % first order derivative operator
 [UU,sm,XX] = cgsvd(A,L1);
@@ -320,10 +321,18 @@ sigmar_principal_noisy = A*rec_dip_principal_noisy;
 
 init_testing = true;
 if init_testing
-    Xim = reshape(X_tikh_principal(:,mIp),nr,nx);
+    Xim = reshape(X_tikh_principal(:,mIp),[],nx);
+    % Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
+    % Xim = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
+    % logData = Xim .* log( abs( Xim ) );
     figure(1)
-    imagesc(Xim)
-    return
+    % imagesc(xbj_grid, r_grid, Xim)
+    % surf(xbj_grid, r_grid, Xim)
+    surf(xbj_grid, r_grid, abs(Xim))
+    hAx=gca
+    % set(hAx,{'XScale','YScale'},{'log','log'})
+    set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
+    % return
 end
 
 % comparison recs
@@ -363,8 +372,10 @@ if ref_dip_loaded && closure_testing==false
     chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_ref_dip]
 else
     % chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1]
-    chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy]
+    chisq_data = ["strict", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy]
 end
+
+return
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
