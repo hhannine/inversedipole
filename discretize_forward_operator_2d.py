@@ -61,13 +61,17 @@ def z_inted_fw_sigmar_udscb_riem_logstep(datum, r_grid, sigma02, quark_masses):
     return np.array(z_inted_points)
 
 
-def r_grid_log():
+def r_grid_log(conventional=False):
     interpolated_r_grid = []
-    rmin=2e-3 # Nice round lower limit to aim for
-    rmax=25 #
+    if conventional:
+        rmin=2e-3 # Nice round lower limit to aim for
+        rmax=25 #
+    else:
+        rmin=1e-2 # Nice round lower limit to aim for
+        rmax=100 #
     # r_steps=256 # Paper 1 grid size
-    # r_steps=128 #
-    r_steps=64 # Good enough with log step!
+    r_steps=127 #
+    # r_steps=64 # Good enough with log step!
     r=rmin
     while len(interpolated_r_grid)<r_steps+1:
         interpolated_r_grid.append(r)
@@ -126,7 +130,8 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
     Needs to run 1D discretization in r for each Bjorken-x, and then contstruct the sparce forward operator.
     If a reference dipole is included, N(r,x) needs to be reshaped into a stacked column vector: [N(r,x1),...,N(r,xn)].
     """
-    interpolated_r_grid = r_grid_log()
+    conventional_rgrid = False
+    interpolated_r_grid = r_grid_log(conventional_rgrid)
     r_steps = len(interpolated_r_grid)
     print("r_steps", r_steps)
     qm_scheme_name, quark_masses = mass_scheme
@@ -218,10 +223,14 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
             "ref_xbj_bins": ref_xbj_bins
             }
     
-    base_name+="exp2dlog_fwdop_qms_hera_"
+    base_name+="rtesting_exp2dlog_fwdop_qms_hera_"
     if mass_scheme == "mass_scheme_heracc_charm_only":
         base_name += "CC_charm_only_"
-    savename = base_name+data_name+"_" + qm_scheme_name + "_"+"_r_steps"+str(r_steps)+".mat"
+    if conventional_rgrid:
+        r_grid_name = "_"+"conventional_r_steps"+str(r_steps)
+    else:
+        r_grid_name = "_"+"new_r_steps"+str(r_steps)
+    savename = base_name+data_name+"_" + qm_scheme_name + r_grid_name +".mat"
 
     savemat(savename, mat_dict)
 
@@ -325,11 +334,12 @@ if __name__ == '__main__':
         ("mqMcharm", mass_scheme_mcharm,),
         ("mqMbottom", mass_scheme_mbottom,),
         ("mqMW", mass_scheme_mW,),
-        ("mass_scheme_heracc_charm_only", mass_scheme_heracc_charm_only),
+        # ("mass_scheme_heracc_charm_only", mass_scheme_heracc_charm_only),
     ]
 
     test_set=[run_settings[1]] # compare with standard light!
-    run_settings=test_set
+    # test_set=[run_settings[0], run_settings[2], run_settings[3]]
+    # run_settings=test_set
 
     closure_testing = False
     # closure_testing = True
