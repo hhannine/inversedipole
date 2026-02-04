@@ -30,6 +30,13 @@ function [ L ] = get_l_2d_modified( nr,nx,dr,dx )
     L = L(1:end-1,:);
 end
 
+
+function chisq = calc_chisq(sigmar_rec, b_data, b_errs)
+    chisq_vec = (sigmar_rec - b_data).^2 ./ b_errs.^2;
+    chisq = sum(chisq_vec) / (length(chisq_vec)-1);
+end
+
+
 function a = calc_array_CI(arr)
     % Determine arr mean and confidence intervals
     p_tails_95 = [0.025, 0.975];
@@ -40,6 +47,7 @@ function a = calc_array_CI(arr)
     arr_icdf_vals_682 = icdf(pd, p_tails_682);
     a = [mean(pd), arr_icdf_vals_682(1), arr_icdf_vals_682(2), arr_icdf_vals_95(1), arr_icdf_vals_95(2)];
 end
+
 
 function dip_props = calc_dipole_prop_variance(dip_data_arr, r_grid)
     % Q_s: sampling saturation scale distribution for the reconstructions
@@ -64,23 +72,19 @@ function dip_props = calc_dipole_prop_variance(dip_data_arr, r_grid)
     dip_props = [Nmax_dip, r_max, rs, Qs];
 end
 
-real_xbj_bins = [0.00013, 0.0002, 0.00032, 0.0005, 0.0008, 0.0013, 0.002, 0.0032, 0.005, 0.008, 0.013, 0.02, 0.032, 0.05, 0.08];
-s300_xbj_bins = [0.0002, 0.02];
-s251_xbj_bins = [0.032, 0.05, 0.08, 0.13, 0.18, 0.4];
-ref_dipole_bins = real_xbj_bins(real_xbj_bins <= 0.01);
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RUN VARIABLES
 
 gev_to_mb = 1/2.56819;
 s_bins = [318.1, 300.3, 251.5]; % 224.9 bin had no viable xbj bins at all
 s_bin = s_bins(1);
 s_str = "s" + string(s_bin);
-if s_bin == s_bins(2)
-    real_xbj_bins = s300_xbj_bins;
-elseif s_bin == s_bins(3)
-    real_xbj_bins = s251_xbj_bins;
-end
 
 % r_steps = 256; % first paper grid size
-r_steps = 65; % LOG step
+r_steps = 128; % LOG step
+% r_steps = 65; % LOG step
 r_steps_str = strcat("r_steps",int2str(r_steps));
 ref_r_steps = 384; % beta1
 ref_r_steps_str = strcat("r_steps",int2str(ref_r_steps));
@@ -113,7 +117,7 @@ quark_mass_schemes = [
     ];
 ref_fit_mscheme = quark_mass_schemes(2);
 % mscheme = quark_mass_schemes(1); % standard scheme with charm and bottom
-% mscheme = quark_mass_schemes(2);
+% mscheme = quark_mass_schemes(2); % CKM reference fit mass scheme is light only
 % mscheme = quark_mass_schemes(3);
 mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'standard'
 % mscheme = quark_mass_schemes(5);
@@ -123,6 +127,7 @@ mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'st
 
 lambda_type = "lambdaSRN"; % strict+relaxed+noisy
 lam1 = 1:0.1:9.9;
+% lambda_noisy = [lam1*6e-4,lam1*1e-3]; % testing for VERY noisy / peak ridge
 lambda_noisy = [lam1*9e-4,lam1*1e-3]; % testing for noisy
 lambda_relaxed = [lam1*1e-3, lam1*1e-2, lam1*1e-1]; 
 lambda_strict = [lam1*2e-3, lam1*1e-2, lam1*1e-1];
@@ -179,9 +184,12 @@ A = forward_op_A;
 data_sigmar_rcs = data_sigmar_rcs; % rcs format: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory
 b_hera = data_sigmar_rcs(:,5);
 b_errs = data_sigmar_rcs(:,6);
+qsq_data_vals = data_sigmar_rcs(:,1);
 x_data_vals = data_sigmar_rcs(:,2);
 [xcounts, xbj_bins] = groupcounts(x_data_vals);
 xbj_grid = xbj_bins';
+[qcounts, qsq_bins] = groupcounts(qsq_data_vals);
+qsq_grid = qsq_bins';
 
 ref_dip_loaded = false;
 ct_groundtruth_loaded = false;
@@ -259,12 +267,14 @@ end
 % [data_name_key, s_bin, r_steps, use_real_data, mscheme, length(q2vals), min(q2vals), mean(sqrt(q2vals)), mean(q2vals), length(all_xbj_bins)]
 [data_name_key, s_bin, r_steps, use_real_data, mscheme]
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Main 2D reconstruction
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 nr=r_steps;
 nx=length(xbj_bins);
 L1=get_l_2d_modified(nr-1,nx,1,1);
-[size(A), size(L1), size(b_hera)]
 
 % first order derivative operator
 [UU,sm,XX] = cgsvd(A,L1);
@@ -321,18 +331,28 @@ sigmar_principal_noisy = A*rec_dip_principal_noisy;
 
 init_testing = true;
 if init_testing
-    Xim = reshape(X_tikh_principal(:,mIp),[],nx);
-    % Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
+    % Xim = reshape(X_tikh_principal(:,mIp),[],nx);
+    Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
     % Xim = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
     % logData = Xim .* log( abs( Xim ) );
     figure(1)
     % imagesc(xbj_grid, r_grid, Xim)
-    % surf(xbj_grid, r_grid, Xim)
-    surf(xbj_grid, r_grid, abs(Xim))
-    hAx=gca
-    % set(hAx,{'XScale','YScale'},{'log','log'})
-    set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
+    surf(xbj_grid, r_grid, Xim)
+    % surf(xbj_grid, r_grid, abs(Xim))
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+    % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
     % return
+
+    size(sigmar_principal_strict)
+    figure(2)
+
+    sigmar_vec = sigmar_principal_strict;
+    % sigmar_vec = sigmar_principal_relax;
+    % sigmar_vec = sigmar_principal_noisy;
+    plot3(x_data_vals, qsq_data_vals, sigmar_vec)
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
 end
 
 % comparison recs
@@ -347,22 +367,10 @@ end
 % % sigmar_kacz2 = A*rec_kacz2;
 
 % CHI^2 TEST for the principal rec's agreement with the real data
-chisq_vec_strict = (sigmar_principal_strict - b_hera).^2 ./ b_errs.^2;
-chisq_vec_relax = (sigmar_principal_relax - b_hera).^2 ./ b_errs.^2;
-chisq_vec_noisy = (sigmar_principal_noisy - b_hera).^2 ./ b_errs.^2;
-% chisq_vect2 = (sigmar_tikh2 - b_hera).^2 ./ b_errs.^2;
-% chisq_veck1 = (sigmar_kacz1 - b_hera).^2 ./ b_errs.^2;
-% chisq_cimm1 = (sigmar_cimmino1 - b_hera).^2 ./ b_errs.^2;
-% chisq = sum(chisq_vec);
-% chisqt2 = sum(chisq_vect2);
-% chisqk1 = sum(chisq_veck1);
-% chisq_str_rel_noisy_vals = [sum(chisq_vec_strict), sum(chisq_vec_relax), sum(chisq_vec_noisy)];
-chisq_over_N_strict = sum(chisq_vec_strict) / (length(chisq_vec_strict)-1);
-chisq_over_N_relax = sum(chisq_vec_relax) / length(chisq_vec_relax);
-chisq_over_N_noisy = sum(chisq_vec_noisy) / length(chisq_vec_noisy);
-% chisq_over_Nt2 = chisqt2 / length(chisq_vect2);
-% chisq_over_Nk1 = chisqk1 / length(chisq_veck1);
-% chisq_over_Ncim1 = sum(chisq_cimm1) / length(chisq_cimm1);
+chisq_over_N_strict = calc_chisq(sigmar_principal_strict, b_hera, b_errs);
+chisq_over_N_relax = calc_chisq(sigmar_principal_relax, b_hera, b_errs);
+chisq_over_N_noisy = calc_chisq(sigmar_principal_noisy, b_hera, b_errs);
+
 if ref_dip_loaded
     chisq_vec_ref_dip = (sigmar_ref_dipole - ref_dip_bins_b_hera).^2 ./ ref_dip_bins_b_errs.^2;
     chisq_over_ref_dip = sum(chisq_vec_ref_dip) / length(chisq_vec_ref_dip);
@@ -372,10 +380,12 @@ if ref_dip_loaded && closure_testing==false
     chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_ref_dip]
 else
     % chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1]
-    chisq_data = ["strict", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy]
+    chisq_data = ["chisq over N:", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy]
 end
 
-return
+[max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy)]
+
+% return    % Testing main rec
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -389,7 +399,7 @@ array_over_dataset_samples_dipole_recs_rel = [];
 array_over_dataset_samples_sigmar_rel = [];
 array_over_dataset_samples_dipole_recs_tik2 = [];
 array_over_dataset_samples_sigmar_tik2 = [];
-NUM_SAMPLES = 500;
+NUM_SAMPLES = 50;
 parfor j=1:NUM_SAMPLES
     err = b_errs.*randn(length(b_hera),1);
     b = b_hera + err;
@@ -398,8 +408,8 @@ parfor j=1:NUM_SAMPLES
     errtik = zeros(size(lambda_strict));
     X_tikh_rel = tikhonov(UU,sm,XX,b,lambda_relaxed);
     errtik_rel = zeros(size(lambda_relaxed));
-    X_tikh2 = tikhonov(UU2,sm2,XX2,b,lambda_t2);
-    errtik2 = zeros(size(lambda_t2));
+    % X_tikh2 = tikhonov(UU2,sm2,XX2,b,lambda_t2);
+    % errtik2 = zeros(size(lambda_t2));
     
     for i = 1:length(lambda_strict)
         % errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1);
@@ -431,10 +441,10 @@ parfor j=1:NUM_SAMPLES
 end % rec loop over dataset samples ends here
 
 % Reconstruction statistics / bootstrapping for pointwise distributions
-dataset_sample_pdfs = zeros([length(r_steps),5]);
-dataset_sample_pdfs_sigmar = zeros([length(r_steps),5]);
-dataset_sample_pdfs_rel = zeros([length(q2vals),5]);
-dataset_sample_pdfs_sigmar_rel = zeros([length(q2vals),5]);
+dataset_sample_pdfs = zeros([length(rec_dip_principal_strict),5]);
+dataset_sample_pdfs_sigmar = zeros([length(b_hera),5]);
+dataset_sample_pdfs_rel = zeros([length(rec_dip_principal_strict),5]);
+dataset_sample_pdfs_sigmar_rel = zeros([length(b_hera),5]);
 % dataset_sample_pdfs_tik2 = zeros([length(q2vals),5]);
 % dataset_sample_pdfs_sigmar_tik2 = zeros([length(q2vals),5]);
 p_tails_95 = [0.025, 0.975];
@@ -463,7 +473,7 @@ parfor j=1:r_steps
     dataset_sample_pdfs_rel(j,:) = [mean(pd_rel), dip_icdf_vals_682_rel(1), dip_icdf_vals_682_rel(2), dip_icdf_vals_95_rel(1), dip_icdf_vals_95_rel(2)];
     % dataset_sample_pdfs_tik2(j,:) = [mean(pd_tik2), dip_icdf_vals_682_tik2(1), dip_icdf_vals_682_tik2(2), dip_icdf_vals_95_tik2(1), dip_icdf_vals_95_tik2(2)];
 end
-parfor j=1:length(q2vals)
+parfor j=1:length(b_hera)
     %princip
     sigmar_at_Qj = array_over_dataset_samples_sigmar(j,:)';
     pd_sig = fitdist(sigmar_at_Qj,'Kernel','Kernel','epanechnikov');
@@ -505,9 +515,19 @@ N_rec_CI95_dn_relax = dataset_sample_pdfs_rel(:,4); % 95% c.i. lower limit
 % N_rec_CI95_dn_tik2 = dataset_sample_pdfs_tik2(:,4); % 95% c.i. lower limit
 N_rec_principal_noisy = rec_dip_principal_noisy;
 if min(N_rec_principal) < 0
-    [M,I] = min(N_rec_principal);
-    ["Negative principal", M, M/max(N_rec_principal), r_grid(I), mean(b_errs./b_hera), max(b_errs./b_hera)]
+    "Negative principal rec."
+    % [M,I] = min(N_rec_principal);
+    % ["Negative principal", M, M/max(N_rec_principal), r_grid(I), mean(b_errs./b_hera), max(b_errs./b_hera)]
 end
+
+% TODO SELECTING MAXIMUM FROM THE WHOLE SET TAKES THE MAX OF RECONSTRUCTION IN THE FULL DATA SET
+% IS THIS GOOD OR BAD? good: saturation scale is defined by a single maximum of N(r,x).
+%                      bad:  doesn't work naively: Nmax - N(r, x_i) won't go to zero for other x_i \neq x_maxN
+%                   compromise: define r_s (and Q_s) by the scale r_s where the dipole Nmax_i - N(r,x_i) reaches the ~40% of the global maximum?
+%                               This will push the saturation scale r_s to very large for large x_i, since the peak is low, as it should?
+%   - To implement this compromise definition we need:
+%       - the global maximum N_max = N(r,x)
+%       - 'local' maxima at each x_i, which is used to define S(r) = N_locmax_i - N(r,x)
 
 % Sigma02: reconstruction maxima and C.I.s
 [max(N_rec_principal), max(N_rec_principal_relax), max(N_rec_principal_noisy)]
@@ -524,13 +544,14 @@ r_max_scale = find( r_grid > 6, 1 ); % this should perhaps be determined by the 
 % else
 %     N_max_tik2 = N_max_tik2_candid1;
 % end
-r_Nmax_strict = r_grid(max_i);
-r_Nmax_rel = r_grid(max_i_rel);
-r_Nmax_noisy = r_grid(max_i_noisy);
+r_Nmax_strict = r_grid(rem(max_i,length(xbj_grid)));
+r_Nmax_rel = r_grid(rem(max_i_rel,length(xbj_grid)));
+r_Nmax_noisy = r_grid(rem(max_i_noisy,length(xbj_grid)));
 N_max_strict_ci = [N_rec_CI682_dn(max_i), N_rec_CI682_up(max_i), N_rec_CI95_dn(max_i), N_rec_CI95_up(max_i)];
 N_max_relax_ci = [N_rec_CI682_dn_relax(max_i_rel), N_rec_CI682_up_relax(max_i_rel), N_rec_CI95_dn_relax(max_i_rel), N_rec_CI95_up_relax(max_i_rel)];
 N_max_data_strict = [N_max_strict, r_Nmax_strict, N_max_strict_ci];
 N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
+
 
 % SATURATION SCALE
 dip_props_strict = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs, r_grid); % returns Nmax, rmax, rs, Qs as [mean, dn, up, dn2, up2]
@@ -565,8 +586,6 @@ Qs_ptw_mean = sqrt(2)/rs_ptw_mean;
 Qs_noisy = sqrt(2)/rs_noisy;
 % Qs_tik2 = sqrt(2)/rs_tik2;
 
-
-
 % SIGMA_R REDUCED CROSS SECTIONS
 sigmar_principal_strict;
 sigmar_ptw_mean = A*N_rec_ptw_mean;
@@ -584,10 +603,13 @@ sigmar_CI95_up_relax = dataset_sample_pdfs_sigmar_rel(:,5);
 sigmar_CI95_dn_relax = dataset_sample_pdfs_sigmar_rel(:,4);
 sigmar_principal_noisy;
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%% PLOTTING
+
 plot_relax = false;
 plot_tik2 = false;
-plot_comp_methods = true;
+plot_comp_methods = false;
 if plotting
     figure(1) % rec_princip vs. mean reconstruction vs. ground truth
     loglog(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
