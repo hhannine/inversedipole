@@ -124,27 +124,30 @@ def generate_sigmar(dip_file):
 
     save_to_file = False
     save_to_file = True
+    out_path = "./data/paper2/closure_testing/"
     if save_to_file:
         out_name = "generated_sigmar_heraIIbins_" + ref_dip_name + "_all_xbj_bins.rcs"
         data_dict = {
         "sigma_r_data": generated_sigmar_data,
+        "dip_mat_groundtruth": dip_mat
         }
-        savemat(out_name, data_dict)
-        print("Saved to file: ", out_name)
+        savemat(out_path + out_name, data_dict)
+        print("Saved to file: ", out_path + out_name)
     else:
         print("Not saving output!")
 
 
 
 if __name__ == "__main__":
-    acc_testing = True
-    # acc_testing = False
+    # acc_testing = True
+    acc_testing = False
 
     if acc_testing:
         print("Testing accuracy of MC integration against C++ implementation data.")
         test_sigmar()
     else:
         # get args
+        print("Closure testing data generation with the continuous formulation of the dipole picture forward problem.")
         try:
             dip_file = sys.argv[1]
             if os.path.isfile(dip_file):
@@ -152,6 +155,6 @@ if __name__ == "__main__":
             else:
                 print("invalid file: ", dip_file)
         except:
-            print("Need to give the input dipole file as argument!")
+            print("Usage: python reduced_cross_section_calc.py dipole_file.edip")
             exit()
         generate_sigmar(dip_file)
