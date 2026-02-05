@@ -13,7 +13,7 @@ from pathlib import Path
 import multiprocessing
 import scipy.integrate as integrate
 from scipy.interpolate import InterpolatedUnivariateSpline
-from scipy.io import savemat
+from scipy.io import loadmat, savemat
 from timeit import default_timer as timer
 
 from math import sqrt
@@ -313,10 +313,12 @@ def run_export_closuretesting(mass_scheme, ctest_rcs_edip):
     print("Closure testing: Discretizing with reference dipole sigma_r data in HERA II bins.")
     for ct_file in ct_files:
         ct_name = Path(ct_file).stem
-        ground_truth_rcs_dip = load_edip(TODO)
+        # Load joint .rcs data and ground truth dipole .edip
+        ground_truth_dip = loadmat(ct_file)["dip_mat_groundtruth"]
+        ground_truth_rcs = loadmat(ct_file)["sigma_r_data"]
         print("Discretizing forward problem for sigmar data file: ", ct_file, mass_scheme)
-        ret = export_discrete_2d(mass_scheme, data_sigmar, ct_name, ground_truth=ground_truth_dip)
-    print("Export done with:", mass_scheme[0], ct_groundtruth_dip)
+        ret = export_discrete_2d(mass_scheme, ground_truth_rcs, ct_name, ground_truth=ground_truth_dip)
+    print("Export done with:", mass_scheme[0], ct_file)
     
     if ret==-1:
         print("loop error: export not done?")
