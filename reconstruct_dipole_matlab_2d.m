@@ -49,18 +49,20 @@ function a = calc_array_CI(arr)
 end
 
 
-function dip_props = calc_dipole_prop_variance(dip_data_arr, r_grid)
+function dip_props = calc_dipole_prop_variance(dip_data_arr, r_grid, global_N_max)
     % Q_s: sampling saturation scale distribution for the reconstructions
     % N_max(r_max) UQ. Sampling the maximum allows to solve for the position of the maximum as well (and its variance)
     % each return variable is a list of [mean, +-1 std, +-2 std]
     NUM_SAMPLES = length(dip_data_arr(1,:));
     array_rec_sample_QsSig0distrib_data = zeros([NUM_SAMPLES,4]); % product with number of rec methods to compare for Q_s?
     parfor i=1:NUM_SAMPLES
-        rec_dip_i = dip_data_arr(:,i)';
-        [Nmax_dip_i, max_i] = max(rec_dip_i);
-        r_max_i = r_grid(max_i);
+        % TODO NEEDS TO BE SPLIT INTO XBJ BINS BY R_GRID LENGTH!
+        stacked_rec_dip_i = dip_data_arr(:,i)';
+        % [Nmax_dip_i, max_i] = max(rec_dip_i);
+        % r_max_i = r_grid(max_i);
         interp_dip_i = makima(r_grid, rec_dip_i);
-        intrpfun_i = @(r) ppval(interp_dip_i,r)/Nmax_dip_i - 1 + 0.606530659712;
+        % intrpfun_i = @(r) ppval(interp_dip_i,r)/Nmax_dip_i - 1 + exp(-0.5);
+        intrpfun_i = @(r) ppval(interp_dip_i,r)/global_N_max - 1 + exp(-0.5);
         rs_i = fzero(intrpfun_i, 2);
         Qs_i = sqrt(2)/rs_i;
         array_rec_sample_QsSig0distrib_data(i,:) = [Nmax_dip_i, r_max_i, rs_i, Qs_i^2];
@@ -329,7 +331,8 @@ sigmar_principal_strict = A*rec_dip_principal_strict;
 sigmar_principal_relax = A*rec_dip_principal_relax;
 sigmar_principal_noisy = A*rec_dip_principal_noisy;
 
-init_testing = true;
+init_testing = false;
+% init_testing = true;
 if init_testing
     % Xim = reshape(X_tikh_principal(:,mIp),[],nx);
     Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
@@ -449,7 +452,7 @@ dataset_sample_pdfs_sigmar_rel = zeros([length(b_hera),5]);
 % dataset_sample_pdfs_sigmar_tik2 = zeros([length(q2vals),5]);
 p_tails_95 = [0.025, 0.975];
 p_tails_682 = [0.159, 0.841];
-parfor j=1:r_steps
+parfor j=1:length(rec_dip_principal_strict)
     %princip
     rec_dips_at_rj = array_over_dataset_samples_dipole_recs(j,:)';
     dip_rm_outliers = rmoutliers(rec_dips_at_rj, "percentiles", [1.5 98.5]);
@@ -554,22 +557,14 @@ N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
 
 
 % SATURATION SCALE
-dip_props_strict = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs, r_grid); % returns Nmax, rmax, rs, Qs as [mean, dn, up, dn2, up2]
-dip_props_rel = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs_rel, r_grid);
+% TODO FIX SATURATION (Global N_max needed from above)
+"TODO: FIX SATURATION"
+% dip_props_strict = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs, r_grid); % returns Nmax, rmax, rs, Qs as [mean, dn, up, dn2, up2]
+% dip_props_rel = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs_rel, r_grid);
 % dip_props_tik2 = calc_dipole_prop_variance(array_over_dataset_samples_dipole_recs_tik2, r_grid);
-%(below Qs calculations are superceded by the new implementation?)
-% (also the above N_max code?)
-
-dip_interp = makima(r_grid, N_rec_principal);
-dip_interp_princip_mean = makima(r_grid, N_rec_ptw_mean);
-dip_interp_noisy = makima(r_grid, N_rec_principal_noisy);
-% dip_interp_tik2 = makima(r_grid, N_rec_principal_tik2);
-fun_dip_qs_strict = @(r) ppval(dip_interp,r)/N_max_strict - 1 + 0.606530659712;
-fun_dip_qs_ptw_mean = @(r) ppval(dip_interp_princip_mean,r)/N_max_ptw_mean - 1 + 0.606530659712;
-fun_dip_qs_noisy = @(r) ppval(dip_interp_noisy,r)/N_max_noisy - 1 + 0.606530659712;
-% fun_dip_qs_tik2 = @(r) ppval(dip_interp_tik2,r)/N_max_tik2 - 1 + 0.606530659712;
 ref_dip_props = [];
 if ref_dip_loaded
+    % TODO NEEDS TO BE UPDATED FOR THE STACKED PROBLEM
     dip_interp_ref = makima(ref_r_grid, ref_dipole);
     % dip_interp_ref = makima(r_grid, ref_dipole);
     fun_dip_qs_ref = @(r) ppval(dip_interp_ref,r)/max(ref_dipole) - 1 + 0.606530659712;
@@ -577,14 +572,6 @@ if ref_dip_loaded
     Qs_ref = sqrt(2)/rs_ref;
     ref_dip_props = [max(ref_dipole), r_grid(end), rs_ref, Qs_ref^2];
 end
-rs_strict = fzero(fun_dip_qs_strict, 2);
-rs_ptw_mean = fzero(fun_dip_qs_ptw_mean, 2);
-rs_noisy = fzero(fun_dip_qs_noisy, 2);
-% rs_tik2 = fzero(fun_dip_qs_tik2, 2);
-Qs_strict = sqrt(2)/rs_strict;
-Qs_ptw_mean = sqrt(2)/rs_ptw_mean;
-Qs_noisy = sqrt(2)/rs_noisy;
-% Qs_tik2 = sqrt(2)/rs_tik2;
 
 % SIGMA_R REDUCED CROSS SECTIONS
 sigmar_principal_strict;
@@ -606,87 +593,114 @@ sigmar_principal_noisy;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%% PLOTTING
+    
+    
 
+
+    
+
+plotting = true;
 plot_relax = false;
 plot_tik2 = false;
 plot_comp_methods = false;
 if plotting
     figure(1) % rec_princip vs. mean reconstruction vs. ground truth
-    loglog(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
-    % semilogx(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
+    Xim_p = reshape(X_tikh_principal(:,mIp),[],nx);
+    Xim_r = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
+    Xim_n = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
+    surf(xbj_grid, r_grid, Xim_p, "DisplayName", "principal")
+    % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
     hold on
-    if ref_dip_loaded && false
-        loglog(r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
-        % loglog(ref_r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
-    end
-    loglog(r_grid',abs(N_rec_principal),':', "DisplayName", "ABS principal", "Color","blue")
-    loglog(r_grid',N_rec_ptw_mean,'-.', "DisplayName", "mean", "Color","white")
-    loglog(r_grid',rec_dip_principal_noisy,'-.', "DisplayName", "noisy", "Color","#FF69B4")
-    loglog(r_grid',N_rec_CI95_up,':', "DisplayName", "95 up", "Color","Red")
-    loglog(r_grid',N_rec_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
-    loglog(r_grid',N_rec_CI682_up,':', "DisplayName", "68 up", "Color","Green")
-    loglog(r_grid',N_rec_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
-    if plot_relax
-        loglog(r_grid',rec_dip_principal_relax,'-.', "DisplayName", "relax", "Color", "#FFA500")
-        loglog(r_grid',N_rec_CI95_up_relax,'.', "DisplayName", "95 up relax", "Color","Red")
-        loglog(r_grid',N_rec_CI95_dn_relax,'.', "DisplayName", "95 dn rel", "Color","Red")
-        loglog(r_grid',N_rec_CI682_up_relax,'.', "DisplayName", "68 up rel", "Color","Green")
-        loglog(r_grid',N_rec_CI682_dn_relax,'.', "DisplayName", "68 dn rel", "Color","Green")
-    end
-    if plot_tik2
-        loglog(r_grid',N_rec_principal_tik2,'-.', "DisplayName", "tik2", "Color", "magenta")
-        loglog(r_grid',N_rec_ptw_mean_tik2,'-.', "DisplayName", "tik2", "Color", "#9D00FF")
-        % loglog(r_grid',N_rec_CI95_up_tik2,':', "DisplayName", "95 up tik2", "Color","Blue")
-        % loglog(r_grid',N_rec_CI95_dn_tik2,':', "DisplayName", "95 dn tik2", "Color","Blue")
-        % loglog(r_grid',N_rec_CI682_up_tik2,':', "DisplayName", "68 up tik2", "Color","Cyan")
-        % loglog(r_grid',N_rec_CI682_dn_tik2,':', "DisplayName", "68 dn tik2", "Color","Cyan")
-    end
-    if plot_comp_methods
-        % loglog(r_grid',rec_tikh0,'-.', "DisplayName", "tikh0")
-        % loglog(r_grid',rec_tikh2,'-.', "DisplayName", "tikh2", "Color","magenta")
-        % loglog(r_grid',abs(rec_tikh2),'-.', "DisplayName", "abs tikh2", "Color","cyan")
-        % % loglog(r_grid',rec_cimmino,'--', "DisplayName", "cimmino")
-        loglog(r_grid',rec_cimmino1,'-.', "DisplayName", "cimmino1")
-        % % loglog(r_grid',rec_cimmino2,'--', "DisplayName", "cimmino2")
-        % % loglog(r_grid',rec_kacz,'--', "DisplayName", "kacz")
-        loglog(r_grid',rec_kacz1,'-.', "DisplayName", "kacz1", "Color","Yellow")
-        % % loglog(r_grid',rec_kacz2,'--', "DisplayName", "kacz2", "Color","white")
-    end
+    Xim_p_CI682_up = reshape(N_rec_CI682_up,[],nx);
+    Xim_p_CI682_dn = reshape(N_rec_CI682_dn,[],nx);
+    surf(xbj_grid, r_grid, Xim_p_CI682_up,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[0.07 0.6 1],...
+    'EdgeAlpha',0.2);
+    surf(xbj_grid, r_grid, Xim_p_CI682_dn,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[1 0.6 0.07],...
+    'EdgeAlpha',0.2);
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
     hold off
+
+    % loglog(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
+    % semilogx(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
+    % hold on
+    % if ref_dip_loaded && false
+    %     loglog(r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
+    %     % loglog(ref_r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
+    % end
+    % loglog(r_grid',abs(N_rec_principal),':', "DisplayName", "ABS principal", "Color","blue")
+    % loglog(r_grid',N_rec_ptw_mean,'-.', "DisplayName", "mean", "Color","white")
+    % loglog(r_grid',rec_dip_principal_noisy,'-.', "DisplayName", "noisy", "Color","#FF69B4")
+    % loglog(r_grid',N_rec_CI95_up,':', "DisplayName", "95 up", "Color","Red")
+    % loglog(r_grid',N_rec_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
+    % loglog(r_grid',N_rec_CI682_up,':', "DisplayName", "68 up", "Color","Green")
+    % loglog(r_grid',N_rec_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
+    % if plot_relax
+    % 
+    % end
+    % if plot_tik2
+    % 
+    % end
+    % if plot_comp_methods
+    % 
+    % end
+    % hold off
 
     % Reduced cross section data comparison plot(s)
     % All the xbj bins are reconstructed simultaneously, so there's ~15 bins of data to compare.
     % basic: throw all in the same plot? -> going to be a huge mess?
     % grid_plot: plot each bin separately and show a grid of comparisons? Would be quite good but will be more complex to do.
     figure(2)
-    semilogx(q2vals',b_hera,'-', 'DisplayName',"hera")
+    sigmar_vec = sigmar_principal_strict;
+    % sigmar_vec = sigmar_principal_relax;
+    % sigmar_vec = sigmar_principal_noisy;
+    plot3(x_data_vals, qsq_data_vals, sigmar_vec, 'ob', 'DisplayName',"sigmar-principal")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
     hold on
-    errorbar(q2vals', b_hera, b_errs, '')
+    plot3(x_data_vals, qsq_data_vals, b_hera,'xr', 'DisplayName',"hera")
+    % errorbar(q2vals', b_hera, b_errs, '')
+    plot3([x_data_vals,x_data_vals]', [qsq_data_vals,qsq_data_vals]', [-b_errs,b_errs]'+b_hera', '-r')
     % hold on
-    if use_ref_dipole_data && use_high_Q_cut==false
-        semilogx(q2vals',b_hera_real,'-', 'DisplayName',"hera real") % when reconstructing to simulated data, plot the real data separately.
-        semilogx(q2vals',sigmar_ref_dipole,'-', 'DisplayName',"sigmar_ref_dipole=A*ref_dip")
-    elseif use_ref_dipole_data==false && ref_dip_loaded
-        semilogx(ref_qsq_vals',sigmar_ref_dipole,'-', 'DisplayName',"Reference fit")
-    end
-    semilogx(q2vals',sigmar_principal_strict,'-.', 'DisplayName',"principal_strict")
-    semilogx(q2vals',sigmar_principal_noisy,'-.', 'DisplayName',"principal_noisy")
-    semilogx(q2vals',sigmar_ptw_mean,':', 'DisplayName',"mean")
-    semilogx(q2vals',sigmar_CI95_up,':', "DisplayName", "95 up", "Color","Red")
-    semilogx(q2vals',sigmar_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
-    semilogx(q2vals',sigmar_CI682_up,':', "DisplayName", "68 up", "Color","Green")
-    semilogx(q2vals',sigmar_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
-    if plot_relax
-        semilogx(q2vals',sigmar_principal_relax,'-.', 'DisplayName',"principal_relax")
-    end
-    if plot_comp_methods
-        % semilogx(q2vals',sigmar_kacz,'--', "DisplayName", "skacz")
-        semilogx(q2vals',sigmar_tikh2,'--', "DisplayName", "tikh2")
-        semilogx(q2vals',sigmar_cimmino1,'--', "DisplayName", "cimm1")
-        % semilogx(q2vals',sigmar_cimmino2,'--', "DisplayName", "cimm2")
-        semilogx(q2vals',sigmar_kacz1,'--', "DisplayName", "skacz1")
-        % semilogx(q2vals',sigmar_kacz2,'--', "DisplayName", "skacz2")
-    end
+    % if use_ref_dipole_data && use_high_Q_cut==false
+    %     semilogx(q2vals',b_hera_real,'-', 'DisplayName',"hera real") % when reconstructing to simulated data, plot the real data separately.
+    %     semilogx(q2vals',sigmar_ref_dipole,'-', 'DisplayName',"sigmar_ref_dipole=A*ref_dip")
+    % elseif use_ref_dipole_data==false && ref_dip_loaded
+    %     semilogx(ref_qsq_vals',sigmar_ref_dipole,'-', 'DisplayName',"Reference fit")
+    % end
+    % semilogx(q2vals',sigmar_principal_strict,'-.', 'DisplayName',"principal_strict")
+    % semilogx(q2vals',sigmar_principal_noisy,'-.', 'DisplayName',"principal_noisy")
+    % semilogx(q2vals',sigmar_ptw_mean,':', 'DisplayName',"mean")
+    % semilogx(q2vals',sigmar_CI95_up,':', "DisplayName", "95 up", "Color","Red")
+    % semilogx(q2vals',sigmar_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
+    % semilogx(q2vals',sigmar_CI682_up,':', "DisplayName", "68 up", "Color","Green")
+    % semilogx(q2vals',sigmar_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
+    % if plot_relax
+    % 
+    % end
+    % if plot_comp_methods
+    % 
+    % end
     hold off
 end
 
