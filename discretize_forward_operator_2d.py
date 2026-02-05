@@ -8,6 +8,7 @@ Implements discretization in 2D (r,xbj), and export of the forward operator for 
 
 # import math
 import os
+import sys
 from pathlib import Path
 import multiprocessing
 import scipy.integrate as integrate
@@ -240,8 +241,8 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
 
 
 
-def run_export(mass_scheme, closure_testing, ct_groundtruth_dip=None):
-    """Recostruct the dipole amplitude N from simulated reduced cross section data."""
+def run_export(mass_scheme, ct_groundtruth_dip=None):
+    """Construct and export discretized forward operator for the 2D dipole inverse problem."""
     ###################################
     ### SETTINGS ######################
     ###################################
@@ -254,19 +255,8 @@ def run_export(mass_scheme, closure_testing, ct_groundtruth_dip=None):
     dipole_path = "./data/paper2/dipoles_unified2d/"
     dipole_files = [i for i in os.listdir(dipole_path) if os.path.isfile(os.path.join(dipole_path, i)) and 'dipole_fit_'+fitname+"_" in i]
 
-    # TODO TODO NEED A REFERENCE DIPOLE FILE WITH ONLY THE HERA DATA XBJ BINS!!!
-    # needs a pathcing tool that cross references the xbj bins? 
-    # or bite the bullet and re-run the dipole amplitude calcultion in cpp? OR re-run the dipole unification without the SUPERFLUOUS BINS!!! (THIS!)
     ref_fit_bayesMV4_dip = "dipmod_amp_evol_data_bayesMV4_sigma0_inc_large_x_extfrz_r256.edip"
     # ref_fit_bayesMV4_dip = "dipole_modeffect_evol_data_dip_amp_evol_data_bayesMV4_r256_large_x_extension_MVfreeze_r256.edip"
-
-    # Load sigma_r .rcs file for the specified closure testing dipole amplitude and effect
-    # sigmar filenames for ref fits: heraII_reference_dipoles_filtered_bayesMV4-strict_Q_cuts_s318.1_all_xbj_bins.rcs
-    # TODO actual closure testing data has not been generated yet, naming scheme not decided yet TODO
-    closure_name_base = "TODO"
-    if closure_testing:
-        closure_testing_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and \
-            closure_name_base in i and ct_groundtruth_dip in i]    
 
     s_bins = [318.1, 300.3, 251.5, 224.9]
     s_bin = s_bins[0]
@@ -283,43 +273,61 @@ def run_export(mass_scheme, closure_testing, ct_groundtruth_dip=None):
         hera_sigmar_files = [i for i in os.listdir(data_path) if os.path.isfile(os.path.join(data_path, i)) and "heraII_CC_filtered" in i]
         print("Discreticing for charm production data.")
 
-    
     #############################################
     # Discretizing and exporting forward problems
     ret = -1
-    if closure_testing:
-        # Discretization for CLOSURE TESTING
-        # Generate forward operator discretization for data from a known dipole amplitude
-        # "reference" dipole here is the ground truth
-        # TODO LOAD dipole and sigmar files in pairs
-        print("Closure testing: Discretizing with reference dipole sigma_r data in HERA II bins.")
-        for sig_file in sigmar_files:
-            sig_file = data_path + sig_file
-            ground_truth_dip = load_edip(TODO)
-            print("Loading sigma_r rcs file: ", sig_file)
-            data_sigmar = load_rcs(sig_file)
-            print("Discretizing forward problem for sigmar data file: ", sig_file, mass_scheme)
-            ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=ground_truth_dip)
-        print("Export done with:", mass_scheme[0], closure_testing, ct_groundtruth_dip)
-    elif not closure_testing:
-        # Discretizing forward operator for reconstruction from real data (HERA II)
-        # Including the Casuga-Karhunen-Mäntysaari Bayesian MV4 fit dipole as reference
-        print("Discretizing with HERA II data.")
-        g_truth = None
-        reference_fit_dip = ref_fit_bayesMV4_dip
-        for sig_file in hera_sigmar_files:
-            sig_file = data_path + sig_file
-            print("Loading data file: ", sig_file)
-            data_sigmar = load_rcs(sig_file)
-            print("Discretizing forward problem for real data file: ", sig_file, mass_scheme[0])
-            ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=g_truth, reference_dip=reference_fit_dip)
-        print("Export done with:", mass_scheme[0], "closure_testing:", closure_testing)
-
+    # Discretizing forward operator for reconstruction from real data (HERA II)
+    # Including the Casuga-Karhunen-Mäntysaari Bayesian MV4 fit dipole as reference
+    print("Discretizing with HERA II data.")
+    g_truth = None
+    reference_fit_dip = ref_fit_bayesMV4_dip
+    for sig_file in hera_sigmar_files:
+        sig_file = data_path + sig_file
+        print("Loading data file: ", sig_file)
+        data_sigmar = load_rcs(sig_file)
+        print("Discretizing forward problem for real data file: ", sig_file, mass_scheme[0])
+        ret = export_discrete_2d(mass_scheme, data_sigmar, Path(sig_file).stem, ground_truth=g_truth, reference_dip=reference_fit_dip)
+    print("Export done with:", mass_scheme[0])
 
     if ret==-1:
         print("loop error: export not done?")
     return ret
 
+
+def run_export_closuretesting(mass_scheme, ctest_rcs_edip):
+    """Construct and export discretized forward operator for the 2D dipole inverse problem.
+    
+    Closure testing uses data generated from a known ground truth dipole amplitude, and the
+    ground truth is stored together with the testing reduced cross section data."""
+    # Load sigma_r .rcs file for the specified closure testing dipole amplitude and effect
+    # Closure testing .rcs file also includes the ground truth dipole amplitude .edip data!
+
+    ct_files = [ctest_rcs_edip]
+    
+    #############################################
+    # Discretizing and exporting forward problems
+    ret = -1
+
+    # Discretization for CLOSURE TESTING
+    # Generate forward operator discretization for data from a known groundtruth dipole amplitude
+    print("Closure testing: Discretizing with reference dipole sigma_r data in HERA II bins.")
+    for ct_file in ct_files:
+        ct_name = Path(ct_file).stem
+        ground_truth_rcs_dip = load_edip(TODO)
+        print("Discretizing forward problem for sigmar data file: ", ct_file, mass_scheme)
+        ret = export_discrete_2d(mass_scheme, data_sigmar, ct_name, ground_truth=ground_truth_dip)
+    print("Export done with:", mass_scheme[0], ct_groundtruth_dip)
+    
+    if ret==-1:
+        print("loop error: export not done?")
+    return ret
+
+
+def qmass_scheme_from_dataname(data_name):
+    qscheme = None
+    if "CKMlightonly" in data_name:
+        qscheme = [("standard_light", mass_scheme_standard_light,)]
+    return qscheme
 
 # Run multiple settings:
 if __name__ == '__main__':
@@ -341,22 +349,33 @@ if __name__ == '__main__':
     # test_set=[run_settings[0], run_settings[2], run_settings[3]]
     # run_settings=test_set
 
-    closure_testing = False
-    # closure_testing = True
+    # closure_testing = False
+    closure_testing = True
 
-    ctesting_dipoles=[
-        "large_x_extension",
-    ]
+    if closure_testing:
+        try:
+            ct_dip_file = sys.argv[1]
+            if os.path.isfile(ct_dip_file):
+                print("loading input dipole file: ", ct_dip_file)
+            else:
+                print("invalid file: ", ct_dip_file)
+        except:
+            print("Need to give the input dipole file as argument!")
+        qm_set = qmass_scheme_from_dataname(ct_dip_file)
+        if not qm_set:
+            run_settings = test_set
+        else:
+            run_settings = qm_set
+
 
     for setting in run_settings:
         qm_scheme = setting
-        if closure_testing:
-            ct_groundtruth_dip = ctesting_dipoles[0]
-        else:
-            ct_groundtruth_dip = None
-
         try:
-            r0 += run_export(qm_scheme, closure_testing, ct_groundtruth_dip=ct_groundtruth_dip)
+            if closure_testing:
+                ctest_rcs_edip = ct_dip_file
+                r0 += run_export_closuretesting(qm_scheme, ctest_rcs_edip)
+            else:
+                r0 += run_export(qm_scheme)
         except Exception as err:
             print(f"Unexpected {err=}, {type(err)=}")
             i+=1
