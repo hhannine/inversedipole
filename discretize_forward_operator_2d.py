@@ -6,20 +6,15 @@ Copyright 2026
 Implements discretization in 2D (r,xbj), and export of the forward operator for inclusive DIS in the dipole picture.
 """
 
-# import math
 import os
 import sys
-from pathlib import Path
 import multiprocessing
+import numpy as np
 import scipy.integrate as integrate
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.io import loadmat, savemat
 from timeit import default_timer as timer
-
-from math import sqrt
-import numpy as np
-import matplotlib.pyplot as plt
-
+from pathlib import Path
 from data_manage_sigmar import load_rcs, sigmar_rcs_cnt_xbj_points
 from dipole_amplitude_managetool import load_edip, edip_dipole_xbins
 from deepinelasticscattering import fwd_op_sigma_reduced, fwd_op_sigma_reduced_udscb
@@ -99,7 +94,10 @@ def discretize_1D_dipole(interpolated_r_grid, r_vals, S_vals):
 def build_discrete_dipole_stack(dipole_edip):
     """Reshape dipole edip into a single column vector, N(r) grouped by xbj bins."""
     interpolated_r_grid = r_grid_log()
-    dip_mat = load_edip(dipole_edip)
+    if isinstance(dipole_edip, str):
+        dip_mat = load_edip(dipole_edip)
+    else:
+        dip_mat = dipole_edip
     x_bins = dip_mat[:,0,0]
     r_vals = dip_mat[0,:,1]
     
@@ -139,7 +137,7 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
     closure_testing = False
 
     # Build stacked N(r,x) vector from ground_truth .edip data. None if input is None.
-    if ground_truth:
+    if ground_truth is not None:
         closure_testing = True
         discrete_ground_truth_stack = build_discrete_dipole_stack(ground_truth)
     if reference_dip:
