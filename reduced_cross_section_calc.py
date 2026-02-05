@@ -87,9 +87,10 @@ def test_sigmar():
             print(datum, sigmar, sigmar_cpp, sigmar_theory_discr, sigmar_theory_discr/sigmar_cpp, abs((sigmar_theory_discr/sigmar_cpp)-1) < 1e-2, abs((sigmar_theory_discr/sigmar_cpp)-1) < 1e-3)
 
 
-def generate_sigmar(dip_file):
+def generate_sigmar(dip_file, mass_scheme):
     """Generate reduced cross section data from a dipole amplitude data file, using HERA data points."""
     # Load dipole data, make interpolators
+    qm_scheme_name, quark_masses = mass_scheme
     ref_dip_name = Path(dip_file).stem
     print("Generate sigma_r data from: ", ref_dip_name)
     dip_mat = loadmat(dip_file)["dip_array"]
@@ -115,9 +116,10 @@ def generate_sigmar(dip_file):
         except KeyError:
             print("skipping at xbj=", xbj)
             continue
-        sigmar_theory_cont = reduced_cross_section(datum, r_grid, S_interp, sigma02)
+        sigmar_theory_cont = reduced_cross_section(datum, r_grid, S_interp, sigma02, quark_masses)
         generated_sigmar_data.append([qsq, xbj, y, sqrt_s, sigmar, sig_err, sigmar_theory_cont])
-        print(len(generated_sigmar_data))
+        if len(generated_sigmar_data) % 20 == 0:
+            print(len(generated_sigmar_data))
     generated_sigmar_data = np.array(generated_sigmar_data)
 
     # Export output
@@ -142,6 +144,18 @@ if __name__ == "__main__":
     # acc_testing = True
     acc_testing = False
 
+    run_settings=[
+        ("standard", mass_scheme_standard,),
+        ("standard_light", mass_scheme_standard_light,),
+        ("mqMpole", mass_scheme_mq_Mpole,),
+        ("mqMcharm", mass_scheme_mcharm,),
+        ("mqMbottom", mass_scheme_mbottom,),
+        ("mqMW", mass_scheme_mW,),
+        # ("mass_scheme_heracc_charm_only", mass_scheme_heracc_charm_only),
+    ]
+    test_set=[run_settings[0], run_settings[2], run_settings[3]]
+    run_settings=test_set
+
     if acc_testing:
         print("Testing accuracy of MC integration against C++ implementation data.")
         test_sigmar()
@@ -157,4 +171,9 @@ if __name__ == "__main__":
         except:
             print("Usage: python reduced_cross_section_calc.py dipole_file.edip")
             exit()
-        generate_sigmar(dip_file)
+        for setting in run_settings:
+            qm_scheme = setting
+            print("Generating sigma_r data with mass scheme:", qm_scheme[0])
+            generate_sigmar(dip_file, qm_scheme)
+    
+    # end
