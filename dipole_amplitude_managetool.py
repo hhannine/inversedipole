@@ -116,7 +116,8 @@ if __name__=="__main__":
             # - waviness on the saturation front / in x / in r
             # - gaussian peaks here and there
             # - an arbitrary perturbation to lay on top like the shepp--logan phantom?
-        opt = "large_x_extension"
+        opt = "patch" # run both sigma0_included and large_x_extension with MVfreeze
+        # opt = "large_x_extension"
         # opt = "small_x_extension"
         # opt = "sigma0_included"
         # opt = "wave0" # 0, 1, 2 ~ ?
@@ -124,7 +125,51 @@ if __name__=="__main__":
         # opt = "prescribed_sigma0" # define some logarithmic growth of sigma0(xbj) to try to reconstruct in the closure test
         # opt = "shepplogan" # play with a completely arbitrary overlay if things are working really well?
 
-        if opt == "large_x_extension":
+        if opt == "patch":
+            # Multiply sigma02 into the dipole amplitude data to make it self contained for data generation tasks
+            strict_Q_cuts = True
+            if "bayesMV4" in ref_dip_name:
+                if strict_Q_cuts:
+                    sigma02=37.0628 # LO Bayes MV 4 refit, strict cuts
+                else:
+                    sigma02=36.8195 # LO Bayes MV 4 refit, wide cuts
+            elif "bayesMV5" in ref_dip_name:
+                if strict_Q_cuts:
+                    sigma02=36.3254 # LO Bayes MV 5 refit, strict cuts
+                else:
+                    sigma02=36.0176 # LO Bayes MV 5 refit, wide cuts
+            else:
+                print("CKM reference dipole not recognized, others not supported, ref_dip_name: ", ref_dip_name)
+            if not strict_Q_cuts:
+                opt+="_wideQcuts"
+            # Loop over xbj bins of dipole data, and multiply S by sigma02
+            print("Multiplying sigma02 into dipole data.")
+            for i, x in enumerate(x_bins):
+                dip_mat[i,:,2] *= sigma02
+            
+            bins_to_extend = [0.013, 0.02, 0.032, 0.05, 0.08, 0.13, 0.18, 0.25, 0.4, 0.65] # HERA bins above typical IC at 0.01
+            x_max = max(x_bins)
+            x_bins_to_extend = [x for x in bins_to_extend if x > x_max]
+            if not x_bins_to_extend:
+                print("x_max in dipole data higher than any extension x_bin?", x_max)
+            print("Expected extension bin count: ", len(x_bins)+len(x_bins_to_extend))
+
+            # COPY IC dipole data bin to extend
+            i_x_ic, = np.where(x_bins == x_max)
+            print("xmax ", x_max, " at ", i_x_ic[0])
+            S_ic = dip_mat[i_x_ic[0],:,2]
+            # Need to write the data in the correct format into the new array
+            for xbj in x_bins_to_extend:
+                x_ar = np.array([xbj]*len(r_grid))
+                S_extension = [np.array([x_ar, r_grid, S_ic]).T]
+                dip_mat = np.append(dip_mat, S_extension, axis=0)
+            # Verify extension success
+            x_bins = dip_mat[:,0,0]
+            print("xbj bins after extension: ", x_bins, len(x_bins))
+
+            # extension done, jump to exporting to file.
+        
+        elif opt == "large_x_extension":
             ext_type = "MVfreeze" # just freeze the IC!! the evolution will not be the same anyway! And this is clearly the easiest to do!
             # ext_type = "MVlike"
             # ext_type = "GBW"
