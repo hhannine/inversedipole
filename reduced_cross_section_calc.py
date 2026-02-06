@@ -17,6 +17,7 @@ This module has two core functionalities:
 
 import os
 import sys
+import multiprocessing
 
 import numpy as np
 
@@ -25,6 +26,7 @@ from scipy.io import loadmat, savemat
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from deepinelasticscattering import reduced_cross_section, discrete_reduced_cross_section, discretize_dipole_data_log, discretize_dipole_data_linear
+from quark_mass_schemes import *
 
 
 def test_sigmar():
@@ -99,31 +101,39 @@ def generate_sigmar(dip_file, mass_scheme):
     S_data_list = [dip_mat[i,:,2] for i in range(len(x_bins))]
     S_interp_list = [InterpolatedUnivariateSpline(r_grid, S_vals, ext=3) for S_vals in S_data_list]
     S_interp_dict = dict(zip(x_bins, S_interp_list))
+    sigma0_list = [max(S) for S in S_data_list]
+    sigma0_dict = dict(zip(x_bins, sigma0_list))
 
     # Read HERA data to have the points to compute at
     hera_data_file = "./data/paper2/heraII_filtered_s318.1_all_xbj_bins.rcs"
     hera_sigr_data = loadmat(hera_data_file)["sigma_r_data"]
     print("Loaded N=", len(hera_sigr_data), "HERA II data points from: ", hera_data_file)
 
-    # Multiply sigma02 into dipole amplitude data so that it mathces the real data reconstruction in kind, and we don't need to have it here.
-    sigma02 = 1
+    # single threaded
+    # generated_sigmar_data = []
+    # for datum in hera_sigr_data:
+    #     qsq, xbj, y, sqrt_s, sigmar, sig_err, theory_cpp = datum
+    #     try:
+    #         S_interp = S_interp_dict[xbj]
+    #     except KeyError:
+    #         print("skipping at xbj=", xbj)
+    #         continue
+    #     sigmar_theory_cont = reduced_cross_section(datum, r_grid, S_interp, sigma02, quark_masses)
+    #     generated_sigmar_data.append([qsq, xbj, y, sqrt_s, sigmar, sig_err, sigmar_theory_cont])
+    # generated_sigmar_data = np.array(generated_sigmar_data)
 
+    # MULTITHREAD COMPUTATION
+    with multiprocessing.Pool(processes=16) as pool:
+        sigmar_theory_cont = pool.starmap(reduced_cross_section, ((datum, (r_grid,), S_interp_dict[datum[1]], sigma0_dict[datum[1]], quark_masses) for datum in hera_sigr_data))
+    
+    # Build generated sigma_r from the continuous formulation into data array, .rcs format
     generated_sigmar_data = []
-    for datum in hera_sigr_data:
+    for datum, sig_cont in zip(hera_sigr_data, sigmar_theory_cont):
         qsq, xbj, y, sqrt_s, sigmar, sig_err, theory_cpp = datum
-        try:
-            S_interp = S_interp_dict[xbj]
-        except KeyError:
-            print("skipping at xbj=", xbj)
-            continue
-        sigmar_theory_cont = reduced_cross_section(datum, r_grid, S_interp, sigma02, quark_masses)
-        generated_sigmar_data.append([qsq, xbj, y, sqrt_s, sigmar, sig_err, sigmar_theory_cont])
-        if len(generated_sigmar_data) % 20 == 0:
-            print(len(generated_sigmar_data))
+        generated_sigmar_data.append([qsq, xbj, y, sqrt_s, sigmar, sig_err, sig_cont])
     generated_sigmar_data = np.array(generated_sigmar_data)
 
     # Export output
-
     save_to_file = False
     save_to_file = True
     out_path = "./data/paper2/closure_testing/"
@@ -153,7 +163,8 @@ if __name__ == "__main__":
         ("mqMW", mass_scheme_mW,),
         # ("mass_scheme_heracc_charm_only", mass_scheme_heracc_charm_only),
     ]
-    test_set=[run_settings[0], run_settings[2], run_settings[3]]
+    test_set=[run_settings[1]]
+    # test_set=[run_settings[0], run_settings[2], run_settings[3]]
     run_settings=test_set
 
     if acc_testing:
