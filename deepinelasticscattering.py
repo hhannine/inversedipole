@@ -250,9 +250,13 @@ def reduced_cross_section(sigmar_datum, r_grid, S_interp, sigma02, q_masses):
     Using the continuous formulation of the problem to enable data generation independently of the
     discretized formulation of the problem used to solve the inversion problem."""
     qsq, xbj, y, sqrt_s, sigmar, sig_err, theory_cpp = sigmar_datum
+    r_grid=r_grid[0] # r_grid packed in a tuple to prevent multithreading over r
     r_min = r_grid[0]
     r_max = r_grid[-1]
-    sigmar_py = integrate.dblquad(lambda z, r: sigma02*fwd_op_sigma_reduced_udscb(qsq, y, z, r, q_masses)*(1-S_interp(r)), r_min, r_max, 0, 1, epsrel=1e-3)
+    # Smax = S_interp(r_min) # Extract sigma0 from S data, which is needed for N(r) := sigma0*(1-S(r))
+    if sigma02==1:
+        print("sigma02==1 in reduced cross section comp, this is a problem with edip data!")
+    sigmar_py = integrate.dblquad(lambda z, r: sigma02*fwd_op_sigma_reduced_udscb(qsq, y, z, r, q_masses)*(sigma02-S_interp(r)), r_min, r_max, 0, 1, epsrel=1e-3)
     return sigmar_py[0]
 
 
