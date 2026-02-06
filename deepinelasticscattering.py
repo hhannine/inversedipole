@@ -291,13 +291,14 @@ def discretize_dipole_data_linear(r_grid, S_interp_dict, x_bins):
 
 
 def discretize_dipole_data_log(r_grid, S_interp_dict, x_bins):
+    "discretization accuracy testing grid construction."
     rmin=2e-3 # todo: re-test with log grid
     rmax=25 # todo: re-test with log grid
     # r_steps=256 # old linear grid step count
     # r_steps=128 # reaches 1e-3 error!
     # r_steps=96 # reaches 1e-3 most of the time?
-    # r_steps=64 # doesn't reach 1e-3 rel err
-    r_steps=32 # EVEN THIS SEEMS TO WORK??!?!? for 1%?
+    r_steps=64 # doesn't reach 1e-3 rel err
+    # r_steps=32 # EVEN THIS SEEMS TO WORK??!?!? for 1%?
     # r_steps=30 # this is close to the limit for 1% numerical accuarcy for the discretization.
 
     r=rmin
