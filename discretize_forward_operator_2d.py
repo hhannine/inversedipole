@@ -140,6 +140,8 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
     if ground_truth is not None:
         closure_testing = True
         discrete_ground_truth_stack = build_discrete_dipole_stack(ground_truth)
+        print(max(discrete_ground_truth_stack))
+        # exit()
     if reference_dip:
         discrete_refdip_stack = build_discrete_dipole_stack(reference_dip)
         ref_xbj_bins = edip_dipole_xbins(reference_dip) # reference fit dipole might not have all the same bins!
@@ -175,7 +177,7 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
 
     # Test stacked forward operator
     testing_stack = True
-    if testing_stack:
+    if testing_stack and not closure_testing:
         print(sparce_stacked_fwdop.shape)
         print("Sparce operator rows expected is qsq_points_total = ", qsq_points_total) # each row corresponds to a real data point at some xbj, Q^2
         print("ref dip shape", discrete_refdip_stack.shape, "expected: (nr-1) * nxbins = ", (r_steps-1)*len(ref_xbj_bins))
@@ -187,8 +189,6 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
         dscr_sigmar = np.matmul(sparce_stacked_fwdop, discrete_refdip_stack)
         print(dscr_sigmar.shape)
         for d, s in zip(data_sigmar_rcs, dscr_sigmar):
-            # if d[1] < 1e-4 or d[1] > 0.01:
-                # continue
             print(calcs, d, d[4], s, s/d[4])
             calcs+=1
         print("When comparing discretization against reference fit dipole, remember to use light quarks only mass scheme!")
@@ -199,13 +199,17 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
     
     if closure_testing:
         # Closure testing simulated data and ground truth dipole
-        base_name += "ctest_"
+        exp_folder = "./export_closure_test/"
+        base_name = exp_folder + "ctest_"
         dscr_check = True
         if dscr_check:
             # Test that discretization agrees with simulated data
-            dscr_sigmar = np.matmul(fw_op_datum_r_matrix, vec_discrete_N)
+            calcs = 0
+            # rcs format: qsq, xbj, y, sqrt_s, sigmar, sig_err, theory
+            dscr_sigmar = np.matmul(sparce_stacked_fwdop, discrete_ground_truth_stack)
             for d, s in zip(data_sigmar_rcs, dscr_sigmar):
-                print(d, d["theory"], s, s/d["theory"])
+                print(calcs, d, d[6], s, s/d[6])
+                calcs+=1
         mat_dict = {
             "forward_op_A": sparce_stacked_fwdop,
             "discrete_ground_truth_stack": discrete_ground_truth_stack, 
