@@ -91,6 +91,8 @@ r_steps = 128; % LOG step
 r_steps_str = strcat("r_steps",int2str(r_steps));
 ref_r_steps = 384; % beta1
 ref_r_steps_str = strcat("r_steps",int2str(ref_r_steps));
+r_grid_type = "conventional";
+% r_grid_type = "_new_";
 
 % forward operator data files
 data_path = './export_closure_test/';
@@ -119,9 +121,9 @@ quark_mass_schemes = [
     ];
 ref_fit_mscheme = quark_mass_schemes(2);
 % mscheme = quark_mass_schemes(1); % standard scheme with charm and bottom
-% mscheme = quark_mass_schemes(2); % CKM reference fit mass scheme is light only
+mscheme = quark_mass_schemes(2); % CKM reference fit mass scheme is light only
 % mscheme = quark_mass_schemes(3);
-mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'standard'
+% mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'standard'
 % mscheme = quark_mass_schemes(5);
 % mscheme = quark_mass_schemes(6); % charm scale as the standard choice?
 % mscheme = quark_mass_schemes(7); % bottom scale. n=10 prefers this over charm
@@ -129,8 +131,9 @@ mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'st
 
 lambda_type = "lambdaSRN"; % strict+relaxed+noisy
 lam1 = 1:0.1:9.9;
+lambda_noisy = [lam1*1e-5,lam1*1e-4,lam1*1e-3]; % closure testing
 % lambda_noisy = [lam1*6e-4,lam1*1e-3]; % testing for VERY noisy / peak ridge
-lambda_noisy = [lam1*9e-4,lam1*1e-3]; % testing for noisy
+% lambda_noisy = [lam1*9e-4,lam1*1e-3]; % testing for noisy
 lambda_relaxed = [lam1*1e-3, lam1*1e-2, lam1*1e-1]; 
 lambda_strict = [lam1*2e-3, lam1*1e-2, lam1*1e-1];
 lambda_t2 = [lam1*10e-2]; % This might be close for TIKH2 at 0.02??
@@ -166,10 +169,10 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Reading input discretized forward operator file:
-["Loading file with:", data_name_key, mscheme, r_steps_str, s_str]
+["Loading file with:", data_name_key, mscheme, r_steps_str, r_grid_type, s_str]
 for k = 1:numel(data_files)
     fname = data_files(k).name;
-    if (contains(fname, data_name_key) && contains(fname, mscheme) && contains(fname, r_steps_str) && contains(fname, s_str))
+    if (contains(fname, data_name_key) && contains(fname, mscheme) && contains(fname, r_steps_str) && contains(fname, r_grid_type) && contains(fname, s_str))
         run_file = fname;
     end
 end
@@ -201,16 +204,17 @@ sigmar_ref_dipole = [];
 if closure_testing==true
     % Reconstruction tested in a closure test.
     % Rec. is run for simulated data with a precisely known ground truth dipole amplitude.
-    b_hera_real = data_sigmar_rcs(:,5)';
-    b_closuretest = data_sigmar_rcs(:,7)';
-    ctest_groundtruth_dipole = discrete_dipole_N';
+    b_hera_real = data_sigmar_rcs(:,5);
+    b_closuretest = data_sigmar_rcs(:,7);
+    b_hera = b_closuretest;
+    ctest_groundtruth_dipole = discrete_ground_truth_stack';
     N_fit = ctest_groundtruth_dipole;
     sigmar_groundtruth_dipole = A*ctest_groundtruth_dipole;
     ct_groundtruth_loaded = true;
 
-    chi_goal = 1e-5
+    chi_goal = 1e-8
     % chi_goal = 0.01
-    % chi_goal = 1
+    % chi_goal = 1;
 
 elseif closure_testing==false && false
     % Load reference dipole to have a comparison for the real data reconstruction.
@@ -277,6 +281,8 @@ nr=r_steps;
 nx=length(xbj_bins);
 L1=get_l_2d_modified(nr-1,nx,1,1);
 
+[size(L1), size(b_hera), size(A)]
+
 % first order derivative operator
 [UU,sm,XX] = cgsvd(A,L1);
 % second order derivative operator
@@ -324,33 +330,6 @@ sigmar_principal_strict = A*rec_dip_principal_strict;
 sigmar_principal_relax = A*rec_dip_principal_relax;
 sigmar_principal_noisy = A*rec_dip_principal_noisy;
 
-init_testing = false;
-% init_testing = true;
-if init_testing
-    % Xim = reshape(X_tikh_principal(:,mIp),[],nx);
-    Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
-    % Xim = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
-    % logData = Xim .* log( abs( Xim ) );
-    figure(1)
-    % imagesc(xbj_grid, r_grid, Xim)
-    surf(xbj_grid, r_grid, Xim)
-    % surf(xbj_grid, r_grid, abs(Xim))
-    hAx=gca;
-    set(hAx,{'XScale','YScale'},{'log','log'});
-    % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
-    % return
-
-    size(sigmar_principal_strict)
-    figure(2)
-
-    sigmar_vec = sigmar_principal_strict;
-    % sigmar_vec = sigmar_principal_relax;
-    % sigmar_vec = sigmar_principal_noisy;
-    plot3(x_data_vals, qsq_data_vals, sigmar_vec)
-    hAx=gca;
-    set(hAx,{'XScale','YScale'},{'log','log'});
-end
-
 
 % CHI^2 TEST for the principal rec's agreement with the real data
 chisq_over_N_strict = calc_chisq(sigmar_principal_strict, b_hera, b_errs);
@@ -369,9 +348,54 @@ else
     chisq_data = ["chisq over N:", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy]
 end
 
-[max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy)]
+[max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy), max(ctest_groundtruth_dipole)]
 
-% return    % Testing main rec
+% init_testing = false;
+init_testing = true;
+if init_testing
+    % Xim = reshape(X_tikh_principal(:,mIp),[],nx);
+    % Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
+    Xim = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
+    % logData = Xim .* log( abs( Xim ) );
+    figure(1)
+    % imagesc(xbj_grid, r_grid, Xim)
+    surf(xbj_grid, r_grid, Xim)
+    % surf(xbj_grid, r_grid, abs(Xim))
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+    % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
+    % return
+
+    size(sigmar_principal_strict)
+    figure(2)
+
+    sigmar_vec = sigmar_principal_strict;
+    % sigmar_vec = sigmar_principal_relax;
+    % sigmar_vec = sigmar_principal_noisy;
+    plot3(x_data_vals, qsq_data_vals, sigmar_vec)
+    hold on
+    plot3(x_data_vals, qsq_data_vals, b_closuretest, "rx")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+    hold off
+
+    if closure_testing
+        Xim_gt = reshape(ctest_groundtruth_dipole,[],nx);
+        figure(3)
+        surf(xbj_grid, r_grid, Xim_gt)
+        hAx=gca;
+        set(hAx,{'XScale','YScale'},{'log','log'});
+        figure(4)
+        % imagesc(xbj_grid, r_grid, Xim./Xim_gt)
+        surf(xbj_grid, r_grid, Xim./Xim_gt)
+        ylim([1e-1 inf])
+        zlim([0 1.2])
+        caxis([-1 3]);
+        hAx=gca;
+        set(hAx,{'XScale','YScale'},{'log','log'});
+    end
+    return    % Testing main rec
+end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
