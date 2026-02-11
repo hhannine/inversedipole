@@ -78,6 +78,8 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % RUN VARIABLES
+closure_testing = false;
+use_real_data = true;
 
 gev_to_mb = 1/2.56819;
 s_bins = [318.1, 300.3, 251.5]; % 224.9 bin had no viable xbj bins at all
@@ -90,17 +92,13 @@ r_steps = 128; % LOG step
 r_steps_str = strcat("r_steps",int2str(r_steps));
 ref_r_steps = 384; % beta1
 ref_r_steps_str = strcat("r_steps",int2str(ref_r_steps));
+% r_grid_type = "conventional";
+% r_grid_type = "_new_";
+r_grid_type = "_newv2_";
 
 % forward operator data files
 data_path = './export_hera_data_2d/';
 data_files = dir(fullfile(data_path,'*.mat'));
-
-
-closure_testing = false;
-%%% real data settings
-use_real_data = true;
-
-
 data_type = "dis_inclusive"; % vs. dis_charm, dis_bottom, diff_dis_inclusive
 data_name_key = "heraII_filtered";
 % ref_data_name = "bayesMV4-strict_Q_cuts";
@@ -121,9 +119,9 @@ ref_fit_mscheme = quark_mass_schemes(2);
 % mscheme = quark_mass_schemes(1); % standard scheme with charm and bottom
 % mscheme = quark_mass_schemes(2); % CKM reference fit mass scheme is light only
 % mscheme = quark_mass_schemes(3);
-mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'standard'
+% mscheme = quark_mass_schemes(4); % mqMpole, the more accurate alternative to 'standard'
 % mscheme = quark_mass_schemes(5);
-% mscheme = quark_mass_schemes(6); % charm scale as the standard choice?
+mscheme = quark_mass_schemes(6); % charm scale as the standard choice?
 % mscheme = quark_mass_schemes(7); % bottom scale. n=10 prefers this over charm
 % mscheme = quark_mass_schemes(8); % W boson mass scale for high Q^2?
 
@@ -169,7 +167,7 @@ end
 ["Loading file with:", data_name_key, mscheme, r_steps_str, s_str]
 for k = 1:numel(data_files)
     fname = data_files(k).name;
-    if (contains(fname, data_name_key) && contains(fname, mscheme) && contains(fname, r_steps_str) && contains(fname, s_str))
+    if (contains(fname, data_name_key) && contains(fname, mscheme) && contains(fname, r_steps_str) && contains(fname, r_grid_type) && contains(fname, s_str))
         run_file = fname;
     end
 end
@@ -198,21 +196,26 @@ ct_groundtruth_loaded = false;
 N_fit = [];
 sigmar_ref_dipole = [];
 
-if closure_testing==true
-    % Reconstruction tested in a closure test.
-    % Rec. is run for simulated data with a precisely known ground truth dipole amplitude.
-    b_hera_real = data_sigmar_rcs(:,5)';
-    b_closuretest = data_sigmar_rcs(:,7)';
-    ctest_groundtruth_dipole = discrete_dipole_N';
-    N_fit = ctest_groundtruth_dipole;
-    sigmar_groundtruth_dipole = A*ctest_groundtruth_dipole;
-    ct_groundtruth_loaded = true;
+small_x_only = true;
+if small_x_only
+    %%%% TRIMMING DATA FOR SMALL XBJ
+    % xbj_bins(14) % 0.013
+    Ntrim = sum(xcounts(1:14));
+    % x_data_vals(xend) % check end value
+    A = A(1:Ntrim,1:(r_steps-1)*14); %TODO NEED TO TRIM THIS HORIZONTALLY AS WELL: nr*Ntrim columns
+    b_hera = b_hera(1:Ntrim);
+    b_errs = b_errs(1:Ntrim);
+    qsq_data_vals = qsq_data_vals(1:Ntrim);
+    x_data_vals = x_data_vals(1:Ntrim);
+    [xcounts, xbj_bins] = groupcounts(x_data_vals);
+    xbj_grid = xbj_bins';
+    [qcounts, qsq_bins] = groupcounts(qsq_data_vals);
+    qsq_grid = qsq_bins';
 
-    chi_goal = 1e-5
-    % chi_goal = 0.01
-    % chi_goal = 1
+    [size(A), size(b_hera), size(b_errs)]
+end
 
-elseif closure_testing==false && false
+if closure_testing==false && false
     % Load reference dipole to have a comparison for the real data reconstruction.
     for k = 1:numel(data_files)
         fname = data_files(k).name;
@@ -641,36 +644,43 @@ if plotting
     set(hAx,{'XScale','YScale'},{'log','log'});
     hold off
 
-    % loglog(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
-    % semilogx(r_grid',N_rec_principal,'--', "DisplayName", "principal", "Color","blue")
-    % hold on
-    % if ref_dip_loaded && false
-    %     loglog(r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
-    %     % loglog(ref_r_grid',ref_dipole,':', "DisplayName", "Reference fit", "Color","Cyan")
-    % end
-    % loglog(r_grid',abs(N_rec_principal),':', "DisplayName", "ABS principal", "Color","blue")
-    % loglog(r_grid',N_rec_ptw_mean,'-.', "DisplayName", "mean", "Color","white")
-    % loglog(r_grid',rec_dip_principal_noisy,'-.', "DisplayName", "noisy", "Color","#FF69B4")
-    % loglog(r_grid',N_rec_CI95_up,':', "DisplayName", "95 up", "Color","Red")
-    % loglog(r_grid',N_rec_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
-    % loglog(r_grid',N_rec_CI682_up,':', "DisplayName", "68 up", "Color","Green")
-    % loglog(r_grid',N_rec_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
-    % if plot_relax
-    % 
-    % end
-    % if plot_tik2
-    % 
-    % end
-    % if plot_comp_methods
-    % 
-    % end
-    % hold off
+    figure(2)
+    surf(xbj_grid, r_grid, Xim_r, "DisplayName", "relax")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
 
+    figure(3)
+    surf(xbj_grid, r_grid, Xim_n, "DisplayName", "noisy")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+
+    figure(4)
+    surf(xbj_grid, r_grid, Xim_r./Xim_p)
+    hold on
+    surf(xbj_grid, r_grid, Xim_n./Xim_p,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[0.07 0.6 1],...
+    'EdgeAlpha',0.2);
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+    ylim([0.3 inf]);
+    zlim([0 4]);
+    clim([0 3]);
+    hold off
+        
     % Reduced cross section data comparison plot(s)
     % All the xbj bins are reconstructed simultaneously, so there's ~15 bins of data to compare.
     % basic: throw all in the same plot? -> going to be a huge mess?
     % grid_plot: plot each bin separately and show a grid of comparisons? Would be quite good but will be more complex to do.
-    figure(2)
+    figure(5)
     sigmar_vec = sigmar_principal_strict;
     % sigmar_vec = sigmar_principal_relax;
     % sigmar_vec = sigmar_principal_noisy;
@@ -681,26 +691,7 @@ if plotting
     plot3(x_data_vals, qsq_data_vals, b_hera,'xr', 'DisplayName',"hera")
     % errorbar(q2vals', b_hera, b_errs, '')
     plot3([x_data_vals,x_data_vals]', [qsq_data_vals,qsq_data_vals]', [-b_errs,b_errs]'+b_hera', '-r')
-    % hold on
-    % if use_ref_dipole_data && use_high_Q_cut==false
-    %     semilogx(q2vals',b_hera_real,'-', 'DisplayName',"hera real") % when reconstructing to simulated data, plot the real data separately.
-    %     semilogx(q2vals',sigmar_ref_dipole,'-', 'DisplayName',"sigmar_ref_dipole=A*ref_dip")
-    % elseif use_ref_dipole_data==false && ref_dip_loaded
-    %     semilogx(ref_qsq_vals',sigmar_ref_dipole,'-', 'DisplayName',"Reference fit")
-    % end
-    % semilogx(q2vals',sigmar_principal_strict,'-.', 'DisplayName',"principal_strict")
-    % semilogx(q2vals',sigmar_principal_noisy,'-.', 'DisplayName',"principal_noisy")
-    % semilogx(q2vals',sigmar_ptw_mean,':', 'DisplayName',"mean")
-    % semilogx(q2vals',sigmar_CI95_up,':', "DisplayName", "95 up", "Color","Red")
-    % semilogx(q2vals',sigmar_CI95_dn,':', "DisplayName", "95 dn", "Color","Red")
-    % semilogx(q2vals',sigmar_CI682_up,':', "DisplayName", "68 up", "Color","Green")
-    % semilogx(q2vals',sigmar_CI682_dn,':', "DisplayName", "68 dn", "Color","Green")
-    % if plot_relax
-    % 
-    % end
-    % if plot_comp_methods
-    % 
-    % end
+
     hold off
 end
 
