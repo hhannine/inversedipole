@@ -91,8 +91,9 @@ r_steps = 128; % LOG step
 r_steps_str = strcat("r_steps",int2str(r_steps));
 ref_r_steps = 384; % beta1
 ref_r_steps_str = strcat("r_steps",int2str(ref_r_steps));
-r_grid_type = "conventional";
+% r_grid_type = "conventional";
 % r_grid_type = "_new_";
+r_grid_type = "_newv2_";
 
 % forward operator data files
 data_path = './export_closure_test/';
@@ -212,8 +213,8 @@ if closure_testing==true
     sigmar_groundtruth_dipole = A*ctest_groundtruth_dipole;
     ct_groundtruth_loaded = true;
 
-    chi_goal = 1e-8
-    % chi_goal = 0.01
+    % chi_goal = 1e-8
+    chi_goal = 0.001;
     % chi_goal = 1;
 
 elseif closure_testing==false && false
@@ -388,9 +389,9 @@ if init_testing
         figure(4)
         % imagesc(xbj_grid, r_grid, Xim./Xim_gt)
         surf(xbj_grid, r_grid, Xim./Xim_gt)
-        ylim([1e-1 inf])
-        zlim([0 1.2])
-        caxis([-1 3]);
+        % ylim([1e-1 inf])
+        zlim([0 2])
+        caxis([0.8 1.2]);
         hAx=gca;
         set(hAx,{'XScale','YScale'},{'log','log'});
     end
