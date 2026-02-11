@@ -63,11 +63,13 @@ def r_grid_log(conventional=False):
         rmin=2e-3 # Nice round lower limit to aim for
         rmax=25 #
     else:
-        rmin=1e-2 # Nice round lower limit to aim for
-        rmax=100 #
+        # rmin=1e-2 #
+        rmin=5e-2 # new v2 (optimize the range of r more)
+        rmax=25 #
     # r_steps=256 # Paper 1 grid size
     r_steps=127 #
-    # r_steps=64 # Good enough with log step!
+    # r_steps=63 # Good enough with log step!
+    # r_steps=31
     r=rmin
     while len(interpolated_r_grid)<r_steps+1:
         interpolated_r_grid.append(r)
@@ -129,10 +131,10 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
     Needs to run 1D discretization in r for each Bjorken-x, and then contstruct the sparce forward operator.
     If a reference dipole is included, N(r,x) needs to be reshaped into a stacked column vector: [N(r,x1),...,N(r,xn)].
     """
-    conventional_rgrid = False
+    conventional_rgrid = False # Manual toggle here.
     interpolated_r_grid = r_grid_log(conventional_rgrid)
     r_steps = len(interpolated_r_grid)
-    print("r_steps", r_steps)
+    print("r_steps", r_steps, "conventional grid:", conventional_rgrid)
     qm_scheme_name, quark_masses = mass_scheme
     closure_testing = False
 
@@ -232,7 +234,7 @@ def export_discrete_2d(mass_scheme, data_sigmar_rcs, data_name, ground_truth=Non
     if conventional_rgrid:
         r_grid_name = "_"+"conventional_r_steps"+str(r_steps)
     else:
-        r_grid_name = "_"+"new_r_steps"+str(r_steps)
+        r_grid_name = "_"+"newv2_r_steps"+str(r_steps)
     savename = base_name+data_name+"_" + qm_scheme_name + r_grid_name +".mat"
 
     savemat(savename, mat_dict)
@@ -255,9 +257,9 @@ def run_export(mass_scheme, ct_groundtruth_dip=None):
     data_path = "./data/paper2/" # s binned data in .rcs format
     data_path_cc = data_path
     dipole_path = "./data/paper2/dipoles_unified2d/"
-    dipole_files = [i for i in os.listdir(dipole_path) if os.path.isfile(os.path.join(dipole_path, i)) and 'dipole_fit_'+fitname+"_" in i]
 
-    ref_fit_bayesMV4_dip = "dipmod_amp_evol_data_bayesMV4_sigma0_inc_large_x_extfrz_r256.edip"
+    ref_fit_bayesMV4_dip = dipole_path + "dip_amp_evol_data_bayesMV4patch_largexsigma0_r256.edip"
+    # ref_fit_bayesMV4_dip = "dipmod_amp_evol_data_bayesMV4_sigma0_inc_large_x_extfrz_r256.edip"
     # ref_fit_bayesMV4_dip = "dipole_modeffect_evol_data_dip_amp_evol_data_bayesMV4_r256_large_x_extension_MVfreeze_r256.edip"
 
     s_bins = [318.1, 300.3, 251.5, 224.9]
@@ -349,14 +351,14 @@ if __name__ == '__main__':
         # ("mass_scheme_heracc_charm_only", mass_scheme_heracc_charm_only),
     ]
 
-    test_set=[run_settings[1]] # compare with standard light!
-    # test_set=[run_settings[0], run_settings[2], run_settings[3]]
-    # run_settings=test_set
+    test_set=[run_settings[0], run_settings[2], run_settings[3]]
+    run_settings=test_set
 
-    # closure_testing = False
-    closure_testing = True
+    closure_testing = False
+    # closure_testing = True
 
     if closure_testing:
+        test_set=[run_settings[1]] # compare with standard light!
         try:
             ct_dip_file = sys.argv[1]
             if os.path.isfile(ct_dip_file):
