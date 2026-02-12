@@ -121,6 +121,7 @@ if __name__=="__main__":
         # opt = "small_x_extension"
         # opt = "sigma0_included"
         # opt = "wave0" # 0, 1, 2 ~ ?
+        # opt = "hera_mimic" # mimic some gaussian-like peaks that might be present in the preliminary reconstruction
         # opt = "gaussian" # 0 ~ Gaussian(s), try to reconstruct a number of peaks located in different regimes (simultaneously? 3x3 grid of peaks ~ {small r, mid r, large r} x {small x, mid x, large x})
         # opt = "prescribed_sigma0" # define some logarithmic growth of sigma0(xbj) to try to reconstruct in the closure test
         # opt = "shepplogan" # play with a completely arbitrary overlay if things are working really well?
@@ -251,8 +252,14 @@ if __name__=="__main__":
             for i, x in enumerate(x_bins):
                 dip_mat[i,:,2] *= sigma02
             # sigma02 inclusion mod done, jump to exporting
-        elif opt == "wave":
-            pass
+        elif opt == "hera_mimic":
+            # there are 4 peak-like features to add, 3 additive, 1 subtractive
+            peak_features = [
+                (,), # (r_center, r_width, x_center, x_width, +- amplitude)
+                (,),
+                (,),
+                (,),
+            ]
         elif opt == "gaussian":
             pass
             # need to parametrize a set of gaussians and add them on top of the dipole data
