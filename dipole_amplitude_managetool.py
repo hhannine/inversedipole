@@ -8,9 +8,11 @@ dipole_amplitude_managetool module has two core functionalities:
     - reading unified dipole amplitude data files and applying artificial effects for closure testing of the reconstruction
 """
 
+import math
 import os
 import sys
 
+import scipy
 import numpy as np
 
 from pathlib import Path
@@ -27,6 +29,8 @@ def edip_dipole_xbins(file):
     dip_mat = load_edip(file)
     x_bins = dip_mat[:,0,0]
     return x_bins
+
+# def lognorm_pdf(r, mu, sigma):
 
 
 if __name__=="__main__":
@@ -109,19 +113,24 @@ if __name__=="__main__":
         # need to initialize the (xbj, r) grid to then be able to calculate effects on top of it
         x_bins = dip_mat[:,0,0]
         r_grid = dip_mat[0,:,1]
+        # print(r_grid)
         print("Input xbj bins: ", x_bins, len(x_bins))
+        # r_x_grid = (r_grid, x_bins)
+        log_r_x_grid = (np.log(r_grid), np.log(x_bins))
+        # print(log_r_x_grid[0])
+        # print(log_r_x_grid[1])
 
         # implement different effect types to add, file naming scheme
             # - extension to xbj > 0.01
             # - waviness on the saturation front / in x / in r
             # - gaussian peaks here and there
             # - an arbitrary perturbation to lay on top like the shepp--logan phantom?
-        opt = "patch" # run both sigma0_included and large_x_extension with MVfreeze
+        # opt = "patch" # run both sigma0_included and large_x_extension with MVfreeze
         # opt = "large_x_extension"
         # opt = "small_x_extension"
         # opt = "sigma0_included"
+        opt = "hera_mimic" # mimic some gaussian-like peaks that might be present in the preliminary reconstruction
         # opt = "wave0" # 0, 1, 2 ~ ?
-        # opt = "hera_mimic" # mimic some gaussian-like peaks that might be present in the preliminary reconstruction
         # opt = "gaussian" # 0 ~ Gaussian(s), try to reconstruct a number of peaks located in different regimes (simultaneously? 3x3 grid of peaks ~ {small r, mid r, large r} x {small x, mid x, large x})
         # opt = "prescribed_sigma0" # define some logarithmic growth of sigma0(xbj) to try to reconstruct in the closure test
         # opt = "shepplogan" # play with a completely arbitrary overlay if things are working really well?
@@ -255,11 +264,38 @@ if __name__=="__main__":
         elif opt == "hera_mimic":
             # there are 4 peak-like features to add, 3 additive, 1 subtractive
             peak_features = [
-                (,), # (r_center, r_width, x_center, x_width, +- amplitude)
-                (,),
-                (,),
-                (,),
+                # (r_center, r_width, x_center, x_width, +- amplitude * pdf_scaling_factor)
+                (0.85, 2, 8e-5, 8e-5, 2.5*5),
+                (3.9, 2, 8e-5, 6e-5, 5*2),
+                (3.9, 2, 0.0005, 8e-5, 7*3),
+                (4.5, 5, 5e-3, 1e-4, (-5.75)*10), # dip down at large x
             ]
+            # construct the functions for these features on the log_r_x_grid
+            peak_outp = np.zeros((len(r_grid),len(x_bins)))
+            x_min = min(x_bins)
+            lr, lx = log_r_x_grid
+            lx_min = min(lx)
+            for peak in peak_features:
+                r_mean, r_stdev, x_mean, x_stdev, amp = peak
+                x_mean = x_mean / x_min
+                x_stdev = x_stdev / x_min
+                peak_f_r = scipy.stats.norm.pdf(lr, loc=math.log(r_mean), scale=math.log(r_stdev))
+                peak_f_x = scipy.stats.norm.pdf(lx - lx_min, loc=math.log(x_mean), scale=math.log(x_stdev))
+                pdf_prod = amp*np.outer(peak_f_r, peak_f_x)
+                # print(np.max(pdf_prod))
+                peak_outp += pdf_prod
+            # sum combined peak output onto the dipole S data, just taking it on the original grid
+            #   sign of effect flips from N to S! (pos. effect for N is neg. for S): N = S_max - S(r,x) - S_mod
+            #   S_i = dip_mat[x[i],:,2]
+            print(peak_outp.shape)
+            for i in range(len(x_bins)):
+                # check max values
+                max_r = max(peak_outp[:,i])
+                min_r = min(peak_outp[:,i])
+                max_ri, = np.where(peak_outp[:,i] == max_r)
+                min_ri, = np.where(peak_outp[:,i] == min_r)
+                print(x_bins[i], r_grid[max_ri], r_grid[min_ri], max_r, min_r)
+            # Loop over dipole data by xbj bin, and add mod effect output
         elif opt == "gaussian":
             pass
             # need to parametrize a set of gaussians and add them on top of the dipole data
@@ -273,7 +309,7 @@ if __name__=="__main__":
             # TBD whether this is implemented
         
         save_to_file = False
-        save_to_file = True
+        # save_to_file = True
         if save_to_file:
             outfilename = "dipole_modeffect_evol_data_"+ref_dip_name+"_"+opt+"_r256.edip"
             data_dict = {
