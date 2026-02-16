@@ -14,6 +14,7 @@ import sys
 
 import scipy
 import numpy as np
+import matplotlib.pyplot as plt
 
 from pathlib import Path
 from scipy.io import loadmat, savemat
@@ -265,10 +266,10 @@ if __name__=="__main__":
             # there are 4 peak-like features to add, 3 additive, 1 subtractive
             peak_features = [
                 # (r_center, r_width, x_center, x_width, +- amplitude * pdf_scaling_factor)
-                (0.85, 2, 8e-5, 8e-5, 2.5*5),
+                (0.85, 2, 8e-5, 9e-5, 2.5*5),
                 (3.9, 2, 8e-5, 6e-5, 5*2),
                 (3.9, 2, 0.0005, 8e-5, 7*3),
-                (4.5, 5, 5e-3, 1e-4, (-5.75)*10), # dip down at large x
+                (4.5, 1.5, 5e-3, 1e-4, (-5.75)*2), # dip down at large x
             ]
             # construct the functions for these features on the log_r_x_grid
             peak_outp = np.zeros((len(r_grid),len(x_bins)))
@@ -287,15 +288,21 @@ if __name__=="__main__":
             # sum combined peak output onto the dipole S data, just taking it on the original grid
             #   sign of effect flips from N to S! (pos. effect for N is neg. for S): N = S_max - S(r,x) - S_mod
             #   S_i = dip_mat[x[i],:,2]
-            print(peak_outp.shape)
-            for i in range(len(x_bins)):
-                # check max values
-                max_r = max(peak_outp[:,i])
-                min_r = min(peak_outp[:,i])
-                max_ri, = np.where(peak_outp[:,i] == max_r)
-                min_ri, = np.where(peak_outp[:,i] == min_r)
-                print(x_bins[i], r_grid[max_ri], r_grid[min_ri], max_r, min_r)
+            print_peaks = True
+            if print_peaks:
+                print(peak_outp.shape)
+                for i in range(len(x_bins)):
+                    # check max and min values
+                    max_r = max(peak_outp[:,i])
+                    min_r = min(peak_outp[:,i])
+                    max_ri, = np.where(peak_outp[:,i] == max_r)
+                    min_ri, = np.where(peak_outp[:,i] == min_r)
+                    print(x_bins[i], r_grid[max_ri], r_grid[min_ri], max_r, min_r)
+                plt.imshow(peak_outp, aspect="auto")
+                plt.colorbar()
+                plt.show()
             # Loop over dipole data by xbj bin, and add mod effect output
+
         elif opt == "gaussian":
             pass
             # need to parametrize a set of gaussians and add them on top of the dipole data
