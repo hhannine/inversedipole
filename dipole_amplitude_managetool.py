@@ -31,7 +31,8 @@ def edip_dipole_xbins(file):
     x_bins = dip_mat[:,0,0]
     return x_bins
 
-# def lognorm_pdf(r, mu, sigma):
+def gaussian_peak(x, loc=0, scale=1):
+    return np.exp(-(x-loc)**2/(2*scale**2))
 
 
 if __name__=="__main__":
@@ -95,6 +96,7 @@ if __name__=="__main__":
         # Reformat end
         #
     elif sys.argv[1]=="dipmod":
+        closure_testing = False
         # apply a modification to a dipole data file (ideally a reference dipole)
         try:
             dip_file = sys.argv[2]
@@ -263,13 +265,14 @@ if __name__=="__main__":
                 dip_mat[i,:,2] *= sigma02
             # sigma02 inclusion mod done, jump to exporting
         elif opt == "hera_mimic":
+            closure_testing = True
             # there are 4 peak-like features to add, 3 additive, 1 subtractive
             peak_features = [
                 # (r_center, r_width, x_center, x_width, +- amplitude * pdf_scaling_factor)
-                (0.85, 2, 8e-5, 9e-5, 2.5*5),
-                (3.9, 2, 8e-5, 6e-5, 5*2),
-                (3.9, 2, 0.0005, 8e-5, 7*3),
-                (4.5, 1.5, 5e-3, 1e-4, (-5.75)*2), # dip down at large x
+                (0.85, 2, 8e-5, 9e-5, 2.5),
+                (3.9, 2, 8e-5, 6e-5, 5),
+                (3.9, 2, 0.0005, 8e-5, 7),
+                (5.5, 4.5, 5e-3, 1e-4, (-5.75)), # dip down at large x
             ]
             # construct the functions for these features on the log_r_x_grid
             peak_outp = np.zeros((len(r_grid),len(x_bins)))
@@ -280,15 +283,15 @@ if __name__=="__main__":
                 r_mean, r_stdev, x_mean, x_stdev, amp = peak
                 x_mean = x_mean / x_min
                 x_stdev = x_stdev / x_min
-                peak_f_r = scipy.stats.norm.pdf(lr, loc=math.log(r_mean), scale=math.log(r_stdev))
-                peak_f_x = scipy.stats.norm.pdf(lx - lx_min, loc=math.log(x_mean), scale=math.log(x_stdev))
+                peak_f_r = gaussian_peak(lr, loc=math.log(r_mean), scale=math.log(r_stdev))
+                peak_f_x = gaussian_peak(lx - lx_min, loc=math.log(x_mean), scale=math.log(x_stdev))
                 pdf_prod = amp*np.outer(peak_f_r, peak_f_x)
                 # print(np.max(pdf_prod))
                 peak_outp += pdf_prod
             # sum combined peak output onto the dipole S data, just taking it on the original grid
             #   sign of effect flips from N to S! (pos. effect for N is neg. for S): N = S_max - S(r,x) - S_mod
             #   S_i = dip_mat[x[i],:,2]
-            print_peaks = True
+            print_peaks = False
             if print_peaks:
                 print(peak_outp.shape)
                 for i in range(len(x_bins)):
@@ -301,8 +304,12 @@ if __name__=="__main__":
                 plt.imshow(peak_outp, aspect="auto")
                 plt.colorbar()
                 plt.show()
+                exit()
             # Loop over dipole data by xbj bin, and add mod effect output
-
+            for i in range(len(x_bins)):
+                mod_i = peak_outp[:,i]
+                # S_i = dip_mat[x_bins[i],:,2]
+                dip_mat[i,:,2] += -mod_i
         elif opt == "gaussian":
             pass
             # need to parametrize a set of gaussians and add them on top of the dipole data
@@ -315,15 +322,23 @@ if __name__=="__main__":
             pass
             # TBD whether this is implemented
         
-        save_to_file = False
-        # save_to_file = True
+        if closure_testing:
+            outpath = "./data/paper2/closure_testing/"
+        else:
+            outpath = ""
+
+        # save_to_file = False
+        save_to_file = True
         if save_to_file:
-            outfilename = "dipole_modeffect_evol_data_"+ref_dip_name+"_"+opt+"_r256.edip"
+            if closure_testing:
+                outfilename = "ctest_dipeff_" + opt + "_" + ref_dip_name + ".edip"
+            else:
+                outfilename = "dipole_modeffect_evol_data_"+ref_dip_name+"_"+opt+".edip"
             data_dict = {
             "dip_array": dip_mat,
             }
-            savemat(outfilename, data_dict)
-            print("Saved to file: ", outfilename)
+            savemat(outpath + outfilename, data_dict)
+            print("Saved to file: ", outpath + outfilename)
         else:
             print("Not saving output!")
     else:
