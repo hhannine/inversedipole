@@ -354,8 +354,8 @@ if __name__ == '__main__':
     test_set=[run_settings[0], run_settings[2], run_settings[3]]
     run_settings=test_set
 
-    closure_testing = False
-    # closure_testing = True
+    # closure_testing = False
+    closure_testing = True
 
     if closure_testing:
         test_set=[run_settings[1]] # compare with standard light!
