@@ -104,11 +104,13 @@ data_name_key = "ctest_dip_amp";
 
 ctest_effects = [
     "CKMlightonly"; % just the bare reference CKM dipole (with freeze)
+    "hera_mimic";
     "gaussian";
     "waves";
     "linearsigma0";
 ];
-ctest_effect = ctest_effects(1);
+% ctest_effect = ctest_effects(1); # bare ref. CKM
+ctest_effect = ctest_effects(2);
 
 quark_mass_schemes = [
         "standard",
@@ -170,11 +172,11 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Reading input discretized forward operator file:
-["Loading file with:", data_name_key, mscheme, r_steps_str, r_grid_type, s_str]
+["Loading CLOSURE TEST file with:", ctest_effect, data_name_key, mscheme, r_steps_str, r_grid_type, s_str]
 for k = 1:numel(data_files)
     fname = data_files(k).name;
-    if (contains(fname, data_name_key) && contains(fname, mscheme) && contains(fname, r_steps_str) && contains(fname, r_grid_type) && contains(fname, s_str))
-        run_file = fname;
+    if (contains(fname, ctest_effect) && contains(fname, data_name_key) && contains(fname, mscheme) && contains(fname, r_steps_str) && contains(fname, r_grid_type) && contains(fname, s_str))
+        run_file = fname
     end
 end
 if run_file
@@ -202,49 +204,20 @@ ct_groundtruth_loaded = false;
 N_fit = [];
 sigmar_ref_dipole = [];
 
-if closure_testing==true
-    % Reconstruction tested in a closure test.
-    % Rec. is run for simulated data with a precisely known ground truth dipole amplitude.
-    b_hera_real = data_sigmar_rcs(:,5);
-    b_closuretest = data_sigmar_rcs(:,7);
-    b_hera = b_closuretest;
-    ctest_groundtruth_dipole = discrete_ground_truth_stack';
-    N_fit = ctest_groundtruth_dipole;
-    sigmar_groundtruth_dipole = A*ctest_groundtruth_dipole;
-    ct_groundtruth_loaded = true;
+% Reconstruction tested in a closure test.
+% Rec. is run for simulated data with a precisely known ground truth dipole amplitude.
+b_hera_real = b_hera;
+b_closuretest = data_sigmar_rcs(:,7);
+b_hera = b_closuretest;
+ctest_groundtruth_dipole = discrete_ground_truth_stack';
+N_fit = ctest_groundtruth_dipole;
+sigmar_groundtruth_dipole = A*ctest_groundtruth_dipole;
+ct_groundtruth_loaded = true;
 
-    % chi_goal = 1e-8
-    chi_goal = 0.001;
-    % chi_goal = 1;
+% chi_goal = 1e-8
+chi_goal = 0.001;
+% chi_goal = 1;
 
-elseif closure_testing==false && false
-    % Load reference dipole to have a comparison for the real data reconstruction.
-    for k = 1:numel(data_files)
-        fname = data_files(k).name;
-        if (contains(fname, ref_data_name_key) && contains(fname, ref_fit_mscheme) && contains(fname, ref_r_steps_str) && contains(fname, s_str))
-            ref_file = fname;
-        end
-    end
-    ref_dip_data = load(strcat(data_path, ref_file));
-    ref_qsq_vals = ref_dip_data.qsq_vals;
-    % ref_real_sigma0 = 37.0628; % MV4 refit, in GeV^-2
-    ref_dipole = ref_dip_data.discrete_dipole_N';
-    N_fit = ref_dipole;
-    ref_r_grid = ref_dip_data.r_grid;
-    ref_r_grid(end) = [];
-    sigmar_ref_dipole = ref_dip_data.sigmar_theory';
-    ref_dip_bins_b_hera = ref_dip_data.sigmar_vals';
-    ref_dip_bins_b_errs = ref_dip_data.sigmar_errs';
-    ref_dip_loaded = true;
-
-    chisq_vec_ref_dip = (sigmar_ref_dipole - ref_dip_bins_b_hera).^2 ./ ref_dip_bins_b_errs.^2;
-    chisq_over_ref_dip = sum(chisq_vec_ref_dip) / length(chisq_vec_ref_dip);
-    if chisq_over_ref_dip>1
-        chi_goal = 1;
-    else
-        chi_goal = chisq_over_ref_dip;
-    end
-end
 
 % testing Q binning -- Careful, limiting upper limit reduces the number of points, and the reconstrctuion can break with too few points!
 q_cut = 0; % no cut low or high
@@ -351,8 +324,8 @@ end
 
 [max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy), max(ctest_groundtruth_dipole)]
 
-% init_testing = false;
-init_testing = true;
+init_testing = false;
+% init_testing = true;
 if init_testing
     % Xim = reshape(X_tikh_principal(:,mIp),[],nx);
     % Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
@@ -612,6 +585,7 @@ if plotting
     Xim_p = reshape(X_tikh_principal(:,mIp),[],nx);
     Xim_r = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
     Xim_n = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
+    Xim_gt = reshape(ctest_groundtruth_dipole,[],nx);
     surf(xbj_grid, r_grid, Xim_p, "DisplayName", "principal")
     % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
     hold on
@@ -645,15 +619,61 @@ if plotting
     set(hAx,{'XScale','YScale'},{'log','log'});
     hold off
 
-
     figure(2)
-    TODO RELATIVE ACCURACY RATIO PLOT
+    surf(xbj_grid, r_grid, Xim_r, "DisplayName", "relax")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+
+    figure(3)
+    surf(xbj_grid, r_grid, Xim_n, "DisplayName", "noisy")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+
+    figure(4)
+    surf(xbj_grid, r_grid, Xim_gt, "DisplayName", "groundtruth")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+
+    figure(5)
+    surf(xbj_grid, r_grid, Xim_p./Xim_gt)
+    hold on
+    surf(xbj_grid, r_grid, Xim_r./Xim_gt,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[0.07 0.6 1],...
+    'EdgeAlpha',0.2);
+    surf(xbj_grid, r_grid, Xim_n./Xim_gt,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[1 0.6 0.07],...
+    'EdgeAlpha',0.2);
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+    ylim([0.1 inf]);
+    zlim([0.25 1.5]);
+    clim([0.5 1.5]);
+    hold off
+
 
     % Reduced cross section data comparison plot(s)
     % All the xbj bins are reconstructed simultaneously, so there's ~15 bins of data to compare.
     % basic: throw all in the same plot? -> going to be a huge mess?
     % grid_plot: plot each bin separately and show a grid of comparisons? Would be quite good but will be more complex to do.
-    figure(3)
+    figure(6)
     sigmar_vec = sigmar_principal_strict;
     % sigmar_vec = sigmar_principal_relax;
     % sigmar_vec = sigmar_principal_noisy;
