@@ -137,8 +137,9 @@ def generate_sigmar(dip_file, mass_scheme):
     save_to_file = False
     save_to_file = True
     out_path = "./data/paper2/closure_testing/"
+    s_str = "s318.1_"
     if save_to_file:
-        out_name = "generated_sigmar_heraIIbins_" + ref_dip_name + "_all_xbj_bins.rcs"
+        out_name = "generated_sigmar_heraIIbins_" + s_str + ref_dip_name + "_all_xbj_bins.rcs"
         data_dict = {
         "sigma_r_data": generated_sigmar_data,
         "dip_mat_groundtruth": dip_mat
