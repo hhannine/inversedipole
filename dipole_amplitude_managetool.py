@@ -34,6 +34,38 @@ def edip_dipole_xbins(file):
 def gaussian_peak(x, loc=0, scale=1):
     return np.exp(-(x-loc)**2/(2*scale**2))
 
+def gaussian_features(peaks, r_grid, x_bins, log_r_x_grid, print_peaks = False):
+    # construct the functions for these features on the log_r_x_grid
+    peak_outp = np.zeros((len(r_grid),len(x_bins)))
+    x_min = min(x_bins)
+    lr, lx = log_r_x_grid
+    lx_min = min(lx)
+    for peak in peak_features:
+        print(peak)
+        r_mean, r_stdev, x_mean, x_stdev, amp = peak
+        x_mean = x_mean / x_min
+        x_stdev = x_stdev / x_min
+        peak_f_r = gaussian_peak(lr, loc=math.log(r_mean), scale=math.log(r_stdev))
+        peak_f_x = gaussian_peak(lx - lx_min, loc=math.log(x_mean), scale=math.log(x_stdev))
+        pdf_prod = amp*np.outer(peak_f_r, peak_f_x)
+        # print(np.max(pdf_prod))
+        peak_outp += pdf_prod
+    if print_peaks:
+        print(peak_outp.shape)
+        for i in range(len(x_bins)):
+            # check max and min values
+            max_r = max(peak_outp[:,i])
+            min_r = min(peak_outp[:,i])
+            max_ri, = np.where(peak_outp[:,i] == max_r)
+            min_ri, = np.where(peak_outp[:,i] == min_r)
+            print(x_bins[i], r_grid[max_ri], r_grid[min_ri], max_r, min_r)
+        plt.imshow(peak_outp, aspect="auto")
+        plt.colorbar()
+        plt.show()
+        print("exit")
+        exit()
+    return peak_outp
+
 
 if __name__=="__main__":
     if len(sys.argv)==1:
@@ -132,10 +164,13 @@ if __name__=="__main__":
         # opt = "large_x_extension"
         # opt = "small_x_extension"
         # opt = "sigma0_included"
-        opt = "hera_mimic" # mimic some gaussian-like peaks that might be present in the preliminary reconstruction
+        # opt = "hera_mimic" # mimic some gaussian-like peaks that might be present in the preliminary reconstruction
+        # opt = "gaussian"
+        # opt = "gaussian_single"
+        # opt = "gaussian_front"
+        opt = "gaussian_front2"
+        # opt = "linear_sigma0"
         # opt = "wave0" # 0, 1, 2 ~ ?
-        # opt = "gaussian" # 0 ~ Gaussian(s), try to reconstruct a number of peaks located in different regimes (simultaneously? 3x3 grid of peaks ~ {small r, mid r, large r} x {small x, mid x, large x})
-        # opt = "prescribed_sigma0" # define some logarithmic growth of sigma0(xbj) to try to reconstruct in the closure test
         # opt = "shepplogan" # play with a completely arbitrary overlay if things are working really well?
 
         if opt == "patch":
@@ -311,13 +346,84 @@ if __name__=="__main__":
                 # S_i = dip_mat[x_bins[i],:,2]
                 dip_mat[i,:,2] += -mod_i
         elif opt == "gaussian":
-            pass
-            # need to parametrize a set of gaussians and add them on top of the dipole data
-        elif opt == "prescribed_sigma0":
-            pass
-            # need to prescribe a log growth for the dipole in Bjorken-x. Perhaps in can just be a multiplicative scaling that grows with log(1/x)?
-            # Define a size at some scale and "evolve" from there, log(1/x) is probably the only simple reasonable option? Maybe double log(log(1/x)) for even slower growth?
-            # or log(Q^2)*log(1/x) like the summer plot suggested?
+            closure_testing = True
+            peak_features = [
+                # (r_center, r_width, x_center, x_width, +- amplitude * pdf_scaling_factor)
+                (0.1, 0.2, 8e-5, 6e-5, 5),
+                (0.1, 0.2, 8e-4, 20e-5, 5),
+                (0.1, 0.2, 8e-3, 100e-5, 5),
+                (1, 0.8, 8e-5, 6e-5, 5),
+                (1, 0.8, 8e-4, 10e-5, 15),
+                (1, 0.8, 8e-3, 15e-5, 5),
+                (10, 3, 8e-5, 6e-5, 15),
+                (10, 3, 8e-4, 10e-5, 15),
+                (10, 3, 8e-3, 15e-5, 15),
+            ]
+            peak_outp = gaussian_features(peak_features, r_grid, x_bins, log_r_x_grid, print_peaks=False)
+            # Loop over dipole data by xbj bin, and add mod effect output
+            for i in range(len(x_bins)):
+                mod_i = peak_outp[:,i]
+                # S_i = dip_mat[x_bins[i],:,2]
+                dip_mat[i,:,2] += -mod_i
+        elif opt == "gaussian_single":
+            closure_testing = True
+            peak_features = [
+                # (r_center, r_width, x_center, x_width, +- amplitude * pdf_scaling_factor)
+                (3, 1.5, 8e-4, 15e-5, 12),
+            ]
+            peak_outp = gaussian_features(peak_features, r_grid, x_bins, log_r_x_grid, print_peaks=False)
+            # Loop over dipole data by xbj bin, and add mod effect output
+            for i in range(len(x_bins)):
+                mod_i = peak_outp[:,i]
+                # S_i = dip_mat[x_bins[i],:,2]
+                dip_mat[i,:,2] += -mod_i
+        elif opt == "gaussian_front":
+            closure_testing = True
+            peak_features = [
+                # (r_center, r_width, x_center, x_width, +- amplitude * pdf_scaling_factor)
+                (3, 3, 8e-5, 8e-5, 40),
+                (3, 3, 8e-4, 8e-5, 40),
+                (3, 3, 8e-3, 8e-5, 40),
+            ]
+            peak_outp = gaussian_features(peak_features, r_grid, x_bins, log_r_x_grid, print_peaks=False)
+            # Loop over dipole data by xbj bin, and add mod effect output
+            for i in range(len(x_bins)):
+                mod_i = peak_outp[:,i]
+                # S_i = dip_mat[x_bins[i],:,2]
+                dip_mat[i,:,2] = -mod_i
+        elif opt == "gaussian_front2":
+            closure_testing = True
+            peak_features = [
+                # (r_center, r_width, x_center, x_width, +- amplitude * pdf_scaling_factor)
+                (0.8, 0.8, 2.5e-5, 8e-5, 25),
+                (0.8, 0.8, 2.5e-4, 8e-5, 25),
+                (0.8, 0.8, 2.5e-3, 8e-5, 25),
+                (6, 3, 8e-5, 8e-5, 40),
+                (6, 3, 8e-4, 8e-5, 40),
+                (6, 3, 8e-3, 8e-5, 40),
+            ]
+            peak_outp = gaussian_features(peak_features, r_grid, x_bins, log_r_x_grid, print_peaks=False)
+            # Loop over dipole data by xbj bin, and add mod effect output
+            for i in range(len(x_bins)):
+                mod_i = peak_outp[:,i]
+                # S_i = dip_mat[x_bins[i],:,2]
+                dip_mat[i,:,2] = -mod_i
+        elif opt == "linear_sigma0":
+            # Linear multiplicative scaling that grows with log(1/x)
+            #   another with log(1/Q^2)*log(1/x) like the summer plot suggested? 
+            #   (both xbj and Q^2 were decreasing in unison)
+            x1=0.01
+            x2=3.98e-5
+            y1=0.75
+            y2=1.25
+            k = (y2 - y1)/(math.log(1/x2) - math.log(1/x1))
+            b = y1 - k*math.log(1/x1)
+            linear_xbj_sigma0_scalings = -k * np.log(x_bins) + b
+            # print(linear_xbj_sigma0_scalings)
+            for i in range(len(x_bins)):
+                mod_i = linear_xbj_sigma0_scalings[i]
+                # S_i = dip_mat[x_bins[i],:,2]
+                dip_mat[i,:,2] *= mod_i
         elif opt == "shepplogan":
             pass
             # TBD whether this is implemented
@@ -339,6 +445,7 @@ if __name__=="__main__":
             }
             savemat(outpath + outfilename, data_dict)
             print("Saved to file: ", outpath + outfilename)
+            print("For closure testing, next run: python reduced_cross_section_calc.py", outpath + outfilename)
         else:
             print("Not saving output!")
     else:
