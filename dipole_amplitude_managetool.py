@@ -409,6 +409,7 @@ if __name__=="__main__":
                 # S_i = dip_mat[x_bins[i],:,2]
                 dip_mat[i,:,2] = -mod_i
         elif opt == "linear_sigma0":
+            closure_testing = True
             # Linear multiplicative scaling that grows with log(1/x)
             #   another with log(1/Q^2)*log(1/x) like the summer plot suggested? 
             #   (both xbj and Q^2 were decreasing in unison)
@@ -425,6 +426,7 @@ if __name__=="__main__":
                 # S_i = dip_mat[x_bins[i],:,2]
                 dip_mat[i,:,2] *= mod_i
         elif opt == "wave":
+            closure_testing = True
             # wave perturbation to the dipole
             # (1 - amp * sin(log(r)/wavelen)**2) * S
             amp = 1.5
@@ -439,6 +441,7 @@ if __name__=="__main__":
             # print("exit")
             # exit()
         elif opt == "shepplogan":
+            closure_testing = True
             pass
             # plt.imshow(peak_outp, aspect="auto")
             # plt.colorbar()
