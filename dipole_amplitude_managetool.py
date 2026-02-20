@@ -168,9 +168,9 @@ if __name__=="__main__":
         # opt = "gaussian"
         # opt = "gaussian_single"
         # opt = "gaussian_front"
-        opt = "gaussian_front2"
+        # opt = "gaussian_front2"
         # opt = "linear_sigma0"
-        # opt = "wave0" # 0, 1, 2 ~ ?
+        opt = "wave" # 0, 1, 2 ~ ?
         # opt = "shepplogan" # play with a completely arbitrary overlay if things are working really well?
 
         if opt == "patch":
@@ -424,10 +424,29 @@ if __name__=="__main__":
                 mod_i = linear_xbj_sigma0_scalings[i]
                 # S_i = dip_mat[x_bins[i],:,2]
                 dip_mat[i,:,2] *= mod_i
+        elif opt == "wave":
+            # wave perturbation to the dipole
+            # (1 - amp * sin(log(r)/wavelen)**2) * S
+            amp = 1.5
+            wavelen = 0.3
+            wave_fac = 1 - amp * r_grid/5 * np.sin(np.log(r_grid)/wavelen)**2
+            for i in range(len(x_bins)):
+                # S_i = dip_mat[x_bins[i],:,2]
+                dip_mat[i,:,2] *= wave_fac
+            # plt.plot(np.log(r_grid), wave_fac)
+            # plt.plot(r_grid, wave_fac)
+            # plt.show()
+            # print("exit")
+            # exit()
         elif opt == "shepplogan":
             pass
-            # TBD whether this is implemented
-        
+            # plt.imshow(peak_outp, aspect="auto")
+            # plt.colorbar()
+            # plt.show()
+            # print("exit")
+            # exit()
+
+
         if closure_testing:
             outpath = "./data/paper2/closure_testing/"
         else:
