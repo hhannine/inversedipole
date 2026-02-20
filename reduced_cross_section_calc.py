@@ -146,6 +146,7 @@ def generate_sigmar(dip_file, mass_scheme):
         }
         savemat(out_path + out_name, data_dict)
         print("Saved to file: ", out_path + out_name)
+        print("For closure testing, next run: python discretize_forward_operator_2d.py", out_path + out_name)
     else:
         print("Not saving output!")
 
