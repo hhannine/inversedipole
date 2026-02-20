@@ -107,11 +107,14 @@ ctest_effects = [
     "CKMlightonly"; % just the bare reference CKM dipole (with freeze)
     "hera_mimic";
     "gaussian";
-    "waves";
-    "linearsigma0";
+    "gaussian_single";
+    "gaussian_front";
+    "gaussian_front2";
+    "linear_sigma0";
+    "wave";
 ];
 % ctest_effect = ctest_effects(1); # bare ref. CKM
-ctest_effect = ctest_effects(2);
+ctest_effect = ctest_effects(8);
 
 quark_mass_schemes = [
         "standard",
@@ -214,7 +217,7 @@ xbj_grid = xbj_bins';
 [qcounts, qsq_bins] = groupcounts(qsq_data_vals);
 qsq_grid = qsq_bins';
 
-[size(A), size(b_hera), size(b_errs)]
+% [size(A), size(b_hera), size(b_errs)];
 % return
 
 ref_dip_loaded = false;
@@ -235,7 +238,7 @@ sigmar_groundtruth_dipole = A*ctest_groundtruth_dipole;
 ct_groundtruth_loaded = true;
 
 % chi_goal = 1e-5
-chi_goal = 0.001
+chi_goal = 0.001;
 % chi_goal = 1;
 
 
@@ -264,7 +267,7 @@ if use_high_Q_cut
     b_hera = b_hera(1:qn);
     b_errs = b_errs(1:qn);
 end
-[data_name_key, s_bin, r_steps, closure_testing, mscheme]
+% [data_name_key, s_bin, r_steps, closure_testing, mscheme];
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -273,9 +276,11 @@ end
 
 nr=r_steps;
 nx=length(xbj_bins);
-L1=get_l_2d_modified(nr-1,nx,1,1);
+L1=get_l_2d_modified(nr-1,nx,1,1); % both 1st order
+% L1=get_l_2d_modified(nr-1,nx,1,2); % xbj at 2nd order
+% L1=get_l_2d_modified(nr-1,nx,1,0); % xbj at 0th order, change lambdas!
 
-[size(L1), size(b_hera), size(A)]
+[size(L1), size(b_hera), size(A)];
 
 % first order derivative operator
 [UU,sm,XX] = cgsvd(A,L1);
@@ -537,7 +542,7 @@ end
 %       - 'local' maxima at each x_i, which is used to define S(r) = N_locmax_i - N(r,x)
 
 % Sigma02: reconstruction maxima and C.I.s
-[max(N_rec_principal), max(N_rec_principal_relax), max(N_rec_principal_noisy)]
+% [max(N_rec_principal), max(N_rec_principal_relax), max(N_rec_principal_noisy)]z
 [N_max_strict, max_i] = max(rec_dip_principal_strict);
 [N_max_ptw_mean, max_i_mean] = max(N_rec_ptw_mean);
 [N_max_relax, max_i_rel] = max(rec_dip_principal_relax);
@@ -551,13 +556,14 @@ r_max_scale = find( r_grid > 6, 1 ); % this should perhaps be determined by the 
 % else
 %     N_max_tik2 = N_max_tik2_candid1;
 % end
-r_Nmax_strict = r_grid(rem(max_i,length(xbj_grid)));
-r_Nmax_rel = r_grid(rem(max_i_rel,length(xbj_grid)));
-r_Nmax_noisy = r_grid(rem(max_i_noisy,length(xbj_grid)));
-N_max_strict_ci = [N_rec_CI682_dn(max_i), N_rec_CI682_up(max_i), N_rec_CI95_dn(max_i), N_rec_CI95_up(max_i)];
-N_max_relax_ci = [N_rec_CI682_dn_relax(max_i_rel), N_rec_CI682_up_relax(max_i_rel), N_rec_CI95_dn_relax(max_i_rel), N_rec_CI95_up_relax(max_i_rel)];
-N_max_data_strict = [N_max_strict, r_Nmax_strict, N_max_strict_ci];
-N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
+% rem(max_i,length(xbj_grid))
+% r_Nmax_strict = r_grid(rem(max_i,length(xbj_grid)));
+% r_Nmax_rel = r_grid(rem(max_i_rel,length(xbj_grid)));
+% r_Nmax_noisy = r_grid(rem(max_i_noisy,length(xbj_grid)));
+% N_max_strict_ci = [N_rec_CI682_dn(max_i), N_rec_CI682_up(max_i), N_rec_CI95_dn(max_i), N_rec_CI95_up(max_i)];
+% N_max_relax_ci = [N_rec_CI682_dn_relax(max_i_rel), N_rec_CI682_up_relax(max_i_rel), N_rec_CI95_dn_relax(max_i_rel), N_rec_CI95_up_relax(max_i_rel)];
+% N_max_data_strict = [N_max_strict, r_Nmax_strict, N_max_strict_ci];
+% N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
 
 
 % SATURATION SCALE
