@@ -166,3 +166,5 @@ cython_debug/
 /plots_devel
 /plots_gaussian
 /plots_hera_uq
+/dev non-neg
+/dev 2 reg params
