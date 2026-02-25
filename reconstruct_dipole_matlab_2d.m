@@ -127,7 +127,8 @@ mscheme = quark_mass_schemes(6); % charm scale as the standard choice?
 
 lambda_type = "lambdaSRN"; % strict+relaxed+noisy
 lam1 = 1:0.1:9.9;
-% lambda_noisy = [lam1*6e-4,lam1*1e-3]; % testing for VERY noisy / peak ridge
+% lambda_noisy = [lam1*3e-4,lam1*1e-3]; % testing for VERY noisy / peak ridge
+% lambda_noisy = [lam1*7e-4,lam1*1e-3]; % testing for VERY noisy / peak ridge
 lambda_noisy = [lam1*9e-4,lam1*1e-3]; % testing for noisy
 lambda_relaxed = [lam1*1e-3, lam1*1e-2, lam1*1e-1]; 
 lambda_strict = [lam1*2e-3, lam1*1e-2, lam1*1e-1];
@@ -279,8 +280,12 @@ end
 
 nr=r_steps;
 nx=length(xbj_bins);
-L1=get_l_2d_modified(nr-1,nx,1,1);
+% L1=get_l_2d_modified(nr-1,nx,1,1); % both 1st order
+L1=get_l_2d_modified(nr-1,nx,1,2); % xbj at 2nd order
+% L1=get_l_2d_modified(nr-1,nx,1,0); % xbj at 0th order, change lambdas!
 
+% classical 0th order tikhonov
+% [U,s,V] = csvd(A);
 % first order derivative operator
 [UU,sm,XX] = cgsvd(A,L1);
 % second order derivative operator
@@ -550,13 +555,13 @@ r_max_scale = find( r_grid > 6, 1 ); % this should perhaps be determined by the 
 % else
 %     N_max_tik2 = N_max_tik2_candid1;
 % end
-r_Nmax_strict = r_grid(rem(max_i,length(xbj_grid)));
-r_Nmax_rel = r_grid(rem(max_i_rel,length(xbj_grid)));
-r_Nmax_noisy = r_grid(rem(max_i_noisy,length(xbj_grid)));
-N_max_strict_ci = [N_rec_CI682_dn(max_i), N_rec_CI682_up(max_i), N_rec_CI95_dn(max_i), N_rec_CI95_up(max_i)];
-N_max_relax_ci = [N_rec_CI682_dn_relax(max_i_rel), N_rec_CI682_up_relax(max_i_rel), N_rec_CI95_dn_relax(max_i_rel), N_rec_CI95_up_relax(max_i_rel)];
-N_max_data_strict = [N_max_strict, r_Nmax_strict, N_max_strict_ci];
-N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
+% r_Nmax_strict = r_grid(rem(max_i,length(xbj_grid)));
+% r_Nmax_rel = r_grid(rem(max_i_rel,length(xbj_grid)));
+% r_Nmax_noisy = r_grid(rem(max_i_noisy,length(xbj_grid)));
+% N_max_strict_ci = [N_rec_CI682_dn(max_i), N_rec_CI682_up(max_i), N_rec_CI95_dn(max_i), N_rec_CI95_up(max_i)];
+% N_max_relax_ci = [N_rec_CI682_dn_relax(max_i_rel), N_rec_CI682_up_relax(max_i_rel), N_rec_CI95_dn_relax(max_i_rel), N_rec_CI95_up_relax(max_i_rel)];
+% N_max_data_strict = [N_max_strict, r_Nmax_strict, N_max_strict_ci];
+% N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
 
 
 % SATURATION SCALE
@@ -642,17 +647,23 @@ if plotting
     'EdgeAlpha',0.2);
     hAx=gca;
     set(hAx,{'XScale','YScale'},{'log','log'});
+    % zlim([0 40]);
+    % clim([0 40]);
     hold off
 
     figure(2)
     surf(xbj_grid, r_grid, Xim_r, "DisplayName", "relax")
     hAx=gca;
     set(hAx,{'XScale','YScale'},{'log','log'});
+    % zlim([0 40]);
+    % clim([0 40]);
 
     figure(3)
     surf(xbj_grid, r_grid, Xim_n, "DisplayName", "noisy")
     hAx=gca;
     set(hAx,{'XScale','YScale'},{'log','log'});
+    % zlim([0 40]);
+    % clim([0 40]);
 
     figure(4)
     surf(xbj_grid, r_grid, Xim_r./Xim_p)
