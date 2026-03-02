@@ -334,17 +334,6 @@ if init_testing
     set(hAx,{'XScale','YScale'},{'log','log'});
 end
 
-% comparison recs
-% [m2,mI2]=min(errtik2);
-% rec_dip_principal_tik2 = X_tikh2(:,mI2);
-% rec_cimmino1 = xC1(:,end);
-% rec_kacz1 = xK1(:,end);
-% % rec_kacz2 = xK2(:,end);
-% sigmar_tikh2 = A*rec_dip_principal_tik2;
-% sigmar_cimmino1 = A*rec_cimmino1;
-% sigmar_kacz1 = A*rec_kacz1;
-% % sigmar_kacz2 = A*rec_kacz2;
-
 % CHI^2 TEST for the principal rec's agreement with the real data
 chisq_over_N_strict = calc_chisq(sigmar_principal_strict, b_hera, b_errs);
 chisq_over_N_relax = 0; %calc_chisq(sigmar_principal_relax, b_hera, b_errs);
