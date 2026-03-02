@@ -129,8 +129,8 @@ ctest_effects = [
     "linear_sigma0";
     "wave";
 ];
-% ctest_effect = ctest_effects(1); # bare ref. CKM
-ctest_effect = ctest_effects(8);
+% ctest_effect = ctest_effects(1); % bare ref. CKM
+ctest_effect = ctest_effects(2);
 
 quark_mass_schemes = [
         "standard",
@@ -301,26 +301,41 @@ Lx = get_L2x( nr,nx,dx );
 %% 2 PARAMETER REG SETTINGS: TODO INTEGRATE TO THE HEADER
 % alphar = 3e-4;
 % alphax = 3e-5;
-alphar = 1e-6;
-alphax = 1e-7;
-MAXITER = 1500;
+% alphar = 1e-6;
+% alphax = 1e-7;
+% alphar = 1e-6;
+% alphax = 1e-6;
+alphar = 4e-6;
+alphax = 2e-6;
+% MAXITER = 1500;
+MAXITER = 1000;
 % tol = 1e-16;
 tol = 1e-16;
 
 [size(b_hera), size(A), size(Lr), size(Lx)]
 X_tikh_principal = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar, alphax, MAXITER, tol);
+X_tikh_relax = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar/10, alphax/10, MAXITER, tol);
 
 rec_dip_principal_strict = X_tikh_principal;
+rec_dip_principal_relax = X_tikh_relax;
 
-% sigmar_principal_strict = A*rec_dip_principal_strict;
+sigmar_principal_strict = A*X_tikh_principal;
+sigmar_principal_relax = A*X_tikh_relax;
 
-% init_testing = false;
-init_testing = true;
+
+% CHI^2 TEST for the principal rec's agreement with the real data
+chisq_over_N_strict = calc_chisq(sigmar_principal_strict, b_hera, b_errs);
+chisq_over_N_relax = calc_chisq(sigmar_principal_relax, b_hera, b_errs);
+chisq_over_N_noisy = 0; %calc_chisq(sigmar_principal_noisy, b_hera, b_errs);
+chisq_data = ["chisq over N:", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy]
+
+[max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(ctest_groundtruth_dipole)]
+% [max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy), max(ctest_groundtruth_dipole)]
+
+init_testing = false;
+% init_testing = true;
 if init_testing
     Xim = reshape(X_tikh_principal,[],nx);
-    % Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
-    % Xim = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
-    % logData = Xim .* log( abs( Xim ) );
     figure(1)
     % imagesc(xbj_grid, r_grid, Xim)
     surf(xbj_grid, r_grid, Xim)
@@ -330,63 +345,8 @@ if init_testing
     zlim([0 40]);
     clim([0 40]);
     % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
-    % return
 
-    sigmar_principal_strict = A*X_tikh_principal;
-    size(sigmar_principal_strict)
     figure(2)
-
-    sigmar_vec = sigmar_principal_strict;
-    % sigmar_vec = sigmar_principal_relax;
-    % sigmar_vec = sigmar_principal_noisy;
-    plot3(x_data_vals, qsq_data_vals, sigmar_vec)
-    hAx=gca;
-    set(hAx,{'XScale','YScale'},{'log','log'});
-end
-
-% CHI^2 TEST for the principal rec's agreement with the real data
-chisq_over_N_strict = calc_chisq(sigmar_principal_strict, b_hera, b_errs);
-chisq_over_N_relax = 0; %calc_chisq(sigmar_principal_relax, b_hera, b_errs);
-chisq_over_N_noisy = 0; %calc_chisq(sigmar_principal_noisy, b_hera, b_errs);
-
-if ref_dip_loaded
-    chisq_vec_ref_dip = (sigmar_ref_dipole - ref_dip_bins_b_hera).^2 ./ ref_dip_bins_b_errs.^2;
-    chisq_over_ref_dip = sum(chisq_vec_ref_dip) / length(chisq_vec_ref_dip);
-end
-if ref_dip_loaded && closure_testing==false
-    % chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1, chisq_over_ref_dip]
-    chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_ref_dip]
-else
-    % chisq_data = [chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy, chisq_over_Nt2, chisq_over_Nk1, chisq_over_Ncim1]
-    chisq_data = ["chisq over N:", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy]
-end
-
-max(rec_dip_principal_strict)
-% [max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy)]
-
-return    % Testing main rec
-
-[max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy), max(ctest_groundtruth_dipole)]
-
-init_testing = false;
-% init_testing = true;
-if init_testing
-    % Xim = reshape(X_tikh_principal(:,mIp),[],nx);
-    % Xim = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
-    Xim = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
-    % logData = Xim .* log( abs( Xim ) );
-    figure(1)
-    % imagesc(xbj_grid, r_grid, Xim)
-    surf(xbj_grid, r_grid, Xim)
-    % surf(xbj_grid, r_grid, abs(Xim))
-    hAx=gca;
-    set(hAx,{'XScale','YScale'},{'log','log'});
-    % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
-    % return
-
-    size(sigmar_principal_strict)
-    figure(2)
-
     sigmar_vec = sigmar_principal_strict;
     % sigmar_vec = sigmar_principal_relax;
     % sigmar_vec = sigmar_principal_noisy;
@@ -397,7 +357,7 @@ if init_testing
     set(hAx,{'XScale','YScale'},{'log','log'});
     hold off
 
-    if closure_testing
+    if init_testing && closure_testing
         Xim_gt = reshape(ctest_groundtruth_dipole,[],nx);
         figure(3)
         surf(xbj_grid, r_grid, Xim_gt)
@@ -418,6 +378,103 @@ if init_testing
     return    % Testing main rec
 end
 
+early_plotting = true;
+if early_plotting
+    ["early_plotting=", early_plotting]
+    figure(1) % rec_princip vs. mean reconstruction vs. ground truth
+    Xim_p = reshape(X_tikh_principal,[],nx);
+    Xim_r = reshape(X_tikh_relax,[],nx);
+    % Xim_n = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
+    Xim_gt = reshape(ctest_groundtruth_dipole,[],nx);
+    surf(xbj_grid, r_grid, Xim_p, "DisplayName", "principal")
+    % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
+    hold on
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+    hold off
+
+    figure(2)
+    surf(xbj_grid, r_grid, Xim_r, "DisplayName", "relax")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+
+    figure(3)
+    % surf(xbj_grid, r_grid, Xim_n, "DisplayName", "noisy")
+    % hAx=gca;
+    % set(hAx,{'XScale','YScale'},{'log','log'});
+    % 
+    % figure(4)
+    surf(xbj_grid, r_grid, Xim_gt, "DisplayName", "groundtruth")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+
+    figure(4)
+    surf(xbj_grid, r_grid, Xim_p./Xim_gt,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[0.07 1 0.6],...
+    'EdgeAlpha',0.2);
+    hold on
+    surf(xbj_grid, r_grid, Xim_r./Xim_gt,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[0.07 0.6 1],...
+    'EdgeAlpha',0.2);
+    % surf(xbj_grid, r_grid, Xim_n./Xim_gt)
+    % ,'FaceLighting','gouraud',...
+    % 'MeshStyle','column',...
+    % 'SpecularColorReflectance',0,...
+    % 'SpecularExponent',5,...
+    % 'SpecularStrength',0.2,...
+    % 'DiffuseStrength',1,...
+    % 'AmbientStrength',0.4,...
+    % 'AlignVertexCenters','on',...
+    % 'LineWidth',0.2,...
+    % 'FaceAlpha',0.2,...
+    % 'FaceColor',[1 0.6 0.07],...
+    % 'EdgeAlpha',0.2);
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+    ylim([0.1 inf]);
+    zlim([0.7 1.3]);
+    clim([0.9 1.1]);
+    hold off
+
+
+    % Reduced cross section data comparison plot(s)
+    % All the xbj bins are reconstructed simultaneously, so there's ~15 bins of data to compare.
+    % basic: throw all in the same plot? -> going to be a huge mess?
+    % grid_plot: plot each bin separately and show a grid of comparisons? Would be quite good but will be more complex to do.
+    figure(6)
+    sigmar_vec = sigmar_principal_strict;
+    % sigmar_vec = sigmar_principal_relax;
+    % sigmar_vec = sigmar_principal_noisy;
+    plot3(x_data_vals, qsq_data_vals, sigmar_vec, 'ob', 'DisplayName',"sigmar-principal")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+    hold on
+    plot3(x_data_vals, qsq_data_vals, b_hera,'xr', 'DisplayName',"hera")
+    % errorbar(q2vals', b_hera, b_errs, '')
+    plot3([x_data_vals,x_data_vals]', [qsq_data_vals,qsq_data_vals]', [-b_errs,b_errs]'+b_hera', '-r')
+
+    hold off
+    return
+end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% BOOTSTRAPPING UNCERTAINTIES
@@ -430,40 +487,19 @@ array_over_dataset_samples_dipole_recs_rel = [];
 array_over_dataset_samples_sigmar_rel = [];
 array_over_dataset_samples_dipole_recs_tik2 = [];
 array_over_dataset_samples_sigmar_tik2 = [];
-NUM_SAMPLES = 50;
-parfor j=1:NUM_SAMPLES
+NUM_SAMPLES = 2;
+% parfor j=1:NUM_SAMPLES
+for j=1:NUM_SAMPLES
     err = b_errs.*randn(length(b_hera),1);
     b = b_hera + err;
 
-    X_tikh = tikhonov(UU,sm,XX,b,lambda_strict);
-    errtik = zeros(size(lambda_strict));
-    X_tikh_rel = tikhonov(UU,sm,XX,b,lambda_relaxed);
-    errtik_rel = zeros(size(lambda_relaxed));
-    % X_tikh2 = tikhonov(UU2,sm2,XX2,b,lambda_t2);
-    % errtik2 = zeros(size(lambda_t2));
-    
-    for i = 1:length(lambda_strict)
-        % errtik(i) = abs(norm((b-A*X_tikh(:,i))/(b_errs))-1);
-        % errtik(i) = norm((b-A*X_tikh(:,i)))/norm(b) + eps_neg_penalty*(1-sign(min(X_tikh(:,i))));
-        chisq_v = (A*X_tikh(:,i) - b).^2 ./ err.^2;
-        errtik(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal);
-    end
-    for i = 1:length(lambda_relaxed)
-        errtik_rel(i) = norm((b-A*X_tikh_rel(:,i)))/norm(b) + eps_neg_penalty*(1-sign(min(X_tikh_rel(:,i))));
-    end
-    % for i = i:length(lambda_t2)
-    %     % errtik2(i) = norm((b_hera-A*X_tikh2(:,i)))/norm(b_hera) + 10000*eps_neg_penalty*(1-sign(min(X_tikh2(:,i))));
-    %     chisq_v = (A*X_tikh2(:,i) - b).^2 ./ err.^2;
-    %     errtik2(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal);
-    % end
-    [m,mI]=min(errtik);
-    [m_rel,mI_rel]=min(errtik_rel);
-    % [m2,mI2]=min(errtik2);
+    X_tikh = Tikhonov2tersms(b, A, Lr, Lx, alphar, alphax, MAXITER, tol);
+    X_tikh_rel = Tikhonov2tersms(b, A, Lr, Lx, alphar/10, alphax/10, MAXITER, tol);
 
-    rec_dip = X_tikh(:,mI);
+    rec_dip = X_tikh;
     array_over_dataset_samples_dipole_recs(:,j) = rec_dip;
     array_over_dataset_samples_sigmar(:,j) = A*rec_dip;
-    rec_dip_rel = X_tikh_rel(:,mI_rel);
+    rec_dip_rel = X_tikh_rel;
     array_over_dataset_samples_dipole_recs_rel(:,j) = rec_dip_rel;
     array_over_dataset_samples_sigmar_rel(:,j) = A*rec_dip_rel;
     % rec_dip_tikh2 = X_tikh2(:,mI2);
@@ -544,7 +580,7 @@ N_rec_CI95_dn_relax = dataset_sample_pdfs_rel(:,4); % 95% c.i. lower limit
 % N_rec_CI682_dn_tik2 = dataset_sample_pdfs_tik2(:,2); % 68.2% c.i. lower limit
 % N_rec_CI95_up_tik2 = dataset_sample_pdfs_tik2(:,5); % 95% confidence interval upper limit
 % N_rec_CI95_dn_tik2 = dataset_sample_pdfs_tik2(:,4); % 95% c.i. lower limit
-N_rec_principal_noisy = rec_dip_principal_noisy;
+% N_rec_principal_noisy = rec_dip_principal_noisy;
 if min(N_rec_principal) < 0
     "Negative principal rec."
     % [M,I] = min(N_rec_principal);
@@ -565,7 +601,7 @@ end
 [N_max_strict, max_i] = max(rec_dip_principal_strict);
 [N_max_ptw_mean, max_i_mean] = max(N_rec_ptw_mean);
 [N_max_relax, max_i_rel] = max(rec_dip_principal_relax);
-[N_max_noisy, max_i_noisy] = max(rec_dip_principal_noisy);
+% [N_max_noisy, max_i_noisy] = max(rec_dip_principal_noisy);
 r_max_scale = find( r_grid > 6, 1 ); % this should perhaps be determined by the vanishing of the fwd operator at large r?
 % [N_max_tik2_candid1, max_i_t2] = max(N_rec_principal_tik2);
 % N_max_tik2_candid2 = N_rec_principal_tik2(r_max_scale);
@@ -617,7 +653,7 @@ sigmar_CI682_up_relax = dataset_sample_pdfs_sigmar_rel(:,3);
 sigmar_CI682_dn_relax = dataset_sample_pdfs_sigmar_rel(:,2);
 sigmar_CI95_up_relax = dataset_sample_pdfs_sigmar_rel(:,5);
 sigmar_CI95_dn_relax = dataset_sample_pdfs_sigmar_rel(:,4);
-sigmar_principal_noisy;
+% sigmar_principal_noisy;
 
 
 
@@ -630,9 +666,9 @@ plot_tik2 = false;
 plot_comp_methods = false;
 if plotting
     figure(1) % rec_princip vs. mean reconstruction vs. ground truth
-    Xim_p = reshape(X_tikh_principal(:,mIp),[],nx);
-    Xim_r = reshape(X_tikh_principal_relax(:,mIpr),[],nx);
-    Xim_n = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
+    Xim_p = reshape(X_tikh_principal,[],nx);
+    Xim_r = reshape(X_tikh_relax,[],nx);
+    % Xim_n = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
     Xim_gt = reshape(ctest_groundtruth_dipole,[],nx);
     surf(xbj_grid, r_grid, Xim_p, "DisplayName", "principal")
     % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
@@ -673,16 +709,16 @@ if plotting
     set(hAx,{'XScale','YScale'},{'log','log'});
 
     figure(3)
-    surf(xbj_grid, r_grid, Xim_n, "DisplayName", "noisy")
-    hAx=gca;
-    set(hAx,{'XScale','YScale'},{'log','log'});
-
-    figure(4)
+    % surf(xbj_grid, r_grid, Xim_n, "DisplayName", "noisy")
+    % hAx=gca;
+    % set(hAx,{'XScale','YScale'},{'log','log'});
+    % 
+    % figure(4)
     surf(xbj_grid, r_grid, Xim_gt, "DisplayName", "groundtruth")
     hAx=gca;
     set(hAx,{'XScale','YScale'},{'log','log'});
 
-    figure(5)
+    figure(4)
     surf(xbj_grid, r_grid, Xim_p./Xim_gt,'FaceLighting','gouraud',...
     'MeshStyle','column',...
     'SpecularColorReflectance',0,...
@@ -708,7 +744,7 @@ if plotting
     'FaceAlpha',0.2,...
     'FaceColor',[0.07 0.6 1],...
     'EdgeAlpha',0.2);
-    surf(xbj_grid, r_grid, Xim_n./Xim_gt)
+    % surf(xbj_grid, r_grid, Xim_n./Xim_gt)
     % ,'FaceLighting','gouraud',...
     % 'MeshStyle','column',...
     % 'SpecularColorReflectance',0,...
