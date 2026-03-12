@@ -50,7 +50,7 @@ Hx = (A')*A*x + 2*alphar*(Lr')*Lr*x + 2*alphax*(Lx')*Lx*x;
 r      = b - Hx;
 rho(1) = sum(r(:).^2);
 k      = 1;
-disp(['Initial relative residual = ', num2str(sqrt(rho(1))/bnorm)])
+% disp(['Initial relative residual = ', num2str(sqrt(rho(1))/bnorm)])
 
 % Step 2.
 while k < MAXITER
@@ -74,7 +74,7 @@ while k < MAXITER
         return
     end
 end
-disp(['Residual after iteration ', num2str(k), ' is ', num2str(sqrt(rho(k))/bnorm)])
+% disp(['Residual after iteration ', num2str(k), ' is ', num2str(sqrt(rho(k))/bnorm)])
 end
 
 
