@@ -20,30 +20,16 @@ function [ Lr ] = get_L2r( nr,nx,dr )
     %get_L_2D computes the L-matrix of a 2-dimensional problem
     %  W is the null space of L
     %  L is the first or second derivative matrix of size (N^2-dim(W)) x N^2
-    
     Lr = get_l(nr,dr);
     Lr = kron(speye(nx),Lr);
-    
-    if dr==1
-        Lr = Lr(1:end-1,:);
-    elseif dr==2
-        Lr = Lr(1:end-4,:);
-    end
 end
 
 function [ Lx ] = get_L2x( nr,nx,dx )
     %get_L_2D computes the L-matrix of a 2-dimensional problem
     %  W is the null space of L
     %  L is the first or second derivative matrix of size (N^2-dim(W)) x N^2
-    
     Lx = get_l(nx,dx);
     Lx = kron(Lx,speye(nr));
-    
-    if dx==1
-        Lx = Lx(1:end-1,:);
-    elseif dx==2
-        Lx = Lx(1:end-4,:);
-    end
 end
 
 
@@ -192,17 +178,18 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Reading input discretized forward operator file:
-["Loading CLOSURE TEST file with:", ctest_effect, data_name_key, mscheme, r_steps_str, r_grid_type, s_str]
+disp(["Loading CLOSURE TEST file with:", ctest_effect, data_name_key, mscheme, r_steps_str, r_grid_type, s_str]);
 for k = 1:numel(data_files)
     fname = data_files(k).name;
     if (contains(fname, ctest_effect) && contains(fname, data_name_key) && contains(fname, mscheme) && contains(fname, r_steps_str) && contains(fname, r_grid_type) && contains(fname, s_str))
-        run_file = fname
+        run_file = fname;
     end
 end
 if run_file
+    disp(run_file);
     load(strcat(data_path, run_file))
 else
-    ["FILE NOT FOUND? with:", data_name_key, mscheme, r_steps_str, s_str]
+    disp(["FILE NOT FOUND? with:", data_name_key, mscheme, r_steps_str, s_str]);
     return
 end
 format long
@@ -254,7 +241,7 @@ sigmar_groundtruth_dipole = A*ctest_groundtruth_dipole;
 ct_groundtruth_loaded = true;
 
 % chi_goal = 1e-5
-chi_goal = 0.001;
+chi_goal = 0.01;
 % chi_goal = 1;
 
 
@@ -299,37 +286,82 @@ Lr = get_L2r( nr,nx,dr );
 Lx = get_L2x( nr,nx,dx );
 
 %% 2 PARAMETER REG SETTINGS: TODO INTEGRATE TO THE HEADER
-% alphar = 3e-4;
-% alphax = 3e-5;
-% alphar = 1e-6;
-% alphax = 1e-7;
-% alphar = 1e-6;
-% alphax = 1e-6;
-alphar = 4e-6;
-alphax = 2e-6;
+% alphar = [3e-5, 9e-5]; % shorter for dev
+% alphax = [3e-6, 9e-6];
+% alphar = [3e-7, 3e-6, 3e-5];
+% alphax = [3e-7, 3e-6, 3e-5];
+alphar = [3e-7, 9e-7, 3e-6, 9e-6, 3e-5, 9e-5];
+alphax = [3e-7, 9e-7, 3e-6, 9e-6, 3e-5, 9e-5];
+alphamat = [alphar, alphax];
+alphapairs = [];
+for i = 1:length(alphar)
+    for j = 1:length(alphax)
+        alphapairs((i-1)*length(alphax)+j,:) = [alphar(i), alphax(j)];
+    end
+end
+% alphapairs
+% size(alphapairs)
+% return
 % MAXITER = 1500;
-MAXITER = 1000;
+MAXITER = 3000;
+% MAXITER = 100; % fast dev
 % tol = 1e-16;
 tol = 1e-16;
+dip_len = length(ctest_groundtruth_dipole);
+run_len = length(alphapairs);
 
-[size(b_hera), size(A), size(Lr), size(Lx)]
-X_tikh_principal = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar, alphax, MAXITER, tol);
-X_tikh_relax = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar/10, alphax/10, MAXITER, tol);
+% X_tikh_principal = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar, alphax, MAXITER, tol);
+% X_tikh_relax = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar/10, alphax/10, MAXITER, tol);
 
-rec_dip_principal_strict = X_tikh_principal;
-rec_dip_principal_relax = X_tikh_relax;
+xtik_p = zeros(dip_len, run_len);
+xtik_prel = zeros(dip_len, run_len);
+errtik_p = zeros(run_len,1);
+errtik_prel = zeros(run_len,1);
 
-sigmar_principal_strict = A*X_tikh_principal;
-sigmar_principal_relax = A*X_tikh_relax;
+for i = 1:run_len
+    alpr = alphapairs(i,1);
+    alpx = alphapairs(i,2);
+    tk = Tikhonov2terms_fast(b_hera, A, Lr, Lx, alpr, alpx, MAXITER, tol);
+    xtik_p(:,i) = tk;
+    chisq_v = (A*tk - b_hera).^2 ./ b_errs.^2;
+    errtik_p(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal);
+end
+for i = 1:run_len
+    alpr = alphapairs(i,1);
+    alpx = alphapairs(i,2);
+    tk = Tikhonov2tersms(b_hera, A, Lr, Lx, alpr, alpx, MAXITER, tol);
+    xtik_prel(:,i) = tk;
+    % errtik_prel(i) = norm((b_hera-A*tk))/norm(b_hera) + eps_neg_penalty*(1-sign(min(tk)));
+    chisq_v = (A*tk - b_hera).^2 ./ b_errs.^2;
+    errtik_p(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal/10);
+end
+
+% size(errtik_p)
+[mp,mIp]=min(errtik_p);
+[mpr,mIpr]=min(errtik_prel);
+['Minimal error indices: ', mIp, mIpr, 'params: ', ...
+    alphar(floor(mIp/length(alphax))+1), alphax(rem(mIp,length(alphax))), ...
+    alphar(floor(mIpr/length(alphax))+1), alphax(rem(mIpr,length(alphax))), ...
+    run_len]
+% lambda_unity_chisq = lambda_strict(mIp);
+rec_dip_principal_strict = xtik_p(:,mIp);
+rec_dip_principal_relax = xtik_prel(:,mIpr);
+
+% [size(xtik_p), size(rec_dip_principal_strict)]
+% return
+
+sigmar_principal_strict = A*rec_dip_principal_strict;
+sigmar_principal_relax = A*rec_dip_principal_relax;
 
 
 % CHI^2 TEST for the principal rec's agreement with the real data
 chisq_over_N_strict = calc_chisq(sigmar_principal_strict, b_hera, b_errs);
 chisq_over_N_relax = calc_chisq(sigmar_principal_relax, b_hera, b_errs);
 chisq_over_N_noisy = 0; %calc_chisq(sigmar_principal_noisy, b_hera, b_errs);
-chisq_data = ["chisq over N:", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy]
+chisq_data = ["chisq over N:", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy];
+disp(chisq_data);
 
-[max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(ctest_groundtruth_dipole)]
+disp([max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(ctest_groundtruth_dipole)]);
 % [max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy), max(ctest_groundtruth_dipole)]
 
 init_testing = false;
@@ -380,10 +412,10 @@ end
 
 early_plotting = true;
 if early_plotting
-    ["early_plotting=", early_plotting]
+    disp(["early_plotting=", early_plotting]);
     figure(1) % rec_princip vs. mean reconstruction vs. ground truth
-    Xim_p = reshape(X_tikh_principal,[],nx);
-    Xim_r = reshape(X_tikh_relax,[],nx);
+    Xim_p = reshape(rec_dip_principal_strict,[],nx);
+    Xim_r = reshape(rec_dip_principal_relax,[],nx);
     % Xim_n = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
     Xim_gt = reshape(ctest_groundtruth_dipole,[],nx);
     surf(xbj_grid, r_grid, Xim_p, "DisplayName", "principal")
@@ -409,18 +441,18 @@ if early_plotting
     set(hAx,{'XScale','YScale'},{'log','log'});
 
     figure(4)
-    surf(xbj_grid, r_grid, Xim_p./Xim_gt,'FaceLighting','gouraud',...
-    'MeshStyle','column',...
-    'SpecularColorReflectance',0,...
-    'SpecularExponent',5,...
-    'SpecularStrength',0.2,...
-    'DiffuseStrength',1,...
-    'AmbientStrength',0.4,...
-    'AlignVertexCenters','on',...
-    'LineWidth',0.2,...
-    'FaceAlpha',0.2,...
-    'FaceColor',[0.07 1 0.6],...
-    'EdgeAlpha',0.2);
+    surf(xbj_grid, r_grid, Xim_p./Xim_gt); %,'FaceLighting','gouraud',...
+    % 'MeshStyle','column',...
+    % 'SpecularColorReflectance',0,...
+    % 'SpecularExponent',5,...
+    % 'SpecularStrength',0.2,...
+    % 'DiffuseStrength',1,...
+    % 'AmbientStrength',0.4,...
+    % 'AlignVertexCenters','on',...
+    % 'LineWidth',0.2,...
+    % 'FaceAlpha',0.2,...
+    % 'FaceColor',[0.07 1 0.6],...
+    % 'EdgeAlpha',0.2);
     hold on
     surf(xbj_grid, r_grid, Xim_r./Xim_gt,'FaceLighting','gouraud',...
     'MeshStyle','column',...
@@ -450,8 +482,8 @@ if early_plotting
     hAx=gca;
     set(hAx,{'XScale','YScale'},{'log','log'});
     ylim([0.1 inf]);
-    zlim([0.7 1.3]);
-    clim([0.9 1.1]);
+    zlim([0.5 1.5]);
+    clim([0.8 1.2]);
     hold off
 
 
