@@ -115,8 +115,8 @@ ctest_effects = [
     "linear_sigma0";
     "wave";
 ];
-% ctest_effect = ctest_effects(1); % bare ref. CKM
-ctest_effect = ctest_effects(2);
+% ctest_effect = ctest_effects(1); % bare ref. CKM % TODO FIX NAMING
+ctest_effect = ctest_effects(5);
 
 quark_mass_schemes = [
         "standard",
@@ -151,7 +151,7 @@ lambda_t2 = [lam1*10e-2]; % This might be close for TIKH2 at 0.02??
 % eps_neg_penalty=1e-4; %
 eps_neg_penalty=0;
 % Default target for chi^2 goodness of fit for the reconstruction
-chi_goal = 1.0;
+% chi_goal = 1.0;
 
 %           1  2  3   4  5   6  7  8   9  10  11  12  13  14  15
 % q_cuts = [1.5, 4, 5, 9, 12, 15, 22, 22, 22, 22, 22, 20, 30, 90, 100]; % bins selected to cut small-r peak
@@ -235,14 +235,14 @@ b_closuretest = data_sigmar_rcs(:,7);
 b_closuretest = b_closuretest(1:Ntrim);
 b_hera = b_closuretest;
 ctest_groundtruth_dipole = discrete_ground_truth_stack(1:(r_steps-1)*14)';
-% ctest_groundtruth_dipole(end-17+1:end)
+xfull = ctest_groundtruth_dipole;
 N_fit = ctest_groundtruth_dipole;
 sigmar_groundtruth_dipole = A*ctest_groundtruth_dipole;
 ct_groundtruth_loaded = true;
 
 % chi_goal = 1e-5
-chi_goal = 0.01;
-% chi_goal = 1;
+% chi_goal = 0.01;
+chi_goal = 0.1;
 
 
 % testing Q binning -- Careful, limiting upper limit reduces the number of points, and the reconstrctuion can break with too few points!
@@ -288,64 +288,47 @@ Lx = get_L2x( nr,nx,dx );
 %% 2 PARAMETER REG SETTINGS: TODO INTEGRATE TO THE HEADER
 % alphar = [3e-5, 9e-5]; % shorter for dev
 % alphax = [3e-6, 9e-6];
-% alphar = [3e-7, 3e-6, 3e-5];
-% alphax = [3e-7, 3e-6, 3e-5];
-alphar = [3e-7, 9e-7, 3e-6, 9e-6, 3e-5, 9e-5];
-alphax = [3e-7, 9e-7, 3e-6, 9e-6, 3e-5, 9e-5];
-alphamat = [alphar, alphax];
-alphapairs = [];
-for i = 1:length(alphar)
-    for j = 1:length(alphax)
-        alphapairs((i-1)*length(alphax)+j,:) = [alphar(i), alphax(j)];
-    end
-end
-% alphapairs
-% size(alphapairs)
-% return
+% alphar = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
+% alphax = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
+alphar = [3e-4,1e-4,3e-5,1e-5,3e-6,1e-6,3e-7,1e-7];
+alphax = [3e-4,1e-4,3e-5,1e-5,3e-6,1e-6,3e-7,1e-7];
+xtik_p = zeros(size(A,2),length(alphar),length(alphax));
+xtik_relerr = zeros(size(A,2),length(alphar),length(alphax));
+errvec_chi = zeros(length(alphar),length(alphax));
+errvec_relerr = zeros(length(alphar),length(alphax));
+
 % MAXITER = 1500;
-MAXITER = 3000;
+MAXITER = 10000;
 % MAXITER = 100; % fast dev
 % tol = 1e-16;
-tol = 1e-16;
+tol = 1e-10;
 dip_len = length(ctest_groundtruth_dipole);
-run_len = length(alphapairs);
 
 % X_tikh_principal = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar, alphax, MAXITER, tol);
 % X_tikh_relax = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar/10, alphax/10, MAXITER, tol);
 
-xtik_p = zeros(dip_len, run_len);
-xtik_prel = zeros(dip_len, run_len);
-errtik_p = zeros(run_len,1);
-errtik_prel = zeros(run_len,1);
-
-for i = 1:run_len
-    alpr = alphapairs(i,1);
-    alpx = alphapairs(i,2);
-    tk = Tikhonov2terms_fast(b_hera, A, Lr, Lx, alpr, alpx, MAXITER, tol);
-    xtik_p(:,i) = tk;
-    chisq_v = (A*tk - b_hera).^2 ./ b_errs.^2;
-    errtik_p(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal);
-end
-for i = 1:run_len
-    alpr = alphapairs(i,1);
-    alpx = alphapairs(i,2);
-    tk = Tikhonov2tersms(b_hera, A, Lr, Lx, alpr, alpx, MAXITER, tol);
-    xtik_prel(:,i) = tk;
-    % errtik_prel(i) = norm((b_hera-A*tk))/norm(b_hera) + eps_neg_penalty*(1-sign(min(tk)));
-    chisq_v = (A*tk - b_hera).^2 ./ b_errs.^2;
-    errtik_p(i) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal/10);
+for i = 1:length(alphar)
+    for j = 1:length(alphax)
+        % chi^2 test reg choice
+        xtik_p(:,i,j) = Tikhonov2terms_fast(b_hera,A,Lr,Lx,alphar(i),alphax(j),MAXITER,tol);
+        chisq_v = (A*xtik_p(:,i,j) - b_hera).^2 ./ b_errs.^2;
+        errvec_chi(i,j) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal);
+        % closure test relative error reg choice
+        errvec_relerr(i,j) = norm((xfull'-xtik_p(:,i,j)))/norm(xfull');
+    end 
 end
 
-% size(errtik_p)
-[mp,mIp]=min(errtik_p);
-[mpr,mIpr]=min(errtik_prel);
-['Minimal error indices: ', mIp, mIpr, 'params: ', ...
-    alphar(floor(mIp/length(alphax))+1), alphax(rem(mIp,length(alphax))), ...
-    alphar(floor(mIpr/length(alphax))+1), alphax(rem(mIpr,length(alphax))), ...
-    run_len]
-% lambda_unity_chisq = lambda_strict(mIp);
-rec_dip_principal_strict = xtik_p(:,mIp);
-rec_dip_principal_relax = xtik_prel(:,mIpr);
+minMatrix = min(errvec_chi(:));
+minMatrix_relerr = min(errvec_relerr(:));
+[minri,minxi] = find(errvec_chi==minMatrix);
+[minri_re,minxi_re] = find(errvec_relerr==minMatrix_relerr);
+
+disp([minri,minxi, alphar(minri), alphax(minxi),minri_re,minxi_re, alphar(minri_re), alphax(minxi_re)]);
+
+% minMatrix
+
+rec_dip_principal_strict = xtik_p(:,minri,minxi);
+rec_dip_principal_relax = xtik_p(:,minri_re,minxi_re);
 
 % [size(xtik_p), size(rec_dip_principal_strict)]
 % return
