@@ -298,7 +298,7 @@ errvec_chi = zeros(length(alphar),length(alphax));
 errvec_relerr = zeros(length(alphar),length(alphax));
 
 % MAXITER = 1500;
-MAXITER = 10000;
+MAXITER = 1000;
 % MAXITER = 100; % fast dev
 % tol = 1e-16;
 tol = 1e-10;
@@ -323,18 +323,25 @@ minMatrix_relerr = min(errvec_relerr(:));
 [minri,minxi] = find(errvec_chi==minMatrix);
 [minri_re,minxi_re] = find(errvec_relerr==minMatrix_relerr);
 
-disp([minri,minxi, alphar(minri), alphax(minxi),minri_re,minxi_re, alphar(minri_re), alphax(minxi_re)]);
+disp([num2str(minri), " ", num2str(minxi), " ", num2str(alphar(minri)), " ", num2str(alphax(minxi)), " ", num2str(minri_re), " ", num2str(minxi_re), " ", num2str(alphar(minri_re)), " ", num2str(alphax(minxi_re))]);
 
-% minMatrix
+% Collecting best reconstructions
 
 rec_dip_principal_strict = xtik_p(:,minri,minxi);
 rec_dip_principal_relax = xtik_p(:,minri_re,minxi_re);
 
-% [size(xtik_p), size(rec_dip_principal_strict)]
-% return
-
 sigmar_principal_strict = A*rec_dip_principal_strict;
 sigmar_principal_relax = A*rec_dip_principal_relax;
+
+% Closure test: relative error against the ground truth of the reconstructions:
+relerr_chitest = norm((xfull'-rec_dip_principal_strict))/norm(xfull');
+relerr_relerr = norm((xfull'-rec_dip_principal_relax))/norm(xfull');
+
+% relative error ignoring the small-r regime: r \in [0.2, 20]
+% compute manually point by point to have precise control of which points add to the error?
+
+
+disp(["rel errors:", relerr_chitest, relerr_relerr]);
 
 
 % CHI^2 TEST for the principal rec's agreement with the real data
