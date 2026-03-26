@@ -33,6 +33,19 @@ function [ Lx ] = get_L2x( nr,nx,dx )
 end
 
 
+function mid_r_err = intermed_r_error(xfull, xrec, rgrid)
+    diffs = zeros(size(xrec));
+    xref = zeros(size(xrec));
+    for i = 1:length(xrec)
+        r = rgrid(rem(i,length(rgrid))+1);
+        if (r>0.5) || (r<8)
+            diffs(i) = xfull(i) - xrec(i);
+            xref(i) = xfull(i);
+        end
+    end
+    mid_r_err = norm(diffs)/norm(xfull);
+end
+
 function chisq = calc_chisq(sigmar_rec, b_data, b_errs)
     chisq_vec = (sigmar_rec - b_data).^2 ./ b_errs.^2;
     chisq = sum(chisq_vec) / (length(chisq_vec)-1);
@@ -106,17 +119,17 @@ data_type = "dis_inclusive"; % vs. dis_charm, dis_bottom, diff_dis_inclusive
 data_name_key = "ctest_dip_amp";
 
 ctest_effects = [
-    "CKMlightonly"; % just the bare reference CKM dipole (with freeze)
+    "CKMlightonly_pure"; % just the bare reference CKM dipole (with freeze)
     "hera_mimic";
-    "gaussian";
+    "gaussian_orig";
     "gaussian_single";
     "gaussian_front";
     "gaussian_front2";
     "linear_sigma0";
     "wave";
 ];
-% ctest_effect = ctest_effects(1); % bare ref. CKM % TODO FIX NAMING
-ctest_effect = ctest_effects(5);
+ctest_effect = ctest_effects(1); % bare ref. CKM % TODO FIX NAMING
+% ctest_effect = ctest_effects(3);
 
 quark_mass_schemes = [
         "standard",
@@ -143,7 +156,7 @@ lam1 = 1:0.1:9.9;
 % lambda_noisy = [lam1*1e-5,lam1*1e-4,lam1*1e-3]; % closure testing
 lambda_noisy = [lam1*1e-4,lam1*1e-3]; % testing for VERY noisy / peak ridge
 % lambda_noisy = [lam1*9e-4,lam1*1e-3]; % testing for noisy
-lambda_relaxed = [lam1*1e-3, lam1*1e-2, lam1*1e-1]; 
+lambda_relerred = [lam1*1e-3, lam1*1e-2, lam1*1e-1]; 
 lambda_strict = [lam1*2e-3, lam1*1e-2, lam1*1e-1];
 lambda_t2 = [lam1*10e-2]; % This might be close for TIKH2 at 0.02??
 
@@ -290,22 +303,26 @@ Lx = get_L2x( nr,nx,dx );
 % alphax = [3e-6, 9e-6];
 % alphar = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
 % alphax = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
-alphar = [3e-4,1e-4,3e-5,1e-5,3e-6,1e-6,3e-7,1e-7];
-alphax = [3e-4,1e-4,3e-5,1e-5,3e-6,1e-6,3e-7,1e-7];
+alphar = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7];
+alphax = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7];
+% alphar = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7,5e-8];
+% alphax = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7,5e-8,3e-8,2e-8,1e-8];
 xtik_p = zeros(size(A,2),length(alphar),length(alphax));
 xtik_relerr = zeros(size(A,2),length(alphar),length(alphax));
 errvec_chi = zeros(length(alphar),length(alphax));
 errvec_relerr = zeros(length(alphar),length(alphax));
+err_chi_rel_hybrid = zeros(length(alphar),length(alphax));
+errvec_intermedr = zeros(length(alphar),length(alphax));
 
 % MAXITER = 1500;
-MAXITER = 1000;
+MAXITER = 2000;
 % MAXITER = 100; % fast dev
 % tol = 1e-16;
 tol = 1e-10;
 dip_len = length(ctest_groundtruth_dipole);
 
 % X_tikh_principal = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar, alphax, MAXITER, tol);
-% X_tikh_relax = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar/10, alphax/10, MAXITER, tol);
+% X_tikh_relerr = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar/10, alphax/10, MAXITER, tol);
 
 for i = 1:length(alphar)
     for j = 1:length(alphax)
@@ -315,44 +332,66 @@ for i = 1:length(alphar)
         errvec_chi(i,j) = abs(sum(chisq_v) / (length(chisq_v)-1) - chi_goal);
         % closure test relative error reg choice
         errvec_relerr(i,j) = norm((xfull'-xtik_p(:,i,j)))/norm(xfull');
+        err_chi_rel_hybrid(i,j) = 10*errvec_chi(i,j) + errvec_relerr(i,j);
+        errvec_intermedr(i,j) = intermed_r_error(xfull', xtik_p(:,i,j), r_grid);
     end 
 end
 
 minMatrix = min(errvec_chi(:));
 minMatrix_relerr = min(errvec_relerr(:));
+minMatrix_hyb = min(err_chi_rel_hybrid(:));
+minMatrix_mid = min(errvec_intermedr(:));
 [minri,minxi] = find(errvec_chi==minMatrix);
 [minri_re,minxi_re] = find(errvec_relerr==minMatrix_relerr);
+[minri_hyb,minxi_hyb] = find(err_chi_rel_hybrid==minMatrix_hyb);
+[minri_mid,minxi_mid] = find(errvec_intermedr==minMatrix_mid);
 
-disp([num2str(minri), " ", num2str(minxi), " ", num2str(alphar(minri)), " ", num2str(alphax(minxi)), " ", num2str(minri_re), " ", num2str(minxi_re), " ", num2str(alphar(minri_re)), " ", num2str(alphax(minxi_re))]);
-
+disp([num2str(minri) + " " + num2str(minxi) + " " + num2str(alphar(minri)) + " " + num2str(alphax(minxi)) + " " + num2str(minri_re) + " " + num2str(minxi_re) + " " + num2str(alphar(minri_re)) + " " + num2str(alphax(minxi_re))]);
+disp([num2str(minri_hyb) + " " + num2str(minxi_hyb) + " " + num2str(alphar(minri_hyb)) + " " + num2str(alphax(minxi_hyb))]);
+disp([num2str(minri_mid) + " " + num2str(minxi_mid) + " " + num2str(alphar(minri_mid)) + " " + num2str(alphax(minxi_mid))]);
 % Collecting best reconstructions
 
 rec_dip_principal_strict = xtik_p(:,minri,minxi);
-rec_dip_principal_relax = xtik_p(:,minri_re,minxi_re);
+rec_dip_principal_relerr = xtik_p(:,minri_re,minxi_re);
+rec_dip_principal_hyb = xtik_p(:,minri_hyb,minxi_hyb);
+rec_dip_principal_mid = xtik_p(:,minri_mid,minxi_mid);
 
 sigmar_principal_strict = A*rec_dip_principal_strict;
-sigmar_principal_relax = A*rec_dip_principal_relax;
+sigmar_principal_relerr = A*rec_dip_principal_relerr;
+sigmar_principal_hyb = A*rec_dip_principal_hyb;
+sigmar_principal_mid = A*rec_dip_principal_mid;
 
 % Closure test: relative error against the ground truth of the reconstructions:
 relerr_chitest = norm((xfull'-rec_dip_principal_strict))/norm(xfull');
-relerr_relerr = norm((xfull'-rec_dip_principal_relax))/norm(xfull');
+relerr_relerr = norm((xfull'-rec_dip_principal_relerr))/norm(xfull');
+relerr_hyb = norm((xfull'-rec_dip_principal_hyb))/norm(xfull');
+relerr_mid = norm((xfull'-rec_dip_principal_mid))/norm(xfull');
+
+% COMPARE INTERMEDIATE RANGE ERRORS BETWEEN ALL METHODS!! (it might be the correct metric to validate the accuracy with!)
+relerr_chitest_mid_limited = intermed_r_error(xfull', rec_dip_principal_strict, r_grid);
+relerr_relerr_mid_limited = intermed_r_error(xfull', rec_dip_principal_relerr, r_grid);
+relerr_hyb_mid_limited = intermed_r_error(xfull', rec_dip_principal_hyb, r_grid);
+relerr_mid_limited = errvec_intermedr(minri_mid, minxi_mid);
 
 % relative error ignoring the small-r regime: r \in [0.2, 20]
 % compute manually point by point to have precise control of which points add to the error?
 
 
-disp(["rel errors:", relerr_chitest, relerr_relerr]);
+disp(["rel errors:", relerr_chitest, relerr_relerr, relerr_hyb, relerr_mid]);
+disp(["intermediate r rel errors:", relerr_chitest_mid_limited, relerr_relerr_mid_limited, relerr_hyb_mid_limited, relerr_mid_limited]);
 
 
 % CHI^2 TEST for the principal rec's agreement with the real data
 chisq_over_N_strict = calc_chisq(sigmar_principal_strict, b_hera, b_errs);
-chisq_over_N_relax = calc_chisq(sigmar_principal_relax, b_hera, b_errs);
-chisq_over_N_noisy = 0; %calc_chisq(sigmar_principal_noisy, b_hera, b_errs);
-chisq_data = ["chisq over N:", chisq_over_N_strict, chisq_over_N_relax, chisq_over_N_noisy];
+chisq_over_N_relerr = calc_chisq(sigmar_principal_relerr, b_hera, b_errs);
+chisq_over_N_hyb = calc_chisq(sigmar_principal_hyb, b_hera, b_errs);
+chisq_over_N_mid = calc_chisq(sigmar_principal_mid, b_hera, b_errs);
+chisq_data = ["chisq over N:", chisq_over_N_strict, chisq_over_N_relerr, chisq_over_N_hyb, chisq_over_N_mid];
 disp(chisq_data);
 
-disp([max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(ctest_groundtruth_dipole)]);
-% [max(rec_dip_principal_strict), max(rec_dip_principal_relax), max(rec_dip_principal_noisy), max(ctest_groundtruth_dipole)]
+disp([max(rec_dip_principal_strict), max(rec_dip_principal_relerr), max(rec_dip_principal_hyb), max(rec_dip_principal_mid), max(ctest_groundtruth_dipole)]);
+% [max(rec_dip_principal_strict), max(rec_dip_principal_relerr), max(rec_dip_principal_noisy), max(ctest_groundtruth_dipole)]
+
 
 init_testing = false;
 % init_testing = true;
@@ -370,7 +409,7 @@ if init_testing
 
     figure(2)
     sigmar_vec = sigmar_principal_strict;
-    % sigmar_vec = sigmar_principal_relax;
+    % sigmar_vec = sigmar_principal_relerr;
     % sigmar_vec = sigmar_principal_noisy;
     plot3(x_data_vals, qsq_data_vals, sigmar_vec)
     hold on
@@ -405,8 +444,9 @@ if early_plotting
     disp(["early_plotting=", early_plotting]);
     figure(1) % rec_princip vs. mean reconstruction vs. ground truth
     Xim_p = reshape(rec_dip_principal_strict,[],nx);
-    Xim_r = reshape(rec_dip_principal_relax,[],nx);
-    % Xim_n = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
+    Xim_r = reshape(rec_dip_principal_relerr,[],nx);
+    Xim_hyb = reshape(rec_dip_principal_hyb,[],nx);
+    Xim_mid = reshape(rec_dip_principal_mid,[],nx);
     Xim_gt = reshape(ctest_groundtruth_dipole,[],nx);
     surf(xbj_grid, r_grid, Xim_p, "DisplayName", "principal")
     % set(hAx,{'XScale','YScale','ZScale'},{'log','log','log'})
@@ -416,21 +456,26 @@ if early_plotting
     hold off
 
     figure(2)
-    surf(xbj_grid, r_grid, Xim_r, "DisplayName", "relax")
+    surf(xbj_grid, r_grid, Xim_r, "DisplayName", "relative error")
     hAx=gca;
     set(hAx,{'XScale','YScale'},{'log','log'});
 
     figure(3)
-    % surf(xbj_grid, r_grid, Xim_n, "DisplayName", "noisy")
-    % hAx=gca;
-    % set(hAx,{'XScale','YScale'},{'log','log'});
-    % 
-    % figure(4)
-    surf(xbj_grid, r_grid, Xim_gt, "DisplayName", "groundtruth")
+    surf(xbj_grid, r_grid, Xim_hyb, "DisplayName", "hybrid error")
     hAx=gca;
     set(hAx,{'XScale','YScale'},{'log','log'});
 
     figure(4)
+    surf(xbj_grid, r_grid, Xim_mid, "DisplayName", "intermediate r error")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+
+    figure(5)
+    surf(xbj_grid, r_grid, Xim_gt, "DisplayName", "groundtruth")
+    hAx=gca;
+    set(hAx,{'XScale','YScale'},{'log','log'});
+
+    figure(6)
     surf(xbj_grid, r_grid, Xim_p./Xim_gt); %,'FaceLighting','gouraud',...
     % 'MeshStyle','column',...
     % 'SpecularColorReflectance',0,...
@@ -455,20 +500,34 @@ if early_plotting
     'LineWidth',0.2,...
     'FaceAlpha',0.2,...
     'FaceColor',[0.07 0.6 1],...
-    'EdgeAlpha',0.2);
-    % surf(xbj_grid, r_grid, Xim_n./Xim_gt)
-    % ,'FaceLighting','gouraud',...
-    % 'MeshStyle','column',...
-    % 'SpecularColorReflectance',0,...
-    % 'SpecularExponent',5,...
-    % 'SpecularStrength',0.2,...
-    % 'DiffuseStrength',1,...
-    % 'AmbientStrength',0.4,...
-    % 'AlignVertexCenters','on',...
-    % 'LineWidth',0.2,...
-    % 'FaceAlpha',0.2,...
-    % 'FaceColor',[1 0.6 0.07],...
-    % 'EdgeAlpha',0.2);
+    'EdgeAlpha',0.2, ...
+    "DisplayName", "relative error");
+    surf(xbj_grid, r_grid, Xim_hyb./Xim_gt,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[1 0.6 0.07],...
+    'EdgeAlpha',0.2, ...
+    "DisplayName", "hybrid error");
+    surf(xbj_grid, r_grid, Xim_mid./Xim_gt,'FaceLighting','gouraud',...
+    'MeshStyle','column',...
+    'SpecularColorReflectance',0,...
+    'SpecularExponent',5,...
+    'SpecularStrength',0.2,...
+    'DiffuseStrength',1,...
+    'AmbientStrength',0.4,...
+    'AlignVertexCenters','on',...
+    'LineWidth',0.2,...
+    'FaceAlpha',0.2,...
+    'FaceColor',[0.6 1 0.07],...
+    'EdgeAlpha',0.2, ...
+    "DisplayName", "middle error");
     hAx=gca;
     set(hAx,{'XScale','YScale'},{'log','log'});
     ylim([0.1 inf]);
@@ -481,9 +540,9 @@ if early_plotting
     % All the xbj bins are reconstructed simultaneously, so there's ~15 bins of data to compare.
     % basic: throw all in the same plot? -> going to be a huge mess?
     % grid_plot: plot each bin separately and show a grid of comparisons? Would be quite good but will be more complex to do.
-    figure(6)
+    figure(7)
     sigmar_vec = sigmar_principal_strict;
-    % sigmar_vec = sigmar_principal_relax;
+    % sigmar_vec = sigmar_principal_relerr;
     % sigmar_vec = sigmar_principal_noisy;
     plot3(x_data_vals, qsq_data_vals, sigmar_vec, 'ob', 'DisplayName',"sigmar-principal")
     hAx=gca;
@@ -590,12 +649,12 @@ N_rec_CI682_up = dataset_sample_pdfs(:,3); % 68.2% confidence interval upper lim
 N_rec_CI682_dn = dataset_sample_pdfs(:,2); % 68.2% c.i. lower limit
 N_rec_CI95_up = dataset_sample_pdfs(:,5); % 95% confidence interval upper limit
 N_rec_CI95_dn = dataset_sample_pdfs(:,4); % 95% c.i. lower limit
-N_rec_principal_relax = rec_dip_principal_relax;
-N_rec_ptw_mean_relax = dataset_sample_pdfs_rel(:,1);
-N_rec_CI682_up_relax = dataset_sample_pdfs_rel(:,3); % 68.2% confidence interval upper limit
-N_rec_CI682_dn_relax = dataset_sample_pdfs_rel(:,2); % 68.2% c.i. lower limit
-N_rec_CI95_up_relax = dataset_sample_pdfs_rel(:,5); % 95% confidence interval upper limit
-N_rec_CI95_dn_relax = dataset_sample_pdfs_rel(:,4); % 95% c.i. lower limit
+N_rec_principal_relerr = rec_dip_principal_relerr;
+N_rec_ptw_mean_relerr = dataset_sample_pdfs_rel(:,1);
+N_rec_CI682_up_relerr = dataset_sample_pdfs_rel(:,3); % 68.2% confidence interval upper limit
+N_rec_CI682_dn_relerr = dataset_sample_pdfs_rel(:,2); % 68.2% c.i. lower limit
+N_rec_CI95_up_relerr = dataset_sample_pdfs_rel(:,5); % 95% confidence interval upper limit
+N_rec_CI95_dn_relerr = dataset_sample_pdfs_rel(:,4); % 95% c.i. lower limit
 % N_rec_principal_tik2 = rec_dip_principal_tik2;
 % N_rec_ptw_mean_tik2 = dataset_sample_pdfs_tik2(:,1);
 % N_rec_CI682_up_tik2 = dataset_sample_pdfs_tik2(:,3); % 68.2% confidence interval upper limit
@@ -619,10 +678,10 @@ end
 %       - 'local' maxima at each x_i, which is used to define S(r) = N_locmax_i - N(r,x)
 
 % Sigma02: reconstruction maxima and C.I.s
-% [max(N_rec_principal), max(N_rec_principal_relax), max(N_rec_principal_noisy)]z
+% [max(N_rec_principal), max(N_rec_principal_relerr), max(N_rec_principal_noisy)]z
 [N_max_strict, max_i] = max(rec_dip_principal_strict);
 [N_max_ptw_mean, max_i_mean] = max(N_rec_ptw_mean);
-[N_max_relax, max_i_rel] = max(rec_dip_principal_relax);
+[N_max_relerr, max_i_rel] = max(rec_dip_principal_relerr);
 % [N_max_noisy, max_i_noisy] = max(rec_dip_principal_noisy);
 r_max_scale = find( r_grid > 6, 1 ); % this should perhaps be determined by the vanishing of the fwd operator at large r?
 % [N_max_tik2_candid1, max_i_t2] = max(N_rec_principal_tik2);
@@ -638,9 +697,9 @@ r_max_scale = find( r_grid > 6, 1 ); % this should perhaps be determined by the 
 % r_Nmax_rel = r_grid(rem(max_i_rel,length(xbj_grid)));
 % r_Nmax_noisy = r_grid(rem(max_i_noisy,length(xbj_grid)));
 % N_max_strict_ci = [N_rec_CI682_dn(max_i), N_rec_CI682_up(max_i), N_rec_CI95_dn(max_i), N_rec_CI95_up(max_i)];
-% N_max_relax_ci = [N_rec_CI682_dn_relax(max_i_rel), N_rec_CI682_up_relax(max_i_rel), N_rec_CI95_dn_relax(max_i_rel), N_rec_CI95_up_relax(max_i_rel)];
+% N_max_relerr_ci = [N_rec_CI682_dn_relerr(max_i_rel), N_rec_CI682_up_relerr(max_i_rel), N_rec_CI95_dn_relerr(max_i_rel), N_rec_CI95_up_relerr(max_i_rel)];
 % N_max_data_strict = [N_max_strict, r_Nmax_strict, N_max_strict_ci];
-% N_max_data_relax = [N_max_relax, r_Nmax_rel, N_max_relax_ci];
+% N_max_data_relerr = [N_max_relerr, r_Nmax_rel, N_max_relerr_ci];
 
 
 % SATURATION SCALE
@@ -668,13 +727,13 @@ sigmar_CI682_up = dataset_sample_pdfs_sigmar(:,3);
 sigmar_CI682_dn = dataset_sample_pdfs_sigmar(:,2);
 sigmar_CI95_up = dataset_sample_pdfs_sigmar(:,5);
 sigmar_CI95_dn = dataset_sample_pdfs_sigmar(:,4);
-sigmar_principal_relax;
-sigmar_ptw_mean_relax = A*N_rec_ptw_mean_relax;
-sigmar_mean_relax = dataset_sample_pdfs_sigmar_rel(:,1);
-sigmar_CI682_up_relax = dataset_sample_pdfs_sigmar_rel(:,3);
-sigmar_CI682_dn_relax = dataset_sample_pdfs_sigmar_rel(:,2);
-sigmar_CI95_up_relax = dataset_sample_pdfs_sigmar_rel(:,5);
-sigmar_CI95_dn_relax = dataset_sample_pdfs_sigmar_rel(:,4);
+sigmar_principal_relerr;
+sigmar_ptw_mean_relerr = A*N_rec_ptw_mean_relerr;
+sigmar_mean_relerr = dataset_sample_pdfs_sigmar_rel(:,1);
+sigmar_CI682_up_relerr = dataset_sample_pdfs_sigmar_rel(:,3);
+sigmar_CI682_dn_relerr = dataset_sample_pdfs_sigmar_rel(:,2);
+sigmar_CI95_up_relerr = dataset_sample_pdfs_sigmar_rel(:,5);
+sigmar_CI95_dn_relerr = dataset_sample_pdfs_sigmar_rel(:,4);
 % sigmar_principal_noisy;
 
 
@@ -683,13 +742,11 @@ sigmar_CI95_dn_relax = dataset_sample_pdfs_sigmar_rel(:,4);
 %%%%%%%%%%%%%%%%%%%%%%%%%% PLOTTING
 
 plotting = true;
-plot_relax = false;
-plot_tik2 = false;
 plot_comp_methods = false;
 if plotting
     figure(1) % rec_princip vs. mean reconstruction vs. ground truth
     Xim_p = reshape(X_tikh_principal,[],nx);
-    Xim_r = reshape(X_tikh_relax,[],nx);
+    Xim_r = reshape(X_tikh_relerr,[],nx);
     % Xim_n = reshape(X_tikh_principal_noisy(:,mIpn),[],nx);
     Xim_gt = reshape(ctest_groundtruth_dipole,[],nx);
     surf(xbj_grid, r_grid, Xim_p, "DisplayName", "principal")
@@ -793,7 +850,7 @@ if plotting
     % grid_plot: plot each bin separately and show a grid of comparisons? Would be quite good but will be more complex to do.
     figure(6)
     sigmar_vec = sigmar_principal_strict;
-    % sigmar_vec = sigmar_principal_relax;
+    % sigmar_vec = sigmar_principal_relerr;
     % sigmar_vec = sigmar_principal_noisy;
     plot3(x_data_vals, qsq_data_vals, sigmar_vec, 'ob', 'DisplayName',"sigmar-principal")
     hAx=gca;
@@ -849,16 +906,16 @@ if save2file
         "N_fit", "sigmar_ref_dipole", ...
         "b_from_reconst", "b_hera", "b_errs", ...
         "N_rec_principal", "N_rec_ptw_mean", "N_rec_CI682_up", "N_rec_CI682_dn", "N_rec_CI95_up", "N_rec_CI95_dn", ...
-        "N_rec_principal_relax", "N_rec_ptw_mean_relax", "N_rec_CI682_up_relax", "N_rec_CI682_dn_relax", "N_rec_CI95_up_relax", "N_rec_CI95_dn_relax", ...
-        "N_max_data_strict", "N_max_data_relax", "chisq_over_N_strict", "chisq_over_N_relax", ...
+        "N_rec_principal_relerr", "N_rec_ptw_mean_relerr", "N_rec_CI682_up_relerr", "N_rec_CI682_dn_relerr", "N_rec_CI95_up_relerr", "N_rec_CI95_dn_relerr", ...
+        "N_max_data_strict", "N_max_data_relerr", "chisq_over_N_strict", "chisq_over_N_relerr", ...
         "dip_props_strict", "dip_props_rel", "dip_props_tik2", "ref_dip_props", ...
         "sigmar_principal_strict", "sigmar_ptw_mean", "sigmar_mean", ...
         "sigmar_CI682_up", "sigmar_CI682_dn", "sigmar_CI95_up", "sigmar_CI95_dn", ...
-        "sigmar_principal_relax", "sigmar_ptw_mean_relax", "sigmar_mean_relax", ...
-        "sigmar_CI682_up_relax", "sigmar_CI682_dn_relax", "sigmar_CI95_up_relax", "sigmar_CI95_dn_relax", ...
+        "sigmar_principal_relerr", "sigmar_ptw_mean_relerr", "sigmar_mean_relerr", ...
+        "sigmar_CI682_up_relerr", "sigmar_CI682_dn_relerr", "sigmar_CI95_up_relerr", "sigmar_CI95_dn_relerr", ...
         "N_rec_principal_noisy", "sigmar_principal_noisy", ...
         "chisq_data", ...
-        "lambda_strict", "lambda_relaxed", "lambda_noisy", "lambda_type", "NUM_SAMPLES", "eps_neg_penalty", ...
+        "lambda_strict", "lambda_relerred", "lambda_noisy", "lambda_type", "NUM_SAMPLES", "eps_neg_penalty", ...
         "xbj_bin", "s_bin", "closure_testing", "data_type", "mscheme", "run_file", ...
         "use_low_Q_cut", "use_high_Q_cut", "q_cut", ...
         "-nocompression","-v7")
