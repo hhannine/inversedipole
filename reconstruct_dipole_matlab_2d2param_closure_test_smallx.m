@@ -38,7 +38,7 @@ function mid_r_err = intermed_r_error(xfull, xrec, rgrid)
     xref = zeros(size(xrec));
     for i = 1:length(xrec)
         r = rgrid(rem(i,length(rgrid))+1);
-        if (r>0.5) || (r<8)
+        if (r>0.5) & (r<8)
             diffs(i) = xfull(i) - xrec(i);
             xref(i) = xfull(i);
         end
@@ -303,8 +303,10 @@ Lx = get_L2x( nr,nx,dx );
 % alphax = [3e-6, 9e-6];
 % alphar = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
 % alphax = [1,3e-1,1e-1,3e-2,1e-2,3e-3,1e-3,3e-4,1e-4,3e-5];
-alphar = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7];
-alphax = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7];
+% alphar = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7];
+% alphax = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7];
+alphar = [5e-5,4e-5,3e-5,2e-5,1e-5,5e-6,3e-6,1e-6,5e-7,3e-7,1e-7]; % optimizing for intermed r error
+alphax = [5e-5,4e-5,3e-5,2e-5,1e-5,5e-6,3e-6,1e-6,5e-7];
 % alphar = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7,5e-8];
 % alphax = [1e-4,5e-5,3e-5,1e-5,3e-6,1e-6,5e-7,3e-7,2e-7,1e-7,5e-8,3e-8,2e-8,1e-8];
 xtik_p = zeros(size(A,2),length(alphar),length(alphax));
@@ -314,15 +316,12 @@ errvec_relerr = zeros(length(alphar),length(alphax));
 err_chi_rel_hybrid = zeros(length(alphar),length(alphax));
 errvec_intermedr = zeros(length(alphar),length(alphax));
 
-% MAXITER = 1500;
-MAXITER = 2000;
+MAXITER = 3000;
+% MAXITER = 5000; % 5k was the same as 4k? 3k just a hair worse than 5k, or even the same
 % MAXITER = 100; % fast dev
 % tol = 1e-16;
-tol = 1e-10;
+tol = 1e-10; 
 dip_len = length(ctest_groundtruth_dipole);
-
-% X_tikh_principal = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar, alphax, MAXITER, tol);
-% X_tikh_relerr = Tikhonov2tersms(b_hera, A, Lr, Lx, alphar/10, alphax/10, MAXITER, tol);
 
 for i = 1:length(alphar)
     for j = 1:length(alphax)
@@ -367,15 +366,12 @@ relerr_relerr = norm((xfull'-rec_dip_principal_relerr))/norm(xfull');
 relerr_hyb = norm((xfull'-rec_dip_principal_hyb))/norm(xfull');
 relerr_mid = norm((xfull'-rec_dip_principal_mid))/norm(xfull');
 
-% COMPARE INTERMEDIATE RANGE ERRORS BETWEEN ALL METHODS!! (it might be the correct metric to validate the accuracy with!)
+% relative error ignoring the small-r regime: r \in [0.5, 8]
+% Compare intermediate range r relative errors of methods. (it might be the correct metric to validate the accuracy with!)
 relerr_chitest_mid_limited = intermed_r_error(xfull', rec_dip_principal_strict, r_grid);
 relerr_relerr_mid_limited = intermed_r_error(xfull', rec_dip_principal_relerr, r_grid);
 relerr_hyb_mid_limited = intermed_r_error(xfull', rec_dip_principal_hyb, r_grid);
 relerr_mid_limited = errvec_intermedr(minri_mid, minxi_mid);
-
-% relative error ignoring the small-r regime: r \in [0.2, 20]
-% compute manually point by point to have precise control of which points add to the error?
-
 
 disp(["rel errors:", relerr_chitest, relerr_relerr, relerr_hyb, relerr_mid]);
 disp(["intermediate r rel errors:", relerr_chitest_mid_limited, relerr_relerr_mid_limited, relerr_hyb_mid_limited, relerr_mid_limited]);
